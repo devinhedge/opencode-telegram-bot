@@ -5,6 +5,7 @@ import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 import { getRuntimePaths, type RuntimePaths } from "./paths.js";
+import { finalizeEnvFile } from "../secrets/file-permissions.js";
 import {
   getLocale,
   getLocaleOptions,
@@ -685,6 +686,7 @@ async function runWizardAndPersist(runtimePaths: RuntimePaths): Promise<void> {
 
   const envContent = buildEnvFileContent(existingContent ?? "", envValues, envExampleContent);
   await writeFileAtomically(runtimePaths.envFilePath, envContent);
+  await finalizeEnvFile(runtimePaths.envFilePath);
 
   process.stdout.write(
     t("runtime.wizard.saved", {

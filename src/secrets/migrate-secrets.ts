@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs";
 import { join, dirname } from "node:path";
 import { randomUUID } from "node:crypto";
 import type { SecretStore } from "./secret-store.js";
+import { hardenEnvFile } from "./file-permissions.js";
 
 /**
  * Environment variable names that are considered secrets and should be migrated to the secret store.
@@ -174,6 +175,9 @@ export async function migrateSecretsIfNeeded(
     }
     throw err;
   }
+
+  // Harden file permissions after migration (0600 for owner read/write)
+  await hardenEnvFile(envFilePath);
 
   return { migrated: true, secretsMigrated: secrets.size };
 }
