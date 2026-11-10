@@ -94,7 +94,7 @@ npx @grinev/opencode-telegram-bot@latest
 
 > Quick start is for npm usage. You do not need to clone this repository. If you run this command from the source directory (repository root), it may fail with `opencode-telegram: not found`. To run from sources, use the [Development](#development) section.
 
-If required configuration is not supplied through process environment variables or an `.env` file, an interactive wizard will guide you through setup. It asks for interface language first, then your bot token, user ID, the OpenCode version (V1 or V2; V2 is offered on a first setup, a re-run offers the saved one), the OpenCode API URL (its default follows the version), and the OpenCode server credentials: the username, and a password that is optional for V1 and required for V2 (see [Old and New OpenCode Versions](#old-and-new-opencode-versions) for where to get it; on a re-run, Enter keeps the saved password). After that, you're ready to go. Open your bot in Telegram and start sending tasks.
+If required configuration is not supplied through process environment variables, an interactive wizard will guide you through setup. It asks for interface language first, then your bot token, user ID, the OpenCode version (V1 or V2; V2 is offered on a first setup, a re-run offers the saved one), the OpenCode API URL (its default follows the version), and the OpenCode server credentials: the username, and a password that is optional for V1 and required for V2 (see [Old and New OpenCode Versions](#old-and-new-opencode-versions) for where to get it; on a re-run, Enter keeps the saved password). **Secrets (bot token, user ID, passwords, API keys) are stored in the OS keychain (or encrypted file fallback), not in `.env`.** After that, you're ready to go. Open your bot in Telegram and start sending tasks.
 
 #### Alternative: Global Install
 
@@ -241,60 +241,107 @@ Configuration can be provided through process environment variables or an `.env`
 - **Windows:** `%APPDATA%\opencode-telegram-bot\.env`
 - **Linux:** `~/.config/opencode-telegram-bot/.env`
 
-| Variable                                   | Description                                                                                                           | Required | Default                  |
-| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- | :------: | ------------------------ |
-| `TELEGRAM_BOT_TOKEN`                       | Bot token from @BotFather                                                                                             |   Yes    | —                        |
-| `TELEGRAM_ALLOWED_USER_ID`                 | Your numeric Telegram user ID                                                                                         |   Yes    | —                        |
-| `TELEGRAM_PROXY_URL`                       | SOCKS or HTTP(S) forward proxy for Telegram Bot API calls and file downloads                                         |    No    | —                        |
-| `TELEGRAM_API_ROOT`                        | Custom Telegram Bot API root URL (e.g. nginx reverse-proxying `api.telegram.org`); applied to API calls and file downloads | No | `https://api.telegram.org` |
-| `TELEGRAM_PROXY_SECRET`                    | Shared secret sent as `X-Proxy-Secret` header on every Bot API request and file download (used with `TELEGRAM_API_ROOT`) | No | —                        |
-| `TELEGRAM_FORCE_IPV4`                      | Force IPv4 for direct Telegram API and file requests; useful when IPv6 DNS works but outbound IPv6 is broken           |    No    | `false`                  |
-| `OPENCODE_SERVER_VERSION`                  | OpenCode server API version: `v1` or `v2`; must match the server you run; set by the setup wizard                     |    No    | `v1`                     |
-| `OPENCODE_SERVER_MODE`                     | V2 only: `service` (default) or `standalone`. Standalone needs `OPENCODE_API_URL` and does not follow a registered server. V1 ignores it. An unknown value refuses startup |    No    | `service`                |
-| `OPENCODE_BIN_PATH`                        | Absolute executable path for OpenCode on Linux/macOS; takes precedence over PATH and standard install-directory discovery |    No    | —                        |
-| `OPENCODE_API_URL`                         | OpenCode server URL                                                                                                   |    No    | `http://localhost:4096` (V1), `http://127.0.0.1:49374` (V2) |
-| `OPENCODE_AUTO_RESTART_ENABLED`            | Automatically restart a local OpenCode server when health-checks fail                                                 |    No    | `false`                  |
-| `OPENCODE_MONITOR_INTERVAL_SEC`            | Health monitor interval in seconds when OpenCode auto-restart is enabled                                              |    No    | `300`                    |
-| `OPENCODE_SERVER_USERNAME`                 | Server auth username                                                                                                  |    No    | `opencode`               |
-| `OPENCODE_SERVER_PASSWORD`                 | Server auth password (needed for V2, see [Old and New OpenCode Versions](#old-and-new-opencode-versions))                                   |    No    | —                        |
-| `OPENCODE_MODEL_PROVIDER`                  | Default model provider                                                                                                |   Yes    | `opencode`               |
-| `OPENCODE_MODEL_ID`                        | Default model ID                                                                                                      |   Yes    | `big-pickle`             |
-| `BOT_LOCALE`                               | Bot UI language (supported locale code, e.g. `en`, `ar`, `de`, `es`, `fr`, `id`, `it`, `ko`, `pt`, `ru`, `tr`, `zh`)  |    No    | `en`                     |
-| `SESSIONS_LIST_LIMIT`                      | Sessions per page in `/sessions` and maximum sessions in `/recent`                                                    |    No    | `10`                     |
-| `MESSAGES_LIST_LIMIT`                      | User messages per page in `/messages`                                                                                 |    No    | `10`                     |
-| `PROJECTS_LIST_LIMIT`                      | Projects per page in `/projects`                                                                                      |    No    | `10`                     |
-| `PROJECTS_EXCLUDED_PATHS`                  | Comma-separated absolute paths hidden from `/projects` (exact worktree match)                                        |    No    | *(none)*                 |
-| `OPEN_BROWSER_ROOTS`                       | Comma-separated paths `/open` is allowed to browse (supports `~`)                                                     |    No    | `~` (home directory)     |
-| `COMMANDS_LIST_LIMIT`                      | Items per page in `/commands` and `/skills`                                                                           |    No    | `10`                     |
-| `MODELS_LIST_LIMIT`                        | Providers and provider models per page in the model picker                                                            |    No    | `10`                     |
-| `TASK_LIMIT`                               | Maximum number of scheduled tasks that can exist at once                                                              |    No    | `10`                     |
-| `SCHEDULED_TASK_EXECUTION_TIMEOUT_MINUTES` | Maximum time the bot waits for one scheduled task run before marking it failed                                        |    No    | `120`                    |
-| `SCHEDULED_TASK_DISABLE_NOTIFICATION`      | Send scheduled task result/error messages without Telegram push notifications                                         |    No    | `false`                  |
-| `BASH_TOOL_DISPLAY_MAX_LENGTH`             | Maximum displayed length for `bash` commands and `execute` code in Telegram summaries; longer ones are truncated      |    No    | `128`                    |
-| `TRACK_BACKGROUND_SESSIONS`                | Track detached/non-current sessions in the current selected project/worktree and send short notifications             |    No    | `true`                   |
-| `MESSAGE_FORMAT_MODE`                      | Assistant reply formatting mode: `markdown` (native Telegram rich blocks) or `raw` (plain text)                       |    No    | `markdown`               |
-| `MESSAGE_MERGE_WINDOW_MS`                  | Merge Telegram-split long text messages into one prompt after this wait window (ms); `0` disables merging             |    No    | `1500`                   |
-| `INITIAL_SETTINGS_PRESET`                  | JSON object that seeds default `/settings` values on first run (keys not yet persisted); see [Runtime Settings](#runtime-settings) |    No    | `{}`                     |
-| `CODE_FILE_MAX_SIZE_KB`                    | Max file size (KB) to send as document                                                                                |    No    | `100`                    |
-| `STT_API_URL`                              | Whisper-compatible API base URL (enables voice/audio transcription)                                                   |    No    | —                        |
-| `STT_API_KEY`                              | API key for your STT provider                                                                                         |    No    | —                        |
-| `STT_MODEL`                                | STT model name passed to `/audio/transcriptions`                                                                      |    No    | `whisper-large-v3-turbo` |
-| `STT_LANGUAGE`                             | Optional language hint (empty = provider auto-detect)                                                                 |    No    | —                        |
-| `STT_REQUEST_FORMAT`                       | STT request format: `multipart` (standard OpenAI/Groq Whisper) or `json` (base64 `input_audio` body, e.g. OpenRouter) |    No    | `multipart`              |
-| `STT_NOTE_PROMPT`                          | Optional note prepended to the LLM prompt as `[Note: ...]` for voice transcriptions; empty / `false` / `0` disable it |    No    | —                        |
-| `DOC_EXTRACTOR_URL`                        | Document text extraction API URL (enables PDF/DOCX/PPTX extraction)                                                    |    No    | —                        |
-| `DOC_EXTRACTOR_API_KEY`                    | API key for the document extractor (optional for self-hosted extractors)                                                |    No    | —                        |
-| `TTS_PROVIDER`                             | TTS provider: `openai` for OpenAI-compatible APIs, `elevenlabs` for ElevenLabs, or `google` for Google Cloud TTS      |    No    | `openai`                 |
-| `TTS_API_URL`                              | TTS API base URL for OpenAI-compatible APIs or ElevenLabs                                                             |    No    | —                        |
-| `TTS_API_KEY`                              | TTS API key for OpenAI-compatible APIs or ElevenLabs                                                                  |    No    | —                        |
-| `TTS_MODEL`                                | TTS model name. Passed as `model` for OpenAI-compatible APIs and `model_id` for ElevenLabs                            |    No    | `gpt-4o-mini-tts`        |
-| `TTS_VOICE`                                | TTS voice name or ElevenLabs voice ID. Defaults to `alloy`, `21m00Tcm4TlvDq8ikWAM`, or `en-US-Studio-O` by provider   |    No    | provider-specific        |
-| `GOOGLE_APPLICATION_CREDENTIALS`           | Path to a Google Cloud service account JSON key file for `TTS_PROVIDER=google`                                        |    No    | —                        |
-| `LOG_LEVEL`                                | Log level (`debug`, `info`, `warn`, `error`)                                                                          |    No    | `info`                   |
-| `LOG_RETENTION`                            | Number of log files to keep: launch files in `sources`, daily files in `installed`                                    |    No    | `10`                     |
-| `BOT_HEALTH_PORT`                          | Port of the internal health endpoint (`/health`, `/health/live`, `/health/ready`) on `127.0.0.1`; `0` disables it      |    No    | off; `3100` in Docker    |
+#### Secret Storage (OS Keychain)
 
-> **Keep your `.env` file private.** It contains your bot token. Never commit it to version control.
+Sensitive credentials are **not stored in the `.env` file**. Instead, the setup wizard writes them to the operating system's secure credential store:
+
+- **macOS:** Keychain Access (`/Applications/Utilities/Keychain Access.app`)
+- **Windows:** Credential Manager (Control Panel → User Accounts → Credential Manager)
+- **Linux:** Secret Service (libsecret, e.g., GNOME Keyring, KWallet)
+
+When the OS keychain is unavailable (e.g., headless Linux without a secret service), the wizard falls back to an **encrypted file** (`secrets.enc`) in the app data directory. This file is protected by a password that you provide during setup.
+
+**Secret variables (stored in keychain/encrypted file, set via wizard):**
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_ALLOWED_USER_ID`
+- `TELEGRAM_PROXY_SECRET`
+- `OPENCODE_SERVER_PASSWORD`
+- `STT_API_KEY`
+- `TTS_API_KEY`
+- `DOC_EXTRACTOR_API_KEY`
+
+**Non-secret variables (stored in `.env`):**
+All other configuration variables listed below.
+
+#### Container Password Source (Docker / Headless)
+
+In containerized or headless environments where the OS keychain is not available and no interactive password prompt is possible, the encrypted-file backend reads its password from a file. The bot checks these locations in order:
+
+1. `/run/secrets/keystore_password` (Docker secrets)
+2. `<appHome>/keystore_password` (a file alongside the app data directory)
+
+Create one of these files with the password (single line, no trailing newline) before starting the container. The file should be readable only by the container user (mode 0400 or 0600).
+
+#### Migration from `.env` to Keychain
+
+If you have an existing `.env` file containing secret values, run the configuration wizard once:
+
+```bash
+opencode-telegram config
+```
+
+The wizard will:
+1. Detect secrets in your `.env` file
+2. Write them to the OS keychain (or encrypted file fallback)
+3. Remove the secret keys from `.env`, leaving only non-secret configuration
+4. Create a backup `.env.bak` with the original content (including secrets) for recovery
+
+The migration is idempotent and safe to re-run. After migration, your `.env` file no longer contains sensitive values.
+
+| Variable                                   | Description                                                                                                           | Required | Default                  | Secret |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- | :------: | ------------------------ | :----: |
+| `TELEGRAM_BOT_TOKEN`                       | Bot token from @BotFather                                                                                             |   Yes    | —                        |   ✓    |
+| `TELEGRAM_ALLOWED_USER_ID`                 | Your numeric Telegram user ID                                                                                         |   Yes    | —                        |   ✓    |
+| `TELEGRAM_PROXY_URL`                       | SOCKS or HTTP(S) forward proxy for Telegram Bot API calls and file downloads                                         |    No    | —                        |        |
+| `TELEGRAM_API_ROOT`                        | Custom Telegram Bot API root URL (e.g. nginx reverse-proxying `api.telegram.org`); applied to API calls and file downloads | No | `https://api.telegram.org` |        |
+| `TELEGRAM_PROXY_SECRET`                    | Shared secret sent as `X-Proxy-Secret` header on every Bot API request and file download (used with `TELEGRAM_API_ROOT`) | No | —                        |   ✓    |
+| `TELEGRAM_FORCE_IPV4`                      | Force IPv4 for direct Telegram API and file requests; useful when IPv6 DNS works but outbound IPv6 is broken           |    No    | `false`                  |        |
+| `OPENCODE_SERVER_VERSION`                  | OpenCode server API version: `v1` or `v2`; must match the server you run; set by the setup wizard                     |    No    | `v1`                     |        |
+| `OPENCODE_SERVER_MODE`                     | V2 only: `service` (default) or `standalone`. Standalone needs `OPENCODE_API_URL` and does not follow a registered server. V1 ignores it. An unknown value refuses startup |    No    | `service`                |        |
+| `OPENCODE_BIN_PATH`                        | Absolute executable path for OpenCode on Linux/macOS; takes precedence over PATH and standard install-directory discovery |    No    | —                        |        |
+| `OPENCODE_API_URL`                         | OpenCode server URL                                                                                                   |    No    | `http://localhost:4096` (V1), `http://127.0.0.1:49374` (V2) |        |
+| `OPENCODE_AUTO_RESTART_ENABLED`            | Automatically restart a local OpenCode server when health-checks fail                                                 |    No    | `false`                  |        |
+| `OPENCODE_MONITOR_INTERVAL_SEC`            | Health monitor interval in seconds when OpenCode auto-restart is enabled                                              |    No    | `300`                    |        |
+| `OPENCODE_SERVER_USERNAME`                 | Server auth username                                                                                                  |    No    | `opencode`               |        |
+| `OPENCODE_SERVER_PASSWORD`                 | Server auth password (needed for V2, see [Old and New OpenCode Versions](#old-and-new-opencode-versions))                                   |    No    | —                        |   ✓    |
+| `OPENCODE_MODEL_PROVIDER`                  | Default model provider                                                                                                |   Yes    | `opencode`               |        |
+| `OPENCODE_MODEL_ID`                        | Default model ID                                                                                                      |   Yes    | `big-pickle`             |        |
+| `BOT_LOCALE`                               | Bot UI language (supported locale code, e.g. `en`, `ar`, `de`, `es`, `fr`, `id`, `it`, `ko`, `pt`, `ru`, `tr`, `zh`)  |    No    | `en`                     |        |
+| `SESSIONS_LIST_LIMIT`                      | Sessions per page in `/sessions` and maximum sessions in `/recent`                                                    |    No    | `10`                     |        |
+| `MESSAGES_LIST_LIMIT`                      | User messages per page in `/messages`                                                                                 |    No    | `10`                     |        |
+| `PROJECTS_LIST_LIMIT`                      | Projects per page in `/projects`                                                                                      |    No    | `10`                     |        |
+| `PROJECTS_EXCLUDED_PATHS`                  | Comma-separated absolute paths hidden from `/projects` (exact worktree match)                                        |    No    | *(none)*                 |        |
+| `OPEN_BROWSER_ROOTS`                       | Comma-separated paths `/open` is allowed to browse (supports `~`)                                                     |    No    | `~` (home directory)     |        |
+| `COMMANDS_LIST_LIMIT`                      | Items per page in `/commands` and `/skills`                                                                           |    No    | `10`                     |        |
+| `MODELS_LIST_LIMIT`                        | Providers and provider models per page in the model picker                                                            |    No    | `10`                     |        |
+| `TASK_LIMIT`                               | Maximum number of scheduled tasks that can exist at once                                                              |    No    | `10`                     |        |
+| `SCHEDULED_TASK_EXECUTION_TIMEOUT_MINUTES` | Maximum time the bot waits for one scheduled task run before marking it failed                                        |    No    | `120`                    |        |
+| `SCHEDULED_TASK_DISABLE_NOTIFICATION`      | Send scheduled task result/error messages without Telegram push notifications                                         |    No    | `false`                  |        |
+| `BASH_TOOL_DISPLAY_MAX_LENGTH`             | Maximum displayed length for `bash` commands and `execute` code in Telegram summaries; longer ones are truncated      |    No    | `128`                    |        |
+| `TRACK_BACKGROUND_SESSIONS`                | Track detached/non-current sessions in the current selected project/worktree and send short notifications             |    No    | `true`                   |        |
+| `MESSAGE_FORMAT_MODE`                      | Assistant reply formatting mode: `markdown` (native Telegram rich blocks) or `raw` (plain text)                       |    No    | `markdown`               |        |
+| `MESSAGE_MERGE_WINDOW_MS`                  | Merge Telegram-split long text messages into one prompt after this wait window (ms); `0` disables merging             |    No    | `1500`                   |        |
+| `INITIAL_SETTINGS_PRESET`                  | JSON object that seeds default `/settings` values on first run (keys not yet persisted); see [Runtime Settings](#runtime-settings) |    No    | `{}`                     |        |
+| `CODE_FILE_MAX_SIZE_KB`                    | Max file size (KB) to send as document                                                                                |    No    | `100`                    |        |
+| `STT_API_URL`                              | Whisper-compatible API base URL (enables voice/audio transcription)                                                   |    No    | —                        |        |
+| `STT_API_KEY`                              | API key for your STT provider                                                                                         |    No    | —                        |   ✓    |
+| `STT_MODEL`                                | STT model name passed to `/audio/transcriptions`                                                                      |    No    | `whisper-large-v3-turbo` |        |
+| `STT_LANGUAGE`                             | Optional language hint (empty = provider auto-detect)                                                                 |    No    | —                        |        |
+| `STT_REQUEST_FORMAT`                       | STT request format: `multipart` (standard OpenAI/Groq Whisper) or `json` (base64 `input_audio` body, e.g. OpenRouter) |    No    | `multipart`              |        |
+| `STT_NOTE_PROMPT`                          | Optional note prepended to the LLM prompt as `[Note: ...]` for voice transcriptions; empty / `false` / `0` disable it |    No    | —                        |        |
+| `DOC_EXTRACTOR_URL`                        | Document text extraction API URL (enables PDF/DOCX/PPTX extraction)                                                    |    No    | —                        |        |
+| `DOC_EXTRACTOR_API_KEY`                    | API key for the document extractor (optional for self-hosted extractors)                                                |    No    | —                        |   ✓    |
+| `TTS_PROVIDER`                             | TTS provider: `openai` for OpenAI-compatible APIs, `elevenlabs` for ElevenLabs, or `google` for Google Cloud TTS      |    No    | `openai`                 |        |
+| `TTS_API_URL`                              | TTS API base URL for OpenAI-compatible APIs or ElevenLabs                                                             |    No    | —                        |        |
+| `TTS_API_KEY`                              | TTS API key for OpenAI-compatible APIs or ElevenLabs                                                                  |    No    | —                        |   ✓    |
+| `TTS_MODEL`                                | TTS model name. Passed as `model` for OpenAI-compatible APIs and `model_id` for ElevenLabs                            |    No    | `gpt-4o-mini-tts`        |        |
+| `TTS_VOICE`                                | TTS voice name or ElevenLabs voice ID. Defaults to `alloy`, `21m00Tcm4TlvDq8ikWAM`, or `en-US-Studio-O` by provider   |    No    | provider-specific        |        |
+| `GOOGLE_APPLICATION_CREDENTIALS`           | Path to a Google Cloud service account JSON key file for `TTS_PROVIDER=google`                                        |    No    | —                        |        |
+| `LOG_LEVEL`                                | Log level (`debug`, `info`, `warn`, `error`)                                                                          |    No    | `info`                   |        |
+| `LOG_RETENTION`                            | Number of log files to keep: launch files in `sources`, daily files in `installed`                                    |    No    | `10`                     |        |
+| `BOT_HEALTH_PORT`                          | Port of the internal health endpoint (`/health`, `/health/live`, `/health/ready`) on `127.0.0.1`; `0` disables it      |    No    | off; `3100` in Docker    |        |
+
+> **Keep your `.env` file private.** After running the setup wizard, secrets (bot token, user ID, passwords, API keys) are stored in the OS keychain or encrypted file fallback — not in `.env`. The `.env` file only contains non-secret configuration. Never commit `.env` or `.env.bak` to version control.
 
 Logs are written to `./logs` when running from sources and to the runtime config directory `logs/` folder in `installed` mode. Log rotation depends on runtime mode: `sources` creates one file per bot launch, while `installed` appends to one file per day. Old log files are removed according to `LOG_RETENTION`.
 
@@ -473,9 +520,10 @@ Since the bot runs locally on your machine and connects to your local OpenCode s
 git clone https://github.com/grinev/opencode-telegram-bot.git
 cd opencode-telegram-bot
 npm install
-cp .env.example .env
-# Edit .env with your bot token, user ID, and model settings
+npm run dev
 ```
+
+The setup wizard will prompt for configuration on first run. Secrets are stored in the OS keychain (or encrypted file fallback); non-secret settings can be added to `.env` if desired.
 
 Build and run:
 
@@ -491,7 +539,8 @@ The bot can also be run as a container using Docker and Docker Compose. The imag
 git clone https://github.com/grinev/opencode-telegram-bot.git
 cd opencode-telegram-bot
 cp .env.example .env
-# Edit .env with your bot token, user ID, and model settings
+# Edit .env with non-secret settings only (model, locale, limits, etc.)
+# Secrets are provided via Docker secrets or the container password source; see [Secret Storage (OS Keychain)](#secret-storage-os-keychain)
 ```
 
 `.env` stays on the host. It is injected at runtime and is not copied into the image.
@@ -537,6 +586,13 @@ Runtime state (settings, logs, SQLite databases) is stored in a Docker named vol
 #### Configuration
 
 All configuration is provided through environment variables in the `.env` file. Compose also sets `OPENCODE_TELEGRAM_CONTAINER=1` so the bot can warn about commands that need the host filesystem or a local OpenCode process.
+
+**Secrets (bot token, user ID, passwords, API keys) are not stored in `.env` for Docker.** Provide them via:
+
+- **Docker secrets** (recommended): Create `/run/secrets/keystore_password` with the encrypted-file backend password, and use the `docker secret` mechanism or a custom entrypoint to run the wizard once and populate the keychain/encrypted store.
+- **Container password file**: Place a `keystore_password` file in the app data directory (mounted volume) before starting the container.
+
+See [Secret Storage (OS Keychain)](#secret-storage-os-keychain) and [Container Password Source (Docker / Headless)](#container-password-source-docker--headless) for details.
 
 - `OPENCODE_API_URL` — URL of the OpenCode server. On Linux with the default compose file this is `http://127.0.0.1:4096` via `network_mode: host`. The Desktop override sets `http://host.docker.internal:4096`.
 - `BOT_HEALTH_PORT` — the image serves a health endpoint on `127.0.0.1:3100` by default, and its `HEALTHCHECK` probes `/health/live`: the container is `unhealthy` only when the bot itself does not answer, or when the endpoint could not start (for example, the port is taken on the host under `network_mode: host`; the log says why). OpenCode being down does not make the container unhealthy — `/health` reports it as `degraded` and `/health/ready` answers `503`. Set another port in `.env` if 3100 is taken, or `0` to turn the endpoint off (the healthcheck then always passes). The endpoint is reachable from the host's loopback with the Linux compose file and only from inside the container with the Desktop override.
