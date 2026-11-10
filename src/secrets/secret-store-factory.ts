@@ -63,3 +63,5 @@ export async function createSecretStore(options: CreateSecretStoreOptions): Prom
   await store.unlock(password);
   return store;
 }
+
+export default createSecretStore;

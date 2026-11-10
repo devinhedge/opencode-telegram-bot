@@ -257,7 +257,7 @@ export function buildTelegramConfig(): {
 const opencodeServerVersion = getOptionalOpencodeServerVersionEnvVar("OPENCODE_SERVER_VERSION");
 const opencodeServerMode = resolveOpencodeServerMode(opencodeServerVersion);
 
-export const config = {
+const _config = {
   telegram: buildTelegramConfig(),
   opencode: {
     serverVersion: opencodeServerVersion,
@@ -344,3 +344,16 @@ export const config = {
     };
   })(),
 };
+
+
+let _cachedConfig: typeof _config | null = null;
+
+export async function loadConfig(): Promise<typeof _config> {
+  if (_cachedConfig) {
+    return _cachedConfig;
+  }
+  _cachedConfig = _config;
+  return _cachedConfig;
+}
+
+export const config = _config;

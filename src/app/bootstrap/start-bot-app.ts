@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import { createBot, restoreFollowedSessionOnPollingStart } from "../../bot/index.js";
 import { createScheduledTaskDeliverySender } from "../../bot/messages/scheduled-task-delivery.js";
-import { config } from "../../config.js";
+import { loadConfig } from "../../config.js";
 import {
   notifyOpencodeReadyIfHealthy,
   registerOpenCodeReadyRefreshHandler,
@@ -130,6 +130,8 @@ async function callTelegramAtStartup<T>(
 
 export async function startBotApp(): Promise<void> {
   await initializeLogger();
+
+  const config = await loadConfig();
 
   const mode = getRuntimeMode();
   const runtimePaths = getRuntimePaths();
