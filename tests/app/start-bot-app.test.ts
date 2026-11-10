@@ -69,6 +69,12 @@ vi.mock("../../src/bot/index.js", () => ({
 
 vi.mock("../../src/config.js", () => ({
   config: mocked.config,
+  loadConfig: vi.fn(async (store?: any) => {
+    if (store) {
+      await store.isAvailable();
+    }
+    return mocked.config;
+  }),
 }));
 
 vi.mock("../../src/opencode/ready-refresh.js", () => ({

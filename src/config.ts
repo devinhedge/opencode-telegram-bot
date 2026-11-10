@@ -349,14 +349,61 @@ const _config = {
 
 let _cachedConfig: typeof _config | null = null;
 
+// Backward-compatible synchronous export. Populated at import time from .env;
+// secrets are overlaid by loadConfig() when a SecretStore is provided.
+export const config = _config;
+
+const SECRET_ACCOUNTS = {
+  telegramBotToken: "telegram_bot_token",
+  telegramProxySecret: "telegram_proxy_secret",
+  opencodeServerPassword: "opencode_server_password",
+  sttApiKey: "stt_api_key",
+  ttsApiKey: "tts_api_key",
+  docExtractorApiKey: "doc_extractor_api_key",
+  allowedUserId: "allowed_user_id",
+} as const;
+
 export async function loadConfig(secretStore?: SecretStore): Promise<typeof _config> {
   if (_cachedConfig) {
     return _cachedConfig;
   }
+
+  const baseConfig = { ..._config };
+
   if (secretStore) {
-    // Retrieve secrets via injected store; store is available for consumers.
-    await secretStore.isAvailable();
+    const secrets: Record<string, string | null> = {};
+
+    for (const [key, account] of Object.entries(SECRET_ACCOUNTS)) {
+      try {
+        secrets[key] = await secretStore.getSecret(account);
+      } catch {
+        secrets[key] = null;
+      }
+    }
+
+    if (secrets.telegramBotToken) {
+      baseConfig.telegram.token = secrets.telegramBotToken;
+    }
+    if (secrets.telegramProxySecret) {
+      baseConfig.telegram.proxySecret = secrets.telegramProxySecret;
+    }
+    if (secrets.opencodeServerPassword) {
+      baseConfig.opencode.password = secrets.opencodeServerPassword;
+    }
+    if (secrets.sttApiKey) {
+      baseConfig.stt.apiKey = secrets.sttApiKey;
+    }
+    if (secrets.ttsApiKey) {
+      baseConfig.tts.apiKey = secrets.ttsApiKey;
+    }
+    if (secrets.docExtractorApiKey) {
+      baseConfig.docExtractor.apiKey = secrets.docExtractorApiKey;
+    }
+    if (secrets.allowedUserId) {
+      baseConfig.telegram.allowedUserId = parseInt(secrets.allowedUserId, 10);
+    }
   }
-  _cachedConfig = _config;
+
+  _cachedConfig = baseConfig;
   return _cachedConfig;
 }
