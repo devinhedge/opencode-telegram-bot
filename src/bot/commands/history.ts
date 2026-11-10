@@ -1,12 +1,11 @@
 import { InlineKeyboard } from "grammy";
-import type { Bot, Context } from "grammy";
+import type { Context } from "grammy";
 import { getCurrentProject } from "../../settings/manager.js";
 import {
   getConversationEntry,
   getConversationHistory,
   getConversationCount,
   setReusable,
-  type ConversationQuery,
   type ConversationRow,
 } from "../../conversation-log/store.js";
 import { logger } from "../../utils/logger.js";
@@ -182,7 +181,7 @@ export async function handleHistoryCallback(ctx: Context): Promise<boolean> {
         }
       }
       await renderHistoryList(ctx, state.page, state.keyword, state.reusableOnly);
-      try { await ctx.deleteMessage(); } catch (e) {}
+      try { await ctx.deleteMessage(); } catch {}
       return true;
     }
     if (data.startsWith(HISTORY_PAGE_PREFIX)) {
@@ -191,7 +190,7 @@ export async function handleHistoryCallback(ctx: Context): Promise<boolean> {
         state.page = newPage;
         historyState.set(key, state);
         await renderHistoryList(ctx, newPage, state.keyword, state.reusableOnly);
-        try { await ctx.deleteMessage(); } catch (e) {}
+        try { await ctx.deleteMessage(); } catch {}
         await ctx.answerCallbackQuery();
       }
       return true;
@@ -200,7 +199,7 @@ export async function handleHistoryCallback(ctx: Context): Promise<boolean> {
       state.reusableOnly = true; state.page = 0;
       historyState.set(key, state);
       await renderHistoryList(ctx, 0, state.keyword, true);
-      try { await ctx.deleteMessage(); } catch (e) {}
+      try { await ctx.deleteMessage(); } catch {}
       await ctx.answerCallbackQuery();
       return true;
     }
@@ -208,13 +207,13 @@ export async function handleHistoryCallback(ctx: Context): Promise<boolean> {
       state.reusableOnly = false; state.page = 0;
       historyState.set(key, state);
       await renderHistoryList(ctx, 0, state.keyword, false);
-      try { await ctx.deleteMessage(); } catch (e) {}
+      try { await ctx.deleteMessage(); } catch {}
       await ctx.answerCallbackQuery();
       return true;
     }
     if (data === HISTORY_REFRESH) {
       await renderHistoryList(ctx, state.page, state.keyword, state.reusableOnly);
-      try { await ctx.deleteMessage(); } catch (e) {}
+      try { await ctx.deleteMessage(); } catch {}
       await ctx.answerCallbackQuery();
       return true;
     }
@@ -228,12 +227,12 @@ export async function handleHistoryCallback(ctx: Context): Promise<boolean> {
     }
     if (data === HISTORY_CALLBACK_PREFIX + "cancel_search") {
       searchPendingByChat.delete(chatId);
-      try { await ctx.deleteMessage(); } catch (e) {}
+      try { await ctx.deleteMessage(); } catch {}
       await ctx.answerCallbackQuery();
       return true;
     }
     if (data === HISTORY_CLOSE) {
-      try { await ctx.deleteMessage(); } catch (e) {}
+      try { await ctx.deleteMessage(); } catch {}
       historyState.delete(key);
       await ctx.answerCallbackQuery();
       return true;
@@ -263,7 +262,7 @@ export async function handleHistorySearchInput(ctx: Context, text: string): Prom
   if (!targetState || !targetKey) return false;
   historyState.delete(targetKey);
   await renderHistoryList(ctx, 0, text, targetState.reusableOnly);
-  try { await ctx.deleteMessage(); } catch (e) {}
+  try { await ctx.deleteMessage(); } catch {}
   return true;
 }
 

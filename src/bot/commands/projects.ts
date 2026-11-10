@@ -3,7 +3,7 @@ import { InlineKeyboard } from "grammy";
 import { mkdir } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import path from "node:path";
-import { getCurrentProject, setCurrentProject } from "../../settings/manager.js";
+import { getCurrentProject } from "../../settings/manager.js";
 import { getGitWorktreeContext } from "../../git/worktree.js";
 import { getProjects, getProjectByWorktree } from "../../project/manager.js";
 import { syncSessionDirectoryCache, upsertSessionDirectory } from "../../session/cache-manager.js";

@@ -53,7 +53,7 @@ async function dashboardCommand(ctx: Context): Promise<void> {
   try {
     dashboardPort = await startDashboardWorker();
     await ctx.reply("Dashboard started! Open http://localhost:" + dashboardPort + " in your browser.");
-  } catch (err) {
+  } catch {
     await ctx.reply("Failed to start dashboard.");
   }
 }

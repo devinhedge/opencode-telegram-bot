@@ -5,7 +5,13 @@ export function isExpectedOpencodeUnavailableError(error: unknown): boolean {
 
   // Empty error object from OpenCode API response — likely a transient server-side error
   // (e.g. Effect-TS fiber interruption that serializes as {} in the response)
-  if (typeof error === "object" && !Array.isArray(error) && Object.keys(error).length === 0) {
+  if (
+    error instanceof Error === false &&
+    typeof error === "object" &&
+    error !== null &&
+    !Array.isArray(error) &&
+    Object.keys(error).length === 0
+  ) {
     return true;
   }
 

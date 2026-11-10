@@ -57,6 +57,7 @@ export async function startBotApp(): Promise<void> {
   await scheduledTaskRuntime.initialize(bot);
 
   // Auto-start web dashboard
+  /* eslint-disable no-console */
   const origConsoleLog = console.log;
   const origConsoleWarn = console.warn;
   const origConsoleError = console.error;
@@ -68,6 +69,7 @@ export async function startBotApp(): Promise<void> {
   console.log = (...args: unknown[]) => { origConsoleLog(...args); postLogToWorker("info", args.map(fmtLogArg).join(" ")); };
   console.warn = (...args: unknown[]) => { origConsoleWarn(...args); postLogToWorker("warn", args.map(fmtLogArg).join(" ")); };
   console.error = (...args: unknown[]) => { origConsoleError(...args); postLogToWorker("error", args.map(fmtLogArg).join(" ")); };
+  /* eslint-enable no-console */
 
   safeBackgroundTask({
     taskName: "app.dashboard",

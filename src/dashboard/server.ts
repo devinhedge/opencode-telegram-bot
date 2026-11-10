@@ -48,6 +48,7 @@ function safeStringify(arg: unknown): string {
 // Patch console.error / console.warn / console.log to capture into the buffer.
 // CRITICAL: every patched function MUST use safeStringify to avoid crashing
 // the process when circular references are logged (e.g. grammY Context objects).
+/* eslint-disable no-console */
 const origConsoleError = console.error;
 console.error = (...args: unknown[]): void => {
   origConsoleError(...args);
@@ -63,6 +64,7 @@ console.log = (...args: unknown[]): void => {
   origConsoleLog(...args);
   pushLog("info", args.map(safeStringify).join(" "));
 };
+/* eslint-enable no-console */
 
 process.on("uncaughtException", (err) => {
   pushLog("error", "UNCAUGHT: " + (err.stack ?? err.message));
