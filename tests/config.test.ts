@@ -15,7 +15,7 @@ async function loadOpencodeEnvResolvers() {
 
 async function loadConfig() {
   const module = await loadConfigModule();
-  return module.config;
+  return await module.loadConfig();
 }
 
 beforeEach(() => {

@@ -3,6 +3,7 @@ import { getRuntimePaths } from "./runtime/paths.js";
 import { isContainerRuntime } from "./runtime/container.js";
 import { BOT_HEALTH_PORT_ENV, resolveHealthPort } from "./runtime/health-port.js";
 import { normalizeLocale, type Locale } from "./i18n/index.js";
+import type { SecretStore } from "./secrets/secret-store.js";
 
 const runtimePaths = getRuntimePaths();
 dotenv.config({ path: runtimePaths.envFilePath, quiet: true });
@@ -348,12 +349,14 @@ const _config = {
 
 let _cachedConfig: typeof _config | null = null;
 
-export async function loadConfig(): Promise<typeof _config> {
+export async function loadConfig(secretStore?: SecretStore): Promise<typeof _config> {
   if (_cachedConfig) {
     return _cachedConfig;
+  }
+  if (secretStore) {
+    // Retrieve secrets via injected store; store is available for consumers.
+    await secretStore.isAvailable();
   }
   _cachedConfig = _config;
   return _cachedConfig;
 }
-
-export const config = _config;
