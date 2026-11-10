@@ -4,6 +4,7 @@ import { isContainerRuntime } from "./runtime/container.js";
 import { BOT_HEALTH_PORT_ENV, resolveHealthPort } from "./runtime/health-port.js";
 import { normalizeLocale, type Locale } from "./i18n/index.js";
 import type { SecretStore } from "./secrets/secret-store.js";
+import { verifyIntegrity, storeIntegrityData } from "./secrets/integrity.js";
 
 const runtimePaths = getRuntimePaths();
 dotenv.config({ path: runtimePaths.envFilePath, quiet: true });
@@ -402,6 +403,22 @@ export async function loadConfig(secretStore?: SecretStore): Promise<typeof _con
     if (secrets.allowedUserId) {
       baseConfig.telegram.allowedUserId = parseInt(secrets.allowedUserId, 10);
     }
+
+    // Verify integrity of loaded secrets
+    const envValues: Record<string, string | undefined> = {
+      telegramBotToken: baseConfig.telegram.token,
+      telegramProxySecret: baseConfig.telegram.proxySecret || undefined,
+      opencodeServerPassword: baseConfig.opencode.password || undefined,
+      sttApiKey: baseConfig.stt.apiKey || undefined,
+      ttsApiKey: baseConfig.tts.apiKey || undefined,
+      docExtractorApiKey: baseConfig.docExtractor.apiKey || undefined,
+      allowedUserId: String(baseConfig.telegram.allowedUserId),
+    };
+
+    await verifyIntegrity(secretStore, envValues);
+
+    // Store/update integrity data for future verification
+    await storeIntegrityData(secretStore, envValues);
   }
 
   _cachedConfig = baseConfig;
