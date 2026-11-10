@@ -529,6 +529,14 @@ export const id: I18nDictionary = {
   "runtime.wizard.not_configured_starting": "Aplikasi belum dikonfigurasi. Membuka wizard...\n",
   "runtime.wizard.tty_required":
     "Wizard interaktif memerlukan terminal TTY. Jalankan `opencode-telegram config` di shell interaktif.",
+  "runtime.wizard.backend_selected":
+    "Menggunakan backend rahasia: {backend}\n",
+  "runtime.wizard.ask_keystore_password":
+    "Masukkan kata sandi untuk penyimpanan rahasia terenkripsi:\n> ",
+  "runtime.wizard.keystore_password_required":
+    "Kata sandi diperlukan untuk penyimpanan rahasia terenkripsi. Coba lagi.\n",
+  "runtime.wizard.secret_verification_failed":
+    "Verifikasi rahasia gagal untuk akun: {account}\n",
   "runtime.container.command_unavailable": "⚠️ Perintah ini tidak tersedia di image Docker.",
 
   "rename.no_session": "⚠️ Tidak ada sesi aktif. Buat atau pilih sesi terlebih dahulu.",

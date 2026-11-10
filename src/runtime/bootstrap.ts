@@ -1,11 +1,12 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import readline from "node:readline";
-import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 import { getRuntimePaths, type RuntimePaths } from "./paths.js";
 import { finalizeEnvFile } from "../secrets/file-permissions.js";
+import { createSecretStore, type CreateSecretStoreOptions } from "../secrets/secret-store-factory.js";
+import { SECRET_ENV_VARS, type SecretEnvVar } from "../secrets/migrate-secrets.js";
+import { askVisible, askHidden } from "./prompts.js";
 import {
   getLocale,
   getLocaleOptions,
@@ -357,62 +358,6 @@ function loadModelDefaultsFromEnvExample(envExampleContent: string | null): Mode
   }
 }
 
-async function askVisible(question: string): Promise<string> {
-  const rl = createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-
-  try {
-    const answer = await rl.question(question);
-    return answer.trim();
-  } finally {
-    rl.close();
-  }
-}
-
-async function askHidden(question: string): Promise<string> {
-  return new Promise((resolve) => {
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-      terminal: true,
-    });
-
-    const maskedRl = rl as readline.Interface & {
-      stdoutMuted?: boolean;
-      _writeToOutput?: (value: string) => void;
-    };
-
-    maskedRl._writeToOutput = (value: string): void => {
-      if (maskedRl.stdoutMuted) {
-        if (value.includes("\n") || value.includes("\r")) {
-          process.stdout.write(value);
-          return;
-        }
-
-        if (value.length > 0) {
-          process.stdout.write("*");
-        }
-        return;
-      }
-
-      process.stdout.write(value);
-    };
-
-    maskedRl.stdoutMuted = false;
-
-    rl.question(question, (answer) => {
-      maskedRl.stdoutMuted = false;
-      process.stdout.write("\n");
-      rl.close();
-      resolve(answer.trim());
-    });
-
-    maskedRl.stdoutMuted = true;
-  });
-}
-
 async function askToken(): Promise<string> {
   for (;;) {
     const token = await askHidden(t("runtime.wizard.ask_token"));
@@ -658,7 +603,7 @@ async function validateExistingEnv(envFilePath: string): Promise<EnvValidationRe
   return validateRuntimeEnvValues(effectiveValues);
 }
 
-async function runWizardAndPersist(runtimePaths: RuntimePaths): Promise<void> {
+export async function runWizardAndPersist(runtimePaths: RuntimePaths): Promise<void> {
   ensureInteractiveTty();
 
   const [existingContent, envExampleContent] = await Promise.all([
@@ -672,6 +617,25 @@ async function runWizardAndPersist(runtimePaths: RuntimePaths): Promise<void> {
   const provider = existingParsed.OPENCODE_MODEL_PROVIDER || modelDefaults.provider;
   const modelId = existingParsed.OPENCODE_MODEL_ID || modelDefaults.modelId;
 
+  // Create secret store
+  const storeOptions: CreateSecretStoreOptions = {
+    appHome: runtimePaths.appHome,
+  };
+  const store = await createSecretStore(storeOptions);
+
+  // Report active backend
+  process.stdout.write(t("runtime.wizard.backend_selected", { backend: store.name }));
+  process.stdout.write("\n");
+
+  // If encrypted-file backend, prompt for password to unlock
+  if (store.name === "encrypted-file" && "unlock" in store && typeof store.unlock === "function") {
+    const password = await askHidden(t("runtime.wizard.ask_keystore_password"));
+    if (!password) {
+      throw new Error(t("runtime.wizard.keystore_password_required"));
+    }
+    await store.unlock(password);
+  }
+
   const envValues: WizardEnvValues = {
     BOT_LOCALE: wizardValues.locale,
     TELEGRAM_BOT_TOKEN: wizardValues.token,
@@ -684,7 +648,49 @@ async function runWizardAndPersist(runtimePaths: RuntimePaths): Promise<void> {
     OPENCODE_MODEL_ID: modelId,
   };
 
-  const envContent = buildEnvFileContent(existingContent ?? "", envValues, envExampleContent);
+  // Separate secrets from non-secrets
+  const secrets = new Map<string, string>();
+  const nonSecrets: WizardEnvValues = {
+    BOT_LOCALE: envValues.BOT_LOCALE,
+    TELEGRAM_BOT_TOKEN: "",
+    TELEGRAM_ALLOWED_USER_ID: "",
+    OPENCODE_SERVER_VERSION: envValues.OPENCODE_SERVER_VERSION,
+    OPENCODE_API_URL: envValues.OPENCODE_API_URL,
+    OPENCODE_SERVER_USERNAME: envValues.OPENCODE_SERVER_USERNAME,
+    OPENCODE_SERVER_PASSWORD: "",
+    OPENCODE_MODEL_PROVIDER: envValues.OPENCODE_MODEL_PROVIDER,
+    OPENCODE_MODEL_ID: envValues.OPENCODE_MODEL_ID,
+  };
+
+  // Extract secrets using SECRET_ENV_VARS mapping (only keys that exist in WizardEnvValues)
+  const wizardSecretKeys: (keyof WizardEnvValues)[] = [
+    "TELEGRAM_BOT_TOKEN",
+    "TELEGRAM_ALLOWED_USER_ID",
+    "OPENCODE_SERVER_PASSWORD",
+  ];
+  for (const envKey of wizardSecretKeys) {
+    const account = SECRET_ENV_VARS[envKey as SecretEnvVar];
+    const value = envValues[envKey];
+    if (value && value.trim().length > 0) {
+      secrets.set(account, value);
+    }
+  }
+
+  // Write secrets to store
+  for (const [account, value] of secrets) {
+    await store.setSecret(account, value);
+  }
+
+  // Verify reads
+  for (const [account, expectedValue] of secrets) {
+    const actualValue = await store.getSecret(account);
+    if (actualValue !== expectedValue) {
+      throw new Error(t("runtime.wizard.secret_verification_failed", { account }));
+    }
+  }
+
+  // Write non-secrets to .env
+  const envContent = buildEnvFileContent(existingContent ?? "", nonSecrets, envExampleContent);
   await writeFileAtomically(runtimePaths.envFilePath, envContent);
   await finalizeEnvFile(runtimePaths.envFilePath);
 

@@ -490,6 +490,14 @@ export const zh: I18nDictionary = {
   "runtime.wizard.not_configured_starting": "应用尚未配置。正在启动向导...\n",
   "runtime.wizard.tty_required":
     "交互式向导需要 TTY 终端。请在交互式 shell 中运行 `opencode-telegram config`。",
+  "runtime.wizard.backend_selected":
+    "使用密钥后端: {backend}\n",
+  "runtime.wizard.ask_keystore_password":
+    "请输入加密密钥存储的密码:\n> ",
+  "runtime.wizard.keystore_password_required":
+    "加密密钥存储需要密码。请重试。\n",
+  "runtime.wizard.secret_verification_failed":
+    "密钥验证失败，账户: {account}\n",
   "runtime.container.command_unavailable":
     "⚠️ Docker 镜像中无法使用此命令。",
 

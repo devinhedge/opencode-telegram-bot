@@ -549,6 +549,14 @@ export const de: I18nDictionary = {
     "Anwendung ist noch nicht konfiguriert. Starte Assistent...\n",
   "runtime.wizard.tty_required":
     "Der interaktive Assistent erfordert ein TTY-Terminal. Führe `opencode-telegram config` in einer interaktiven Shell aus.",
+  "runtime.wizard.backend_selected":
+    "Verwende Secret-Backend: {backend}\n",
+  "runtime.wizard.ask_keystore_password":
+    "Passwort für verschlüsselten Secret-Speicher eingeben:\n> ",
+  "runtime.wizard.keystore_password_required":
+    "Passwort für verschlüsselten Secret-Speicher erforderlich. Bitte erneut versuchen.\n",
+  "runtime.wizard.secret_verification_failed":
+    "Secret-Verifizierung fehlgeschlagen für Account: {account}\n",
   "runtime.container.command_unavailable":
     "⚠️ Dieser Befehl ist im Docker-Image nicht verfügbar.",
 

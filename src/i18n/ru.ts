@@ -544,6 +544,14 @@ export const ru: I18nDictionary = {
     "Приложение еще не сконфигурировано. Запускаю wizard...\n",
   "runtime.wizard.tty_required":
     "Интерактивный wizard требует TTY-терминал. Запустите `opencode-telegram config` в интерактивной оболочке.",
+  "runtime.wizard.backend_selected":
+    "Используется backend для секретов: {backend}\n",
+  "runtime.wizard.ask_keystore_password":
+    "Введите пароль для зашифрованного хранилища секретов:\n> ",
+  "runtime.wizard.keystore_password_required":
+    "Пароль для зашифрованного хранилища секретов обязателен. Попробуйте снова.\n",
+  "runtime.wizard.secret_verification_failed":
+    "Проверка секрета не удалась для аккаунта: {account}\n",
   "runtime.container.command_unavailable":
     "⚠️ Эта команда недоступна в Docker-образе.",
 
