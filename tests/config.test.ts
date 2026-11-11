@@ -2,6 +2,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 async function loadConfigModule() {
   vi.resetModules();
+  vi.doMock("../src/opencode/process.js", () => ({
+    readLocalOpencodeVersion: vi.fn(async () => null),
+    getOpencodeApiVersion: (v: string) => (parseInt(v, 10) >= 2 ? "v2" : "v1"),
+  }));
+  vi.doMock("../src/secrets/secret-store-factory.js", () => ({
+    createSecretStore: vi.fn(async () => {
+      const { FakeSecretStore } = await import("../src/secrets/fake-secret-store.js");
+      return new FakeSecretStore();
+    }),
+  }));
   return import("../src/config.js");
 }
 

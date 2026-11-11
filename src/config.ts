@@ -6,6 +6,7 @@ import { normalizeLocale, type Locale } from "./i18n/index.js";
 import type { SecretStore } from "./secrets/secret-store.js";
 import { verifyIntegrity, storeIntegrityData } from "./secrets/integrity.js";
 import { migrateSecretsIfNeeded } from "./secrets/migrate-secrets.js";
+import { logger } from "./utils/logger.js";
 
 const runtimePaths = getRuntimePaths();
 dotenv.config({ path: runtimePaths.envFilePath, quiet: true });
@@ -260,7 +261,65 @@ export function buildTelegramConfig(secrets?: {
   };
 }
 
-const opencodeServerVersion = getOptionalOpencodeServerVersionEnvVar("OPENCODE_SERVER_VERSION");
+// opencodeServerVersion is detected at runtime (see detectOpencodeVersion)
+let opencodeServerVersion: OpencodeServerVersion = getOptionalOpencodeServerVersionEnvVar("OPENCODE_SERVER_VERSION");
+
+/** Detect the installed OpenCode version and return the API version (v1 or v2). */
+export async function detectOpencodeVersion(): Promise<OpencodeServerVersion> {
+  try {
+    const { readLocalOpencodeVersion, getOpencodeApiVersion } = await import("./opencode/process.js");
+    const versionString = await readLocalOpencodeVersion();
+    if (versionString) {
+      return getOpencodeApiVersion(versionString);
+    }
+  } catch {
+    // Fall through to default
+  }
+  return opencodeServerVersion;
+}
+
+/** Persist the detected OpenCode version to .env atomically. */
+export async function persistOpencodeVersion(version: OpencodeServerVersion): Promise<void> {
+  const fs = await import("node:fs/promises");
+  
+  const envPath = runtimePaths.envFilePath;
+  let content = "";
+  try {
+    content = await fs.readFile(envPath, "utf-8");
+  } catch {
+    // File doesn't exist, start fresh
+  }
+
+  const lines = content.split(/\r?\n/);
+  let found = false;
+  const updated = lines.map((line) => {
+    const match = line.match(/^OPENCODE_SERVER_VERSION\s*=/);
+    if (match) {
+      found = true;
+      return `OPENCODE_SERVER_VERSION=${version}`;
+    }
+    return line;
+  });
+
+  if (!found) {
+    updated.push(`OPENCODE_SERVER_VERSION=${version}`);
+  }
+
+  const newContent = updated.join("\n");
+  const tempPath = `${envPath}.tmp`;
+  await fs.writeFile(tempPath, newContent, "utf-8");
+  await fs.rename(tempPath, envPath);
+}
+
+/** Get the current detected opencode server version. */
+export function getOpencodeServerVersion(): OpencodeServerVersion {
+  return opencodeServerVersion;
+}
+
+/** Set the opencode server version (used during detection). */
+export function setOpencodeServerVersion(version: OpencodeServerVersion): void {
+  opencodeServerVersion = version;
+}
 const opencodeServerMode = resolveOpencodeServerMode(opencodeServerVersion);
 
 const _config = {
@@ -378,6 +437,24 @@ export async function loadConfig(secretStore?: SecretStore): Promise<typeof _con
     return _cachedConfig;
   }
 
+  // Auto-detect OpenCode version and override config
+  const previousVersion = opencodeServerVersion;
+  const detectedVersion = await detectOpencodeVersion();
+  if (detectedVersion !== previousVersion) {
+    logger.info(`[Config] OpenCode version changed: ${previousVersion} → ${detectedVersion} (auto-corrected)`);
+  } else {
+    logger.info(`[Config] Detected OpenCode ${detectedVersion}`);
+  }
+  setOpencodeServerVersion(detectedVersion);
+
+  // Persist detected version to .env
+  try {
+    await persistOpencodeVersion(detectedVersion);
+    logger.debug(`[Config] Persisted OPENCODE_SERVER_VERSION=${detectedVersion} to .env`);
+  } catch (error) {
+    logger.warn(`[Config] Failed to persist OpenCode version to .env: ${error}`);
+  }
+
   // Create a secret store if one wasn't provided
   if (!secretStore) {
     try {
@@ -395,6 +472,11 @@ export async function loadConfig(secretStore?: SecretStore): Promise<typeof _con
   }
 
   const baseConfig = { ..._config };
+
+  // Override serverVersion and related fields based on detected version
+  baseConfig.opencode.serverVersion = opencodeServerVersion;
+  baseConfig.opencode.serverMode = resolveOpencodeServerMode(opencodeServerVersion);
+  baseConfig.opencode.apiUrl = resolveOpencodeApiUrl(opencodeServerVersion, baseConfig.opencode.serverMode);
 
   if (secretStore) {
     const secrets: Record<string, string | null> = {};

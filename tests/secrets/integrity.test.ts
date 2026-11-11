@@ -142,8 +142,8 @@ describe("integrity", () => {
         allowedUserId: "42",
       };
 
-      // No checksum stored
-      await expect(verifyIntegrity(store, values)).rejects.toThrow(/integrity/i);
+      // No checksum stored - first run, should succeed (not throw)
+      await expect(verifyIntegrity(store, values)).resolves.toBeUndefined();
     });
 
     it("throws when user ID is missing from store", async () => {

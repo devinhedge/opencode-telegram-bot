@@ -13,6 +13,16 @@ import { t } from "../../src/i18n/index.js";
 import { setRuntimeMode } from "../../src/runtime/mode.js";
 import { createTestHome } from "../helpers/test-environment.js";
 
+vi.mock("../../src/secrets/secret-store-factory.js", () => ({
+  createSecretStore: vi.fn(async () => ({
+    name: "fake",
+    isAvailable: async () => true,
+    getSecret: async () => null,
+    setSecret: async () => {},
+    deleteSecret: async () => {},
+  })),
+}));
+
 const ENV_EXAMPLE_CONTENT = fs.readFileSync(path.resolve(process.cwd(), ".env.example"), "utf-8");
 
 describe("runtime/bootstrap", () => {

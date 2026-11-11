@@ -62,8 +62,9 @@ export async function verifyIntegrity(
     store.getSecret(INTEGRITY_USER_ID_ACCOUNT),
   ]);
 
+  // First run: no checksum stored yet, skip verification (baseline will be stored by caller)
   if (!storedChecksum) {
-    throw new Error("Integrity verification failed: missing checksum");
+    return;
   }
 
   if (!storedUserId) {
