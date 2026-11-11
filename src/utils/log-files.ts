@@ -7,6 +7,23 @@ export const LOG_FILE_PREFIX = "opencode-telegram-bot";
 
 const DIR_MODE = 0o700;
 export const FILE_MODE = 0o600;
+const DEFAULT_LOG_RETENTION = 10;
+
+// Number of log files to keep per kind. A missing, non-numeric, zero, or
+// negative LOG_RETENTION falls back to the default.
+export function getLogRetention(env: NodeJS.ProcessEnv = process.env): number {
+  const value = env.LOG_RETENTION;
+  if (!value) {
+    return DEFAULT_LOG_RETENTION;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  if (Number.isNaN(parsed) || parsed <= 0) {
+    return DEFAULT_LOG_RETENTION;
+  }
+
+  return parsed;
+}
 
 function formatTimestampForFile(now: Date): string {
   return now.toISOString().slice(0, 19).replace(/:/g, "-").replace("T", "_");

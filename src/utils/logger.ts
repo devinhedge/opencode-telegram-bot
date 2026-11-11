@@ -9,6 +9,7 @@ import {
   ensureLogsDir,
   ensureLogsDirSync,
   FILE_MODE,
+  getLogRetention,
   getMainLogFilePattern,
   pruneLogFiles,
   secureLogFile,
@@ -18,7 +19,6 @@ import {
 type LogLevel = "debug" | "info" | "warn" | "error";
 
 const DEFAULT_LOG_LEVEL: LogLevel = "info";
-const DEFAULT_LOG_RETENTION = 10;
 const LOGGER_ERROR_PREFIX = "[LOGGER]";
 
 const LOG_LEVELS: Record<LogLevel, number> = {
@@ -44,25 +44,8 @@ function normalizeLogLevel(value: string): LogLevel {
   return DEFAULT_LOG_LEVEL;
 }
 
-function parsePositiveInteger(value: string | undefined, defaultValue: number): number {
-  if (!value) {
-    return defaultValue;
-  }
-
-  const parsed = Number.parseInt(value, 10);
-  if (Number.isNaN(parsed) || parsed <= 0) {
-    return defaultValue;
-  }
-
-  return parsed;
-}
-
 function getConfiguredLogLevel(): LogLevel {
   return normalizeLogLevel(process.env.LOG_LEVEL ?? DEFAULT_LOG_LEVEL);
-}
-
-function getConfiguredLogRetention(): number {
-  return parsePositiveInteger(process.env.LOG_RETENTION, DEFAULT_LOG_RETENTION);
 }
 
 function formatPrefix(level: LogLevel): string {
@@ -215,7 +198,7 @@ async function cleanupOldLogs(dirPath: string, mode: RuntimeMode): Promise<void>
   await pruneLogFiles(
     dirPath,
     getMainLogFilePattern(mode),
-    getConfiguredLogRetention(),
+    getLogRetention(),
     reportLoggerInternalError,
   );
 }

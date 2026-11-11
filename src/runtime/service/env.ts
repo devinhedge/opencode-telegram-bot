@@ -5,11 +5,13 @@ const SERVICE_LOGS_DIR_ENV_KEY = "OPENCODE_TELEGRAM_SERVICE_LOGS_DIR";
 export function buildServiceChildEnv(
   baseEnv: NodeJS.ProcessEnv,
   stateFilePath: string,
+  logsDirPath: string,
 ): NodeJS.ProcessEnv {
   return {
     ...baseEnv,
     [SERVICE_CHILD_ENV_KEY]: "1",
     [SERVICE_STATE_PATH_ENV_KEY]: stateFilePath,
+    [SERVICE_LOGS_DIR_ENV_KEY]: logsDirPath,
   };
 }
 

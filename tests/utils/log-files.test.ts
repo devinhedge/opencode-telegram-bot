@@ -10,6 +10,7 @@ import {
   compareLogNames,
   ensureLogsDir,
   ensureLogsDirSync,
+  getLogRetention,
   getMainLogFilePattern,
   pruneLogFiles,
   secureLogFile,
@@ -276,5 +277,27 @@ describe("utils/log-files filesystem helpers", () => {
 
   it.skipIf(isWindows)("secureLogFileSync throws ENOENT on a missing file", () => {
     expect(() => secureLogFileSync(path.join(root, "missing-sync.log"))).toThrow(/ENOENT/);
+  });
+});
+
+describe("utils/log-files getLogRetention", () => {
+  it("defaults to 10 when LOG_RETENTION is unset", () => {
+    expect(getLogRetention({})).toBe(10);
+  });
+
+  it("uses a valid positive integer", () => {
+    expect(getLogRetention({ LOG_RETENTION: "3" })).toBe(3);
+  });
+
+  it("falls back to the default for zero", () => {
+    expect(getLogRetention({ LOG_RETENTION: "0" })).toBe(10);
+  });
+
+  it("falls back to the default for a negative value", () => {
+    expect(getLogRetention({ LOG_RETENTION: "-2" })).toBe(10);
+  });
+
+  it("falls back to the default for a non-numeric value", () => {
+    expect(getLogRetention({ LOG_RETENTION: "abc" })).toBe(10);
   });
 });

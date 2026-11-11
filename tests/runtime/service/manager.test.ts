@@ -46,6 +46,19 @@ const { getRuntimePathsMock, runtimePathsState } = vi.hoisted(() => {
   };
 });
 
+const { resolveLogsDirPathMock, logsDirState } = vi.hoisted(() => {
+  const logsDirState = { value: "" };
+
+  return {
+    resolveLogsDirPathMock: vi.fn(async () => logsDirState.value),
+    logsDirState,
+  };
+});
+
+vi.mock("../../../src/runtime/log-location.js", () => ({
+  resolveLogsDirPath: resolveLogsDirPathMock,
+}));
+
 vi.mock("node:child_process", () => ({
   spawn: spawnMock,
   exec: execMock,
@@ -64,6 +77,7 @@ vi.mock("../../../src/utils/logger.js", () => ({
   },
 }));
 
+import { SERVICE_LOG_FILE_PATTERN } from "../../../src/utils/log-files.js";
 import {
   getBotServiceStatus,
   getServiceStateFilePath,
@@ -97,6 +111,7 @@ describe("runtime/service/manager", () => {
       logsDirPath: path.join(tempDirPath, "logs"),
       runDirPath: path.join(tempDirPath, "run"),
     };
+    logsDirState.value = path.join(tempDirPath, "resolved-logs");
 
     spawnMock.mockReset();
     execMock.mockReset();
@@ -144,6 +159,7 @@ describe("runtime/service/manager", () => {
         env: expect.objectContaining({
           OPENCODE_TELEGRAM_SERVICE_CHILD: "1",
           OPENCODE_TELEGRAM_SERVICE_STATE_PATH: getServiceStateFilePath(),
+          OPENCODE_TELEGRAM_SERVICE_LOGS_DIR: logsDirState.value,
         }),
       }),
     );
@@ -158,6 +174,74 @@ describe("runtime/service/manager", () => {
         mode: "daemon",
       }),
     );
+  });
+
+  it("writes the service log in the resolved directory with a pattern-matching name", async () => {
+    spawnMock.mockReturnValue({ pid: 4322, unref: vi.fn() });
+
+    const result = await startBotDaemon("installed");
+
+    expect(result.success).toBe(true);
+    const logFilePath = result.service!.logFilePath;
+    expect(path.dirname(logFilePath)).toBe(logsDirState.value);
+    expect(path.basename(logFilePath)).toMatch(SERVICE_LOG_FILE_PATTERN);
+    await expect(fs.access(logFilePath)).resolves.toBeUndefined();
+  });
+
+  it.skipIf(process.platform === "win32")("creates the service log owner-only", async () => {
+    spawnMock.mockReturnValue({ pid: 4323, unref: vi.fn() });
+
+    const result = await startBotDaemon("installed");
+
+    const stat = await fs.stat(result.service!.logFilePath);
+    expect(stat.mode & 0o777).toBe(0o600);
+  });
+
+  it("fails before spawning when the logs directory path is a regular file", async () => {
+    await fs.writeFile(logsDirState.value, "not a directory");
+
+    const result = await startBotDaemon("installed");
+
+    expect(result.success).toBe(false);
+    expect(result.service).toBeNull();
+    expect(result.error).toContain(logsDirState.value);
+    expect(spawnMock).not.toHaveBeenCalled();
+    await expect(fs.access(getServiceStateFilePath())).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("prunes old service logs beyond LOG_RETENTION and leaves other files alone", async () => {
+    vi.stubEnv("LOG_RETENTION", "2");
+    spawnMock.mockReturnValue({ pid: 4324, unref: vi.fn() });
+
+    await fs.mkdir(logsDirState.value, { recursive: true });
+    const oldServiceLogs = [
+      "opencode-telegram-bot-service-2020-01-01_00-00-00.log",
+      "opencode-telegram-bot-service-2020-01-02_00-00-00.log",
+      "opencode-telegram-bot-service-2020-01-03_00-00-00.log",
+    ];
+    const keptFiles = [
+      "opencode-telegram-bot-2020-01-01_00-00-00_123.log",
+      "notes.txt",
+    ];
+    for (const name of [...oldServiceLogs, ...keptFiles]) {
+      await fs.writeFile(path.join(logsDirState.value, name), "x");
+    }
+
+    try {
+      const result = await startBotDaemon("installed");
+      expect(result.success).toBe(true);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+
+    const remaining = await fs.readdir(logsDirState.value);
+    expect(remaining).not.toContain(oldServiceLogs[0]);
+    expect(remaining).not.toContain(oldServiceLogs[1]);
+    expect(remaining).toContain(oldServiceLogs[2]);
+    for (const name of keptFiles) {
+      expect(remaining).toContain(name);
+    }
+    expect(remaining.filter((name) => SERVICE_LOG_FILE_PATTERN.test(name))).toHaveLength(2);
   });
 
   it("cleans stale daemon state during status check", async () => {

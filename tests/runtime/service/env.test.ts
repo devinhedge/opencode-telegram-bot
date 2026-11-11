@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildServiceChildEnv,
   getServiceLogsDirFromEnv,
   isServiceChildProcess,
 } from "../../../src/runtime/service/env.js";
@@ -31,5 +32,16 @@ describe("runtime/service/env", () => {
     expect(getServiceLogsDirFromEnv({ OPENCODE_TELEGRAM_SERVICE_LOGS_DIR: "/l" })).toBe("/l");
     expect(getServiceLogsDirFromEnv({ OPENCODE_TELEGRAM_SERVICE_LOGS_DIR: "  " })).toBeNull();
     expect(getServiceLogsDirFromEnv({})).toBeNull();
+  });
+
+  it("builds the child env with the state path and the handed-down logs dir", () => {
+    const env = buildServiceChildEnv({ KEEP: "me" }, "/s/bot-service.json", "/l");
+
+    expect(env).toEqual({
+      KEEP: "me",
+      OPENCODE_TELEGRAM_SERVICE_CHILD: "1",
+      OPENCODE_TELEGRAM_SERVICE_STATE_PATH: "/s/bot-service.json",
+      OPENCODE_TELEGRAM_SERVICE_LOGS_DIR: "/l",
+    });
   });
 });
