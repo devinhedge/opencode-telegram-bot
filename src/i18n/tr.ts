@@ -530,6 +530,14 @@ export const tr: I18nDictionary = {
     "Uygulama henüz yapılandırılmadı. Sihirbaz başlatılıyor...\n",
   "runtime.wizard.tty_required":
     "Etkileşimli sihirbaz bir TTY terminali gerektirir. `opencode-telegram config` komutunu etkileşimli bir kabukta çalıştırın.",
+  "runtime.wizard.backend_selected":
+    "Gizli depo arka ucu kullanılıyor: {backend}\n",
+  "runtime.wizard.ask_keystore_password":
+    "Şifreli gizli depo için parola girin:\n> ",
+  "runtime.wizard.keystore_password_required":
+    "Şifreli gizli depo için parola gereklidir. Tekrar deneyin.\n",
+  "runtime.wizard.secret_verification_failed":
+    "Hesap için gizli doğrulama başarısız: {account}\n",
   "runtime.container.command_unavailable": "⚠️ Bu komut Docker imajında kullanılamaz.",
 
   "rename.no_session": "⚠️ Etkin oturum yok. Önce bir oturum oluşturun veya seçin.",

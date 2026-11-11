@@ -61,47 +61,79 @@ export class HealthServer {
   private startTimeMs: number | null = null;
   private version = "unknown";
 
-  async start(port: number, version: string): Promise<void> {
+  async start(port: number, version: string, autoScanEnabled = true): Promise<number> {
     if (port === 0) {
       logger.info("[Health] Health server disabled (BOT_HEALTH_PORT is not set or 0)");
-      return;
+      return 0;
     }
     if (this.server) {
       logger.warn("[Health] Health server already running");
-      return;
+      return port;
     }
 
     this.version = version;
     this.startTimeMs = Date.now();
-    const server = http.createServer((req, res) => {
-      void this.handleRequest(req, res);
-    });
-    this.server = server;
 
-    try {
-      await new Promise<void>((resolve, reject) => {
-        server.once("error", reject);
-        server.listen(port, HEALTH_HOST, () => {
-          server.off("error", reject);
-          resolve();
-        });
+    const MAX_SCAN_ATTEMPTS = 10;
+    let currentPort = port;
+    let attempt = 0;
+    let actualPort = port;
+
+    for (attempt = 0; attempt < MAX_SCAN_ATTEMPTS; attempt++) {
+      currentPort = port + attempt;
+      const server = http.createServer((req, res) => {
+        void this.handleRequest(req, res);
       });
-    } catch (error) {
-      this.server = null;
-      this.startTimeMs = null;
-      logger.warn(
-        `[Health] Health server could not listen on ${HEALTH_HOST}:${port}; continuing without it`,
-        error,
-      );
-      return;
+      this.server = server;
+
+      try {
+        await new Promise<void>((resolve, reject) => {
+          server.once("error", reject);
+          server.listen(currentPort, HEALTH_HOST, () => {
+            server.off("error", reject);
+            resolve();
+          });
+        });
+        actualPort = currentPort;
+        break;
+      } catch (error) {
+        this.server = null;
+        const isAddrInUse = error instanceof Error && "code" in error && error.code === "EADDRINUSE";
+        if (!isAddrInUse || !autoScanEnabled) {
+          logger.warn(
+            `[Health] Health server could not listen on ${HEALTH_HOST}:${currentPort}; continuing without it`,
+            error,
+          );
+          throw error;
+        }
+        // Port in use, try next one
+        continue;
+      }
     }
 
+    if (attempt >= MAX_SCAN_ATTEMPTS) {
+      this.server = null;
+      this.startTimeMs = null;
+      throw new Error(
+        `[Health] No available port found after ${MAX_SCAN_ATTEMPTS} attempts starting from ${port}`,
+      );
+    }
+
+    const server = this.server!;
     server.on("error", (error) => {
       logger.error("[Health] Health server error", error);
     });
-    logger.info(
-      `[Health] Health server listening on ${HEALTH_HOST}:${port} (/health, /health/live, /health/ready)`,
-    );
+    if (actualPort !== port) {
+      logger.info(
+        `[Health] Health server listening on ${HEALTH_HOST}:${actualPort} (requested: ${port})`,
+      );
+    } else {
+      logger.info(
+        `[Health] Health server listening on ${HEALTH_HOST}:${actualPort} (/health, /health/live, /health/ready)`,
+      );
+    }
+
+    return actualPort;
   }
 
   async stop(): Promise<void> {
