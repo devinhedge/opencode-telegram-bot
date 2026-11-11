@@ -15,6 +15,7 @@ export interface ParsedCliArgs {
   command: CliCommand;
   mode?: RuntimeMode | undefined;
   daemon: boolean;
+  restart: boolean;
   showHelp: boolean;
   error?: string | undefined;
 }
@@ -42,6 +43,7 @@ export function parseCliArgs(argv: string[]): ParsedCliArgs {
   let command: CliCommand = "start";
   let mode: RuntimeMode | undefined;
   let daemon = false;
+  let restart = false;
   let showHelp = false;
   let currentIndex = 0;
 
@@ -51,6 +53,7 @@ export function parseCliArgs(argv: string[]): ParsedCliArgs {
       return {
         command,
         daemon,
+        restart,
         showHelp: true,
         error: CLI_MESSAGES.unknownCommand(firstArg),
       };
@@ -78,12 +81,19 @@ export function parseCliArgs(argv: string[]): ParsedCliArgs {
       continue;
     }
 
+    if (token === "--restart") {
+      restart = true;
+      currentIndex += 1;
+      continue;
+    }
+
     if (token === "--mode") {
       const modeValue = args[currentIndex + 1];
       if (!modeValue || modeValue.startsWith("-")) {
         return {
           command,
           daemon,
+          restart,
           mode,
           showHelp: true,
           error: CLI_MESSAGES.modeRequiresValue,
@@ -95,6 +105,7 @@ export function parseCliArgs(argv: string[]): ParsedCliArgs {
         return {
           command,
           daemon,
+          restart,
           mode,
           showHelp: true,
           error: CLI_MESSAGES.invalidMode(modeValue),
@@ -113,6 +124,7 @@ export function parseCliArgs(argv: string[]): ParsedCliArgs {
         return {
           command,
           daemon,
+          restart,
           mode,
           showHelp: true,
           error: CLI_MESSAGES.invalidMode(modeValue),
@@ -127,6 +139,7 @@ export function parseCliArgs(argv: string[]): ParsedCliArgs {
     return {
       command,
       daemon,
+      restart,
       mode,
       showHelp: true,
       error: CLI_MESSAGES.unknownOption(token),
@@ -137,6 +150,7 @@ export function parseCliArgs(argv: string[]): ParsedCliArgs {
     return {
       command,
       daemon,
+      restart,
       mode,
       showHelp: true,
       error: CLI_MESSAGES.modeOnlyStart,
@@ -147,15 +161,28 @@ export function parseCliArgs(argv: string[]): ParsedCliArgs {
     return {
       command,
       daemon,
+      restart,
       mode,
       showHelp: true,
       error: CLI_MESSAGES.daemonOnlyStart,
     };
   }
 
+  if (command !== "start" && restart) {
+    return {
+      command,
+      daemon,
+      restart,
+      mode,
+      showHelp: true,
+      error: "Option --restart is supported only for the start command",
+    };
+  }
+
   return {
     command,
     daemon,
+    restart,
     mode,
     showHelp,
   };
