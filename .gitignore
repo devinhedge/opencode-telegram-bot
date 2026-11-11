@@ -43,3 +43,10 @@ e2e/output/
 .boardown/
 manager/
 *.bak
+
+# Temp / generated files
+*.mjs
+agent_Tools_Record.md
+agent_workflow.md
+agent_workflow_History.md
+.reasonix/
