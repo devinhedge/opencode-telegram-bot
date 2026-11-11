@@ -527,6 +527,15 @@ export const id: I18nDictionary = {
   "runtime.wizard.start": "Menyiapkan OpenCode Telegram Bot.\n",
   "runtime.wizard.saved": "Konfigurasi disimpan:\n- {envPath}\n",
   "runtime.wizard.not_configured_starting": "Aplikasi belum dikonfigurasi. Membuka wizard...\n",
+  "runtime.logs.location_invalid":
+    'Nilai LOG_LOCATION tidak valid "{value}". Nilai yang diizinkan: default, app.\n',
+  "runtime.logs.ask_location":
+    "Pilih lokasi log: default (direktori log sistem) atau app (folder log di direktori aplikasi). Jawaban disimpan ke {envPath}.\n> ",
+  "runtime.logs.location_choice_invalid": "Masukkan default atau app.\n",
+  "runtime.logs.location_invalid_no_tty":
+    'Nilai LOG_LOCATION tidak valid "{value}" dan tidak ada terminal interaktif. Menggunakan default.\n',
+  "runtime.logs.location_invalid_env":
+    'Nilai LOG_LOCATION tidak valid "{value}" di lingkungan. Menggunakan default.\n',
   "runtime.wizard.tty_required":
     "Wizard interaktif memerlukan terminal TTY. Jalankan `opencode-telegram config` di shell interaktif.",
   "runtime.wizard.backend_selected":

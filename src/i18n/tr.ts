@@ -528,6 +528,15 @@ export const tr: I18nDictionary = {
   "runtime.wizard.saved": "Yapılandırma kaydedildi:\n- {envPath}\n",
   "runtime.wizard.not_configured_starting":
     "Uygulama henüz yapılandırılmadı. Sihirbaz başlatılıyor...\n",
+  "runtime.logs.location_invalid":
+    'Geçersiz LOG_LOCATION değeri "{value}". İzin verilen değerler: default, app.\n',
+  "runtime.logs.ask_location":
+    "Günlük konumunu seçin: default (sistem günlük dizini) veya app (uygulama dizinindeki logs klasörü). Yanıt {envPath} dosyasına kaydedilir.\n> ",
+  "runtime.logs.location_choice_invalid": "default veya app yazın.\n",
+  "runtime.logs.location_invalid_no_tty":
+    'Geçersiz LOG_LOCATION değeri "{value}" ve etkileşimli terminal yok. default kullanılıyor.\n',
+  "runtime.logs.location_invalid_env":
+    'Ortamda geçersiz LOG_LOCATION değeri "{value}". default kullanılıyor.\n',
   "runtime.wizard.tty_required":
     "Etkileşimli sihirbaz bir TTY terminali gerektirir. `opencode-telegram config` komutunu etkileşimli bir kabukta çalıştırın.",
   "runtime.wizard.backend_selected":

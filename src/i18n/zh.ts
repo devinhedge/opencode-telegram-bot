@@ -488,6 +488,13 @@ export const zh: I18nDictionary = {
   "runtime.wizard.start": "OpenCode Telegram Bot 设置。\n",
   "runtime.wizard.saved": "配置已保存：\n- {envPath}\n",
   "runtime.wizard.not_configured_starting": "应用尚未配置。正在启动向导...\n",
+  "runtime.logs.location_invalid": '无效的 LOG_LOCATION 值 "{value}"。允许的值：default、app。\n',
+  "runtime.logs.ask_location":
+    "请选择日志位置：default（系统日志目录）或 app（应用目录下的 logs 文件夹）。所选结果将保存到 {envPath}。\n> ",
+  "runtime.logs.location_choice_invalid": "请输入 default 或 app。\n",
+  "runtime.logs.location_invalid_no_tty":
+    '无效的 LOG_LOCATION 值 "{value}"，且没有可用的交互式终端。将使用 default。\n',
+  "runtime.logs.location_invalid_env": '环境变量中的 LOG_LOCATION 值 "{value}" 无效。将使用 default。\n',
   "runtime.wizard.tty_required":
     "交互式向导需要 TTY 终端。请在交互式 shell 中运行 `opencode-telegram config`。",
   "runtime.wizard.backend_selected":

@@ -535,6 +535,15 @@ export const ko: I18nDictionary = {
   "runtime.wizard.saved": "설정이 저장되었습니다:\n- {envPath}\n",
   "runtime.wizard.not_configured_starting":
     "아직 구성되지 않았습니다. 설정 마법사를 시작합니다...\n",
+  "runtime.logs.location_invalid":
+    '잘못된 LOG_LOCATION 값 "{value}". 허용되는 값: default, app.\n',
+  "runtime.logs.ask_location":
+    "로그 위치를 선택하세요: default(시스템 로그 디렉터리) 또는 app(앱 홈의 logs 폴더). 선택한 값은 {envPath}에 저장됩니다.\n> ",
+  "runtime.logs.location_choice_invalid": "default 또는 app을 입력하세요.\n",
+  "runtime.logs.location_invalid_no_tty":
+    '잘못된 LOG_LOCATION 값 "{value}"이며 대화형 터미널을 사용할 수 없습니다. default를 사용합니다.\n',
+  "runtime.logs.location_invalid_env":
+    '환경 변수의 LOG_LOCATION 값 "{value}"이(가) 잘못되었습니다. default를 사용합니다.\n',
   "runtime.wizard.tty_required":
     "대화형 마법사에는 TTY 터미널이 필요합니다. 대화형 셸에서 `opencode-telegram config`를 실행해 주세요.",
   "runtime.wizard.backend_selected":

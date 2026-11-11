@@ -515,6 +515,15 @@ export const ar: I18nDictionary = {
   "runtime.wizard.saved": "تم حفظ الإعدادات في:\n- {envPath}\n",
   "runtime.wizard.not_configured_starting":
     "لم يتم إعداد التطبيق بعد. جارٍ تشغيل معالج الإعداد...\n",
+  "runtime.logs.location_invalid":
+    'قيمة LOG_LOCATION غير صالحة "{value}". القيم المسموح بها: default، app.\n',
+  "runtime.logs.ask_location":
+    "اختر موقع السجلات: default (مجلد سجلات النظام) أو app (مجلد logs داخل مجلد التطبيق). سيتم حفظ الإجابة في {envPath}.\n> ",
+  "runtime.logs.location_choice_invalid": "أدخل default أو app.\n",
+  "runtime.logs.location_invalid_no_tty":
+    'قيمة LOG_LOCATION غير صالحة "{value}" ولا يتوفر طرفية تفاعلية. سيتم استخدام default.\n',
+  "runtime.logs.location_invalid_env":
+    'قيمة LOG_LOCATION غير صالحة "{value}" في البيئة. سيتم استخدام default.\n',
   "runtime.wizard.tty_required":
     "يتطلب معالج الإعداد التفاعلي طرفية TTY. شغّل `opencode-telegram config` في shell تفاعلية.",
   "runtime.wizard.backend_selected":

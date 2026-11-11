@@ -594,6 +594,15 @@ export const en = {
   "runtime.wizard.saved": "Configuration saved:\n- {envPath}\n",
   "runtime.wizard.not_configured_starting":
     "Application is not configured yet. Starting wizard...\n",
+  "runtime.logs.location_invalid":
+    'Invalid LOG_LOCATION value "{value}". Allowed values: default, app.\n',
+  "runtime.logs.ask_location":
+    "Choose the log location: default (system log directory) or app (logs folder in the app home). The answer is saved to {envPath}.\n> ",
+  "runtime.logs.location_choice_invalid": "Enter default or app.\n",
+  "runtime.logs.location_invalid_no_tty":
+    'Invalid LOG_LOCATION value "{value}" and no interactive terminal is available. Using default.\n',
+  "runtime.logs.location_invalid_env":
+    'Invalid LOG_LOCATION value "{value}" in the environment. Using default.\n',
   "runtime.wizard.tty_required":
     "Interactive wizard requires a TTY terminal. Run `opencode-telegram config` in an interactive shell.",
   "runtime.container.command_unavailable":

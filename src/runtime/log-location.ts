@@ -1,4 +1,14 @@
+import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
+import dotenv from "dotenv";
+// This module runs before the logger is initialized: never import src/utils/logger.ts here,
+// directly or transitively.
+import { t } from "../i18n/index.js";
+import { persistEnvValue } from "./env-file.js";
+import { getRuntimePaths } from "./paths.js";
+import { askVisible } from "./prompts.js";
+import { getServiceLogsDirFromEnv, isServiceChildProcess } from "./service/env.js";
 
 export type LogLocation = "default" | "app";
 
@@ -43,4 +53,124 @@ export function resolveCanonicalLogsDir(
       ? xdgStateHome
       : path.posix.join(homedir, ".local", "state");
   return path.posix.join(stateHome, APP_DIR_NAME, "logs");
+}
+
+export interface ResolveLogsDirOptions {
+  env?: NodeJS.ProcessEnv;
+  isInteractive?: boolean;
+  ask?: (prompt: string) => Promise<string>;
+  warn?: (message: string) => void;
+}
+
+const LOG_LOCATION_KEY = "LOG_LOCATION";
+
+let resolvedLogsDir: Promise<string> | undefined;
+
+function writeStderr(message: string): void {
+  process.stderr.write(message.endsWith("\n") ? message : `${message}\n`);
+}
+
+function describeError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+// Returns undefined when the file does not exist; any other read error propagates.
+async function readEnvFileLogLocation(envFilePath: string): Promise<string | undefined> {
+  let content: string;
+  try {
+    content = await fs.readFile(envFilePath, "utf-8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return undefined;
+    }
+    throw error;
+  }
+
+  return dotenv.parse(content)[LOG_LOCATION_KEY];
+}
+
+async function promptForLogLocation(
+  raw: string,
+  envFilePath: string,
+  ask: (prompt: string) => Promise<string>,
+  warn: (message: string) => void,
+): Promise<LogLocation> {
+  warn(t("runtime.logs.location_invalid", { value: raw }));
+
+  for (;;) {
+    const answer = (await ask(t("runtime.logs.ask_location", { envPath: envFilePath })))
+      .trim()
+      .toLowerCase();
+
+    if (answer !== "default" && answer !== "app") {
+      warn(t("runtime.logs.location_choice_invalid"));
+      continue;
+    }
+
+    try {
+      await persistEnvValue(envFilePath, LOG_LOCATION_KEY, answer);
+    } catch (error) {
+      warn(`Could not save ${LOG_LOCATION_KEY} to ${envFilePath}: ${describeError(error)}\n`);
+    }
+
+    return answer;
+  }
+}
+
+async function resolveLogsDir(options: ResolveLogsDirOptions): Promise<string> {
+  const env = options.env ?? process.env;
+  const warn = options.warn ?? writeStderr;
+  const isInteractive =
+    options.isInteractive ?? Boolean(process.stdin.isTTY && process.stdout.isTTY);
+  const ask = options.ask ?? askVisible;
+
+  if (isServiceChildProcess(env)) {
+    const serviceLogsDir = getServiceLogsDirFromEnv(env);
+    if (serviceLogsDir) {
+      return serviceLogsDir;
+    }
+  }
+
+  const runtimePaths = getRuntimePaths();
+  const canonicalDir = resolveCanonicalLogsDir(process.platform, env, os.homedir());
+
+  let setting = parseLogLocation(env[LOG_LOCATION_KEY]);
+  const fromRealEnv = setting.kind !== "unset";
+
+  if (!fromRealEnv) {
+    try {
+      setting = parseLogLocation(await readEnvFileLogLocation(runtimePaths.envFilePath));
+    } catch (error) {
+      warn(`Could not read ${runtimePaths.envFilePath}: ${describeError(error)}\n`);
+      return canonicalDir;
+    }
+  }
+
+  if (setting.kind === "unset") {
+    return canonicalDir;
+  }
+
+  let location: LogLocation;
+  if (setting.kind === "valid") {
+    location = setting.value;
+  } else if (fromRealEnv) {
+    warn(t("runtime.logs.location_invalid_env", { value: setting.raw }));
+    location = "default";
+  } else if (isInteractive) {
+    location = await promptForLogLocation(setting.raw, runtimePaths.envFilePath, ask, warn);
+  } else {
+    warn(t("runtime.logs.location_invalid_no_tty", { value: setting.raw }));
+    location = "default";
+  }
+
+  return location === "app" ? runtimePaths.logsDirPath : canonicalDir;
+}
+
+export function resolveLogsDirPath(options: ResolveLogsDirOptions = {}): Promise<string> {
+  resolvedLogsDir ??= resolveLogsDir(options);
+  return resolvedLogsDir;
+}
+
+export function __resetLogsDirForTests(): void {
+  resolvedLogsDir = undefined;
 }

@@ -550,6 +550,15 @@ export const fr: I18nDictionary = {
   "runtime.wizard.saved": "Configuration enregistrée :\n- {envPath}\n",
   "runtime.wizard.not_configured_starting":
     "L'application n'est pas encore configurée. Lancement de l'assistant...\n",
+  "runtime.logs.location_invalid":
+    'Valeur LOG_LOCATION invalide "{value}". Valeurs autorisées : default, app.\n',
+  "runtime.logs.ask_location":
+    "Choisissez l'emplacement des logs : default (répertoire de logs du système) ou app (dossier de logs dans le répertoire de l'application). La réponse est enregistrée dans {envPath}.\n> ",
+  "runtime.logs.location_choice_invalid": "Saisissez default ou app.\n",
+  "runtime.logs.location_invalid_no_tty":
+    'Valeur LOG_LOCATION invalide "{value}" et aucun terminal interactif disponible. Utilisation de default.\n',
+  "runtime.logs.location_invalid_env":
+    'Valeur LOG_LOCATION invalide "{value}" dans l\'environnement. Utilisation de default.\n',
   "runtime.wizard.tty_required":
     "L'assistant interactif nécessite un terminal TTY. Exécutez `opencode-telegram config` dans un shell interactif.",
   "runtime.wizard.backend_selected":
