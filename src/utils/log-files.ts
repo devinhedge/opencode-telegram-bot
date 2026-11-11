@@ -1,0 +1,81 @@
+import fsPromises from "node:fs/promises";
+import path from "node:path";
+import type { RuntimeMode } from "../runtime/mode.js";
+
+export const LOG_FILE_PREFIX = "opencode-telegram-bot";
+
+const DIR_MODE = 0o700;
+const FILE_MODE = 0o600;
+
+function formatTimestampForFile(now: Date): string {
+  return now.toISOString().slice(0, 19).replace(/:/g, "-").replace("T", "_");
+}
+
+export function buildMainLogFileName(mode: RuntimeMode, now: Date, pid: number): string {
+  if (mode === "installed") {
+    return `${LOG_FILE_PREFIX}-${now.toISOString().slice(0, 10)}.log`;
+  }
+
+  return `${LOG_FILE_PREFIX}-${formatTimestampForFile(now)}_${pid}.log`;
+}
+
+export function getMainLogFilePattern(mode: RuntimeMode): RegExp {
+  if (mode === "installed") {
+    return new RegExp(`^${LOG_FILE_PREFIX}-\\d{4}-\\d{2}-\\d{2}\\.log$`);
+  }
+
+  return new RegExp(`^${LOG_FILE_PREFIX}-\\d{4}-\\d{2}-\\d{2}_\\d{2}-\\d{2}-\\d{2}_\\d+\\.log$`);
+}
+
+export function buildServiceLogFileName(now: Date): string {
+  return `${LOG_FILE_PREFIX}-service-${formatTimestampForFile(now)}.log`;
+}
+
+export const SERVICE_LOG_FILE_PATTERN = new RegExp(
+  `^${LOG_FILE_PREFIX}-service-\\d{4}-\\d{2}-\\d{2}_\\d{2}-\\d{2}-\\d{2}\\.log$`,
+);
+
+// Creates the directory (and parents) owner-only, and tightens a pre-existing
+// directory. Permission bits are not enforced on Windows, so chmod is skipped there.
+export async function ensureLogsDir(dirPath: string): Promise<void> {
+  await fsPromises.mkdir(dirPath, { recursive: true, mode: DIR_MODE });
+
+  if (process.platform !== "win32") {
+    await fsPromises.chmod(dirPath, DIR_MODE);
+  }
+}
+
+export async function secureLogFile(filePath: string): Promise<void> {
+  if (process.platform !== "win32") {
+    await fsPromises.chmod(filePath, FILE_MODE);
+  }
+}
+
+export async function pruneLogFiles(
+  dirPath: string,
+  pattern: RegExp,
+  retention: number,
+  onError: (message: string, error: unknown) => void,
+): Promise<void> {
+  let fileNames: string[];
+
+  try {
+    fileNames = await fsPromises.readdir(dirPath);
+  } catch (error) {
+    onError(`Failed to read log directory ${dirPath}.`, error);
+    return;
+  }
+
+  const matchingFiles = fileNames.filter((fileName) => pattern.test(fileName)).sort();
+  const filesToDelete = matchingFiles.slice(0, Math.max(0, matchingFiles.length - retention));
+
+  await Promise.all(
+    filesToDelete.map(async (fileName) => {
+      try {
+        await fsPromises.unlink(path.join(dirPath, fileName));
+      } catch (error) {
+        onError(`Failed to delete old log file ${fileName}.`, error);
+      }
+    }),
+  );
+}
