@@ -231,7 +231,10 @@ describe("resolveLogsDirPath", () => {
       stderrSpy.mockRestore();
     }
 
-    expect(writes.length).toBeGreaterThanOrEqual(6);
+    // Expected writes: no-TTY invalid .env (1: no_tty); invalid real env (1: invalid_env);
+    // interactive with one bad answer then a failed save (3: invalid, choice_invalid,
+    // persist_failed); unreadable .env (1: env_read_failed).
+    expect(writes).toHaveLength(6);
     for (const written of writes) {
       expect(written.endsWith("\n")).toBe(true);
       expect(written.endsWith("\n\n")).toBe(false);
@@ -261,11 +264,33 @@ describe("resolveLogsDirPath", () => {
 
     expect(dir).toBe(canonicalDir);
     expect(ask).toHaveBeenCalledTimes(3);
-    expect(warn).toHaveBeenLastCalledWith(
+    expect(warn.mock.calls.map(([message]) => message)).toEqual([
+      t("runtime.logs.location_invalid", { value: "bogus" }),
+      t("runtime.logs.location_choice_invalid"),
+      t("runtime.logs.location_choice_invalid"),
       t("runtime.logs.location_invalid_no_tty", { value: "bogus" }),
-    );
+    ]);
     expect(persistEnvValue).not.toHaveBeenCalled();
   });
+
+  it.each([
+    ["app", () => appLogsDir],
+    ["default", () => canonicalDir],
+  ])(
+    "keeps a real-env LOG_LOCATION=%s when .env is unreadable and BOT_LOCALE is unset",
+    async (value, expected) => {
+      await fs.mkdir(envFilePath);
+      const warn = vi.fn();
+      const dir = await resolveLogsDirPath({
+        env: baseEnv({ LOG_LOCATION: value }),
+        isInteractive: false,
+        warn,
+      });
+
+      expect(dir).toBe(expected());
+      expect(warn).not.toHaveBeenCalled();
+    },
+  );
 
   it("gives up after 3 empty answers", async () => {
     await fs.writeFile(envFilePath, "LOG_LOCATION=bogus\n", "utf-8");

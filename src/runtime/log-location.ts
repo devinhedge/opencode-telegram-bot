@@ -176,13 +176,17 @@ async function resolveLogsDir(options: ResolveLogsDirOptions): Promise<string> {
         setting = parseLogLocation(fileValues?.[LOG_LOCATION_KEY]);
       }
     } catch (error) {
-      warn(
-        translate("runtime.logs.env_read_failed", {
-          envPath: runtimePaths.envFilePath,
-          reason: describeError(error),
-        }),
-      );
-      return canonicalDir;
+      // A read failure matters only when .env was needed for LOG_LOCATION itself; a lookup
+      // made only for the locale must not discard a valid real-env value or warn.
+      if (!fromRealEnv) {
+        warn(
+          translate("runtime.logs.env_read_failed", {
+            envPath: runtimePaths.envFilePath,
+            reason: describeError(error),
+          }),
+        );
+        return canonicalDir;
+      }
     }
   }
 
