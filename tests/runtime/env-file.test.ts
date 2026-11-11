@@ -38,6 +38,17 @@ describe("runtime/env-file", () => {
     );
   });
 
+  it("preserves blank and comment lines in place", async () => {
+    await fs.mkdir(path.dirname(envFilePath), { recursive: true });
+    await fs.writeFile(envFilePath, "# header\n\nA=1\n\nLOG_LOCATION=bad\n# tail\n", "utf-8");
+
+    await persistEnvValue(envFilePath, "LOG_LOCATION", "app");
+
+    expect(await fs.readFile(envFilePath, "utf-8")).toBe(
+      "# header\n\nA=1\n\n# tail\nLOG_LOCATION=app\n",
+    );
+  });
+
   it("appends when the key is absent", async () => {
     await fs.mkdir(path.dirname(envFilePath), { recursive: true });
     await fs.writeFile(envFilePath, "A=1\n", "utf-8");
@@ -54,7 +65,7 @@ describe("runtime/env-file", () => {
     expect(entries.filter((name) => name.endsWith(".tmp"))).toEqual([]);
   });
 
-  it.skipIf(process.platform === "win32")("restricts the file to the owner", async () => {
+  it.skipIf(process.platform === "win32")("leaves the file owner-only", async () => {
     await persistEnvValue(envFilePath, "LOG_LOCATION", "app");
 
     const stats = await fs.stat(envFilePath);

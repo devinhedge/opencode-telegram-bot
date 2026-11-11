@@ -54,4 +54,8 @@ describe("parseLogLocation", () => {
   it("reports invalid values with the raw input", () => {
     expect(parseLogLocation("apps")).toEqual({ kind: "invalid", raw: "apps" });
   });
+
+  it("keeps the original untrimmed input as raw", () => {
+    expect(parseLogLocation(" apps ")).toEqual({ kind: "invalid", raw: " apps " });
+  });
 });

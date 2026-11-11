@@ -34,9 +34,9 @@ export async function persistEnvValue(
   const existingContent = await readExistingEnvContent(envFilePath);
   const assignmentPrefix = new RegExp(`^\\s*(?:export\\s+)?${key}\\s*=`);
 
-  const keptLines = existingContent
-    .split(/\r?\n/)
-    .filter((line) => line.length > 0 && !assignmentPrefix.test(line));
+  const existingLines =
+    existingContent === "" ? [] : existingContent.replace(/\r?\n$/, "").split(/\r?\n/);
+  const keptLines = existingLines.filter((line) => !assignmentPrefix.test(line));
 
   const nextContent = `${[...keptLines, `${key}=${value}`].join("\n")}\n`;
 

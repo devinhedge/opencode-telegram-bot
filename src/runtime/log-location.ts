@@ -18,6 +18,7 @@ export function parseLogLocation(raw: string | undefined): LogLocationSetting {
     return { kind: "valid", value: normalized };
   }
 
+  // raw is the unmodified input (not trimmed) so warnings show exactly what the user typed.
   return { kind: "invalid", raw: raw ?? "" };
 }
 
@@ -28,7 +29,7 @@ export function resolveCanonicalLogsDir(
 ): string {
   if (platform === "win32") {
     const localAppData = env.LOCALAPPDATA;
-    const base = localAppData ? localAppData : path.win32.join(homedir, "AppData", "Local");
+    const base = localAppData || path.win32.join(homedir, "AppData", "Local");
     return path.win32.join(base, APP_DIR_NAME, "Logs");
   }
 
