@@ -104,6 +104,24 @@ describe("runtime/env-file", () => {
     expect(entries.filter((name) => name.endsWith(".tmp"))).toEqual([]);
   });
 
+  it("does not leave a blank line before the appended key", async () => {
+    await fs.mkdir(path.dirname(envFilePath), { recursive: true });
+    await fs.writeFile(envFilePath, "A=1\n\n\n", "utf-8");
+
+    await persistEnvValue(envFilePath, "LOG_LOCATION", "app");
+
+    expect(await fs.readFile(envFilePath, "utf-8")).toBe("A=1\nLOG_LOCATION=app\n");
+  });
+
+  it("strips trailing blank lines using the file's CRLF style", async () => {
+    await fs.mkdir(path.dirname(envFilePath), { recursive: true });
+    await fs.writeFile(envFilePath, "A=1\r\n\r\n\r\n", "utf-8");
+
+    await persistEnvValue(envFilePath, "LOG_LOCATION", "app");
+
+    expect(await fs.readFile(envFilePath, "utf-8")).toBe("A=1\r\nLOG_LOCATION=app\r\n");
+  });
+
   it("appends when the key is absent", async () => {
     await fs.mkdir(path.dirname(envFilePath), { recursive: true });
     await fs.writeFile(envFilePath, "A=1\n", "utf-8");
@@ -124,6 +142,7 @@ describe("runtime/env-file", () => {
     await persistEnvValue(envFilePath, "LOG_LOCATION", "app");
 
     const stats = await fs.stat(envFilePath);
-    expect(stats.mode & 0o077).toBe(0);
+    // finalizeEnvFile exports no mode constant; it sets 0o400, so pin that exact value.
+    expect(stats.mode & 0o777).toBe(0o400);
   });
 });

@@ -48,6 +48,9 @@ export async function persistEnvValue(
   const existingLines =
     existingContent === "" ? [] : existingContent.replace(/\r?\n$/, "").split(/\r?\n/);
   const keptLines = existingLines.filter((line) => !isActiveAssignmentOf(line, key));
+  while (keptLines.at(-1)?.trim() === "") {
+    keptLines.pop();
+  }
 
   const nextContent = `${[...keptLines, `${key}=${value}`].join(lineEnding)}${lineEnding}`;
 
