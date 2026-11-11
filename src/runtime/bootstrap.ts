@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 import { getRuntimePaths, type RuntimePaths } from "./paths.js";
+import { writeFileAtomically } from "./env-file.js";
 import { finalizeEnvFile } from "../secrets/file-permissions.js";
 import { createSecretStore, type CreateSecretStoreOptions } from "../secrets/secret-store-factory.js";
 import { SECRET_ENV_VARS, type SecretEnvVar } from "../secrets/migrate-secrets.js";
@@ -306,14 +307,6 @@ async function readEnvFileIfExists(filePath: string): Promise<string | null> {
 
     throw error;
   }
-}
-
-async function writeFileAtomically(filePath: string, content: string): Promise<void> {
-  await fs.mkdir(path.dirname(filePath), { recursive: true });
-
-  const tempFilePath = `${filePath}.${process.pid}.tmp`;
-  await fs.writeFile(tempFilePath, content, "utf-8");
-  await fs.rename(tempFilePath, filePath);
 }
 
 function getEnvExamplePath(): string {
