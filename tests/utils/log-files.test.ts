@@ -142,4 +142,79 @@ describe("utils/log-files filesystem helpers", () => {
 
     expect((await fs.stat(file)).mode & 0o777).toBe(0o600);
   });
+
+  it("sorts same-second sources files by numeric pid", async () => {
+    const pid9 = "opencode-telegram-bot-2026-01-01_00-00-00_9.log";
+    const pid10 = "opencode-telegram-bot-2026-01-01_00-00-00_10.log";
+    await touch(pid9);
+    await touch(pid10);
+
+    await pruneLogFiles(root, getMainLogFilePattern("sources"), 1, vi.fn());
+
+    expect(await fs.readdir(root)).toEqual([pid10]);
+  });
+
+  it("prunes sources-mode files, removing the oldest first", async () => {
+    const names = [
+      "opencode-telegram-bot-2026-01-01_00-00-00_5.log",
+      "opencode-telegram-bot-2026-01-02_00-00-00_5.log",
+      "opencode-telegram-bot-2026-01-03_00-00-00_5.log",
+      "opencode-telegram-bot-2026-01-04_00-00-00_5.log",
+    ];
+    for (const name of names) {
+      await touch(name);
+    }
+
+    await pruneLogFiles(root, getMainLogFilePattern("sources"), 2, vi.fn());
+
+    expect((await fs.readdir(root)).sort()).toEqual([names[2], names[3]]);
+  });
+
+  it("prunes interleaved same-date main and service files independently", async () => {
+    const main = [
+      "opencode-telegram-bot-2026-01-01.log",
+      "opencode-telegram-bot-2026-01-02.log",
+      "opencode-telegram-bot-2026-01-03.log",
+    ];
+    const service = [
+      "opencode-telegram-bot-service-2026-01-01_00-00-00.log",
+      "opencode-telegram-bot-service-2026-01-02_00-00-00.log",
+      "opencode-telegram-bot-service-2026-01-03_00-00-00.log",
+    ];
+    for (const name of [...main, ...service]) {
+      await touch(name);
+    }
+
+    await pruneLogFiles(root, getMainLogFilePattern("installed"), 1, vi.fn());
+    expect((await fs.readdir(root)).sort()).toEqual([main[2], ...service].sort());
+
+    await pruneLogFiles(root, SERVICE_LOG_FILE_PATTERN, 1, vi.fn());
+    expect((await fs.readdir(root)).sort()).toEqual([main[2], service[2]].sort());
+  });
+
+  it.skipIf(isWindows)("rejects secureLogFile on a missing file with ENOENT", async () => {
+    await expect(secureLogFile(path.join(root, "missing.log"))).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+  });
+
+  it("rejects when the target path is a regular file", async () => {
+    const file = path.join(root, "not-a-dir");
+    await fs.writeFile(file, "x");
+
+    await expect(ensureLogsDir(file)).rejects.toThrow();
+  });
+
+  it.skipIf(isWindows)("propagates a chmod failure on an existing directory", async () => {
+    const target = path.join(root, "locked");
+    await fs.mkdir(target);
+    const failure = Object.assign(new Error("EPERM"), { code: "EPERM" });
+    const spy = vi.spyOn(fs, "chmod").mockRejectedValueOnce(failure);
+
+    try {
+      await expect(ensureLogsDir(target)).rejects.toBe(failure);
+    } finally {
+      spy.mockRestore();
+    }
+  });
 });

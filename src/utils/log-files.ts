@@ -37,6 +37,8 @@ export const SERVICE_LOG_FILE_PATTERN = new RegExp(
 
 // Creates the directory (and parents) owner-only, and tightens a pre-existing
 // directory. Permission bits are not enforced on Windows, so chmod is skipped there.
+// Errors (path is a file, mkdir or chmod failure) are deliberately NOT caught:
+// callers decide whether to warn (logger) or fail startup (daemon service).
 export async function ensureLogsDir(dirPath: string): Promise<void> {
   await fsPromises.mkdir(dirPath, { recursive: true, mode: DIR_MODE });
 
@@ -45,10 +47,32 @@ export async function ensureLogsDir(dirPath: string): Promise<void> {
   }
 }
 
+// Restricts the file to owner read/write. Errors (for example ENOENT when the
+// file does not exist) propagate to the caller; chmod is skipped on Windows.
 export async function secureLogFile(filePath: string): Promise<void> {
   if (process.platform !== "win32") {
     await fsPromises.chmod(filePath, FILE_MODE);
   }
+}
+
+const PID_SUFFIX_PATTERN = /^(.*)_(\d+)\.log$/;
+
+// Lexical order, except that a trailing "_<pid>.log" compares numerically so
+// same-second files from different processes order by pid ("9" before "10").
+function compareLogNames(a: string, b: string): number {
+  const matchA = PID_SUFFIX_PATTERN.exec(a);
+  const matchB = PID_SUFFIX_PATTERN.exec(b);
+
+  if (matchA && matchB) {
+    const [, headA = "", pidA = "0"] = matchA;
+    const [, headB = "", pidB = "0"] = matchB;
+    if (headA !== headB) {
+      return headA < headB ? -1 : 1;
+    }
+    return Number(pidA) - Number(pidB);
+  }
+
+  return a < b ? -1 : a > b ? 1 : 0;
 }
 
 export async function pruneLogFiles(
@@ -66,7 +90,9 @@ export async function pruneLogFiles(
     return;
   }
 
-  const matchingFiles = fileNames.filter((fileName) => pattern.test(fileName)).sort();
+  const matchingFiles = fileNames
+    .filter((fileName) => pattern.test(fileName))
+    .sort(compareLogNames);
   const filesToDelete = matchingFiles.slice(0, Math.max(0, matchingFiles.length - retention));
 
   await Promise.all(
