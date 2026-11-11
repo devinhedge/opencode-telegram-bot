@@ -524,6 +524,8 @@ export const ar: I18nDictionary = {
     'قيمة LOG_LOCATION غير صالحة "{value}" ولا يتوفر طرفية تفاعلية. سيتم استخدام default.\n',
   "runtime.logs.location_invalid_env":
     'قيمة LOG_LOCATION غير صالحة "{value}" في البيئة. سيتم استخدام default.\n',
+  "runtime.logs.location_persist_failed": "تعذر حفظ LOG_LOCATION في {envPath}: {reason}\n",
+  "runtime.logs.env_read_failed": "تعذرت قراءة {envPath}: {reason}\n",
   "runtime.wizard.tty_required":
     "يتطلب معالج الإعداد التفاعلي طرفية TTY. شغّل `opencode-telegram config` في shell تفاعلية.",
   "runtime.wizard.backend_selected":

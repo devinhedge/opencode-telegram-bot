@@ -551,6 +551,9 @@ export const ru: I18nDictionary = {
     'Недопустимое значение LOG_LOCATION "{value}", интерактивный терминал недоступен. Используется default.\n',
   "runtime.logs.location_invalid_env":
     'Недопустимое значение LOG_LOCATION "{value}" в окружении. Используется default.\n',
+  "runtime.logs.location_persist_failed":
+    "Не удалось сохранить LOG_LOCATION в {envPath}: {reason}\n",
+  "runtime.logs.env_read_failed": "Не удалось прочитать {envPath}: {reason}\n",
   "runtime.wizard.tty_required":
     "Интерактивный wizard требует TTY-терминал. Запустите `opencode-telegram config` в интерактивной оболочке.",
   "runtime.wizard.backend_selected":

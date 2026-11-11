@@ -603,6 +603,9 @@ export const en = {
     'Invalid LOG_LOCATION value "{value}" and no interactive terminal is available. Using default.\n',
   "runtime.logs.location_invalid_env":
     'Invalid LOG_LOCATION value "{value}" in the environment. Using default.\n',
+  "runtime.logs.location_persist_failed":
+    "Could not save LOG_LOCATION to {envPath}: {reason}\n",
+  "runtime.logs.env_read_failed": "Could not read {envPath}: {reason}\n",
   "runtime.wizard.tty_required":
     "Interactive wizard requires a TTY terminal. Run `opencode-telegram config` in an interactive shell.",
   "runtime.container.command_unavailable":

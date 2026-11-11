@@ -536,6 +536,9 @@ export const id: I18nDictionary = {
     'Nilai LOG_LOCATION tidak valid "{value}" dan tidak ada terminal interaktif. Menggunakan default.\n',
   "runtime.logs.location_invalid_env":
     'Nilai LOG_LOCATION tidak valid "{value}" di lingkungan. Menggunakan default.\n',
+  "runtime.logs.location_persist_failed":
+    "Tidak dapat menyimpan LOG_LOCATION ke {envPath}: {reason}\n",
+  "runtime.logs.env_read_failed": "Tidak dapat membaca {envPath}: {reason}\n",
   "runtime.wizard.tty_required":
     "Wizard interaktif memerlukan terminal TTY. Jalankan `opencode-telegram config` di shell interaktif.",
   "runtime.wizard.backend_selected":

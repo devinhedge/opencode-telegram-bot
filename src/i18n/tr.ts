@@ -537,6 +537,9 @@ export const tr: I18nDictionary = {
     'Geçersiz LOG_LOCATION değeri "{value}" ve etkileşimli terminal yok. default kullanılıyor.\n',
   "runtime.logs.location_invalid_env":
     'Ortamda geçersiz LOG_LOCATION değeri "{value}". default kullanılıyor.\n',
+  "runtime.logs.location_persist_failed":
+    "LOG_LOCATION {envPath} dosyasına kaydedilemedi: {reason}\n",
+  "runtime.logs.env_read_failed": "{envPath} okunamadı: {reason}\n",
   "runtime.wizard.tty_required":
     "Etkileşimli sihirbaz bir TTY terminali gerektirir. `opencode-telegram config` komutunu etkileşimli bir kabukta çalıştırın.",
   "runtime.wizard.backend_selected":

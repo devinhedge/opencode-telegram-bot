@@ -110,7 +110,12 @@ async function promptForLogLocation(
     try {
       await persistEnvValue(envFilePath, LOG_LOCATION_KEY, answer);
     } catch (error) {
-      warn(`Could not save ${LOG_LOCATION_KEY} to ${envFilePath}: ${describeError(error)}\n`);
+      warn(
+        t("runtime.logs.location_persist_failed", {
+          envPath: envFilePath,
+          reason: describeError(error),
+        }),
+      );
     }
 
     return answer;
@@ -141,7 +146,12 @@ async function resolveLogsDir(options: ResolveLogsDirOptions): Promise<string> {
     try {
       setting = parseLogLocation(await readEnvFileLogLocation(runtimePaths.envFilePath));
     } catch (error) {
-      warn(`Could not read ${runtimePaths.envFilePath}: ${describeError(error)}\n`);
+      warn(
+        t("runtime.logs.env_read_failed", {
+          envPath: runtimePaths.envFilePath,
+          reason: describeError(error),
+        }),
+      );
       return canonicalDir;
     }
   }
@@ -167,7 +177,16 @@ async function resolveLogsDir(options: ResolveLogsDirOptions): Promise<string> {
 }
 
 export function resolveLogsDirPath(options: ResolveLogsDirOptions = {}): Promise<string> {
-  resolvedLogsDir ??= resolveLogsDir(options);
+  if (!resolvedLogsDir) {
+    const pending = resolveLogsDir(options);
+    resolvedLogsDir = pending;
+    // A rejected resolution must not stay memoized, so the next call retries.
+    pending.catch(() => {
+      if (resolvedLogsDir === pending) {
+        resolvedLogsDir = undefined;
+      }
+    });
+  }
   return resolvedLogsDir;
 }
 

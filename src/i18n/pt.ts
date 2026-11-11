@@ -553,6 +553,9 @@ export const pt: I18nDictionary = {
     'Valor de LOG_LOCATION inválido "{value}" e nenhum terminal interativo disponível. Usando default.\n',
   "runtime.logs.location_invalid_env":
     'Valor de LOG_LOCATION inválido "{value}" no ambiente. Usando default.\n',
+  "runtime.logs.location_persist_failed":
+    "Não foi possível salvar LOG_LOCATION em {envPath}: {reason}\n",
+  "runtime.logs.env_read_failed": "Não foi possível ler {envPath}: {reason}\n",
   "runtime.wizard.tty_required":
     "O assistente interativo requer um terminal TTY. Execute `opencode-telegram config` em um shell interativo.",
   "runtime.wizard.backend_selected":

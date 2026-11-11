@@ -8,6 +8,7 @@ import {
   resolveCanonicalLogsDir,
   resolveLogsDirPath,
 } from "../../src/runtime/log-location.js";
+import { t } from "../../src/i18n/index.js";
 import { persistEnvValue } from "../../src/runtime/env-file.js";
 
 const pathsState = vi.hoisted(() => ({ appHome: "" }));
@@ -178,6 +179,25 @@ describe("resolveLogsDirPath", () => {
 
     expect(dir).toBe(canonicalDir);
     expect(warn).toHaveBeenCalledTimes(1);
+    const message = String(warn.mock.calls[0]?.[0]);
+    expect(message).toBe(
+      t("runtime.logs.env_read_failed", {
+        envPath: envFilePath,
+        reason: message.slice(message.indexOf("EISDIR")).split("\n")[0] ?? "",
+      }),
+    );
+    expect(message).toContain(envFilePath);
+    expect(message).toContain("EISDIR");
+  });
+
+  it("does not keep a rejected resolution memoized", async () => {
+    await fs.writeFile(envFilePath, "LOG_LOCATION=bogus\n", "utf-8");
+    const ask = vi.fn().mockRejectedValueOnce(new Error("stdin closed")).mockResolvedValue("app");
+    const options = { env: baseEnv(), isInteractive: true, ask, warn: vi.fn() };
+
+    await expect(resolveLogsDirPath(options)).rejects.toThrow("stdin closed");
+    await expect(resolveLogsDirPath(options)).resolves.toBe(appLogsDir);
+    expect(ask).toHaveBeenCalledTimes(2);
   });
 
   describe("invalid value from .env", () => {
@@ -226,7 +246,9 @@ describe("resolveLogsDirPath", () => {
       });
 
       expect(dir).toBe(appLogsDir);
-      expect(warn.mock.calls.some(([message]) => String(message).includes("disk full"))).toBe(true);
+      expect(warn).toHaveBeenCalledWith(
+        t("runtime.logs.location_persist_failed", { envPath: envFilePath, reason: "disk full" }),
+      );
     });
 
     it("warns once and uses default without a TTY, without persisting", async () => {

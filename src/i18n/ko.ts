@@ -544,6 +544,9 @@ export const ko: I18nDictionary = {
     '잘못된 LOG_LOCATION 값 "{value}"이며 대화형 터미널을 사용할 수 없습니다. default를 사용합니다.\n',
   "runtime.logs.location_invalid_env":
     '환경 변수의 LOG_LOCATION 값 "{value}"이(가) 잘못되었습니다. default를 사용합니다.\n',
+  "runtime.logs.location_persist_failed":
+    "LOG_LOCATION을 {envPath}에 저장하지 못했습니다: {reason}\n",
+  "runtime.logs.env_read_failed": "{envPath}을(를) 읽지 못했습니다: {reason}\n",
   "runtime.wizard.tty_required":
     "대화형 마법사에는 TTY 터미널이 필요합니다. 대화형 셸에서 `opencode-telegram config`를 실행해 주세요.",
   "runtime.wizard.backend_selected":
