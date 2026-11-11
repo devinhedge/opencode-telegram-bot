@@ -109,6 +109,9 @@ describe("test app-home isolation", () => {
           vi.stubEnv("OPENCODE_TELEGRAM_HOME", customHome);
           store.setShowThinkingContent(false);
           await store.flushSettings();
+          // The canonical default directory lives in the user profile; this
+          // test pins the logger to the isolated app home instead.
+          vi.stubEnv("LOG_LOCATION", "app");
           const log = await import("../../src/utils/logger.js");
           await log.initializeLogger();
           log.logger.error("sandbox isolation sentinel");
