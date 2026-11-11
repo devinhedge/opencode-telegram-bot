@@ -423,7 +423,7 @@ let _cachedConfig: typeof _config | null = null;
 
 // Backward-compatible synchronous export. Populated at import time from .env;
 // secrets are overlaid by loadConfig() when a SecretStore is provided.
-export const config = _config;
+export let config = _config;
 
 const SECRET_ACCOUNTS = {
   telegramBotToken: "telegram_bot_token",
@@ -437,6 +437,7 @@ const SECRET_ACCOUNTS = {
 
 export async function loadConfig(secretStore?: SecretStore): Promise<typeof _config> {
   if (_cachedConfig) {
+    config = _cachedConfig;
     return _cachedConfig;
   }
 
@@ -532,5 +533,6 @@ export async function loadConfig(secretStore?: SecretStore): Promise<typeof _con
   }
 
   _cachedConfig = baseConfig;
+  config = baseConfig;
   return _cachedConfig;
 }
