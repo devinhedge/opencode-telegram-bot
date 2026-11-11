@@ -8,6 +8,7 @@ describe("cli/args", () => {
     expect(parsed).toEqual({
       command: "start",
       daemon: false,
+      restart: false,
       mode: undefined,
       showHelp: false,
     });
@@ -19,6 +20,7 @@ describe("cli/args", () => {
     expect(parsed).toEqual({
       command: "start",
       daemon: false,
+      restart: false,
       mode: "installed",
       showHelp: false,
     });
@@ -30,6 +32,7 @@ describe("cli/args", () => {
     expect(parsed).toEqual({
       command: "start",
       daemon: false,
+      restart: false,
       mode: "sources",
       showHelp: false,
     });
@@ -41,6 +44,7 @@ describe("cli/args", () => {
     expect(parsed).toEqual({
       command: "start",
       daemon: true,
+      restart: false,
       mode: undefined,
       showHelp: false,
     });
@@ -87,8 +91,42 @@ describe("cli/args", () => {
 
     expect(parsed.command).toBe("status");
     expect(parsed.daemon).toBe(true);
+    expect(parsed.restart).toBe(false);
     expect(parsed.showHelp).toBe(true);
     expect(parsed.error).toContain("--daemon");
+  });
+
+  it("parses restart flag for start", () => {
+    const parsed = parseCliArgs(["start", "--restart"]);
+
+    expect(parsed).toEqual({
+      command: "start",
+      daemon: false,
+      restart: true,
+      mode: undefined,
+      showHelp: false,
+    });
+  });
+
+  it("parses restart flag with daemon", () => {
+    const parsed = parseCliArgs(["start", "--restart", "--daemon"]);
+
+    expect(parsed).toEqual({
+      command: "start",
+      daemon: true,
+      restart: true,
+      mode: undefined,
+      showHelp: false,
+    });
+  });
+
+  it("rejects --restart for non-start commands", () => {
+    const parsed = parseCliArgs(["status", "--restart"]);
+
+    expect(parsed.command).toBe("status");
+    expect(parsed.restart).toBe(true);
+    expect(parsed.showHelp).toBe(true);
+    expect(parsed.error).toContain("--restart");
   });
 
   it("shows help when requested", () => {
@@ -97,6 +135,7 @@ describe("cli/args", () => {
     expect(parsed).toEqual({
       command: "start",
       daemon: false,
+      restart: false,
       mode: undefined,
       showHelp: true,
     });

@@ -376,6 +376,9 @@ const _config = {
   files: {
     maxFileSizeKb: parseInt(getEnvVar("CODE_FILE_MAX_SIZE_KB", false) || "100", 10),
   },
+  restart: {
+    gracePeriodSec: getOptionalPositiveIntEnvVar("RESTART_GRACE_PERIOD_SEC", 60),
+  },
   open: {
     browserRoots: getEnvVar("OPEN_BROWSER_ROOTS", false),
   },
