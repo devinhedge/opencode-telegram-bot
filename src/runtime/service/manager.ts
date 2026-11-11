@@ -279,6 +279,7 @@ export async function startBotDaemon(mode?: string): Promise<ServiceOperationRes
       const reason = error instanceof Error ? error.message : String(error);
       throw new Error(
         `Cannot open the service log in ${logsDirPath ?? "the logs directory"}: ${reason}`,
+        { cause: error },
       );
     }
 
@@ -326,7 +327,10 @@ export async function startBotDaemon(mode?: string): Promise<ServiceOperationRes
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    logger.error(`[Manager] Daemon start failed: ${errorMessage}${cleanupInfo}`);
+    logger.error(
+      `[Manager] Daemon start failed: ${errorMessage}${cleanupInfo}`,
+      ...(error instanceof Error && error.cause !== undefined ? [error.cause] : []),
+    );
     await clearServiceStateFile(stateFilePath);
     return {
       success: false,

@@ -1,3 +1,4 @@
+import fsSync from "node:fs";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -77,7 +78,9 @@ vi.mock("../../../src/utils/logger.js", () => ({
   },
 }));
 
-import { SERVICE_LOG_FILE_PATTERN } from "../../../src/utils/log-files.js";
+import { FILE_MODE, SERVICE_LOG_FILE_PATTERN } from "../../../src/utils/log-files.js";
+import { logger } from "../../../src/utils/logger.js";
+import { getServiceLogsDirFromEnv } from "../../../src/runtime/service/env.js";
 import {
   getBotServiceStatus,
   getServiceStateFilePath,
@@ -191,10 +194,108 @@ describe("runtime/service/manager", () => {
   it.skipIf(process.platform === "win32")("creates the service log owner-only", async () => {
     spawnMock.mockReturnValue({ pid: 4323, unref: vi.fn() });
 
+    const openSpy = vi.spyOn(fsSync, "openSync");
+
     const result = await startBotDaemon("installed");
 
     const stat = await fs.stat(result.service!.logFilePath);
     expect(stat.mode & 0o777).toBe(0o600);
+    expect(openSpy).toHaveBeenCalledWith(result.service!.logFilePath, "a", 0o600);
+  });
+
+  it("opens the service log with mode 0o600 as the third openSync argument", async () => {
+    spawnMock.mockReturnValue({ pid: 4325, unref: vi.fn() });
+    const openSpy = vi.spyOn(fsSync, "openSync");
+
+    const result = await startBotDaemon("installed");
+
+    expect(openSpy).toHaveBeenCalledTimes(1);
+    expect(openSpy.mock.calls[0]?.[2]).toBe(FILE_MODE);
+    expect(FILE_MODE).toBe(0o600);
+    expect(result.success).toBe(true);
+  });
+
+  it("closes the descriptor exactly once on success", async () => {
+    spawnMock.mockReturnValue({ pid: 4326, unref: vi.fn() });
+    const openSpy = vi.spyOn(fsSync, "openSync");
+    const closeSpy = vi.spyOn(fsSync, "closeSync");
+
+    await startBotDaemon("installed");
+
+    const descriptor = openSpy.mock.results[0]?.value as number;
+    expect(closeSpy.mock.calls.filter(([fd]) => fd === descriptor)).toHaveLength(1);
+  });
+
+  it("closes the descriptor exactly once when spawn fails", async () => {
+    spawnMock.mockImplementation(() => {
+      throw new Error("spawn boom");
+    });
+    const openSpy = vi.spyOn(fsSync, "openSync");
+    const closeSpy = vi.spyOn(fsSync, "closeSync");
+
+    const result = await startBotDaemon("installed");
+
+    expect(result.success).toBe(false);
+    const descriptor = openSpy.mock.results[0]?.value as number;
+    expect(closeSpy.mock.calls.filter(([fd]) => fd === descriptor)).toHaveLength(1);
+  });
+
+  it("closes the descriptor exactly once when writing the state file fails", async () => {
+    spawnMock.mockReturnValue({ pid: 4327, unref: vi.fn() });
+    vi.spyOn(fs, "rename").mockRejectedValueOnce(new Error("rename boom"));
+    const openSpy = vi.spyOn(fsSync, "openSync");
+    const closeSpy = vi.spyOn(fsSync, "closeSync");
+
+    const result = await startBotDaemon("installed");
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("rename boom");
+    const descriptor = openSpy.mock.results[0]?.value as number;
+    expect(closeSpy.mock.calls.filter(([fd]) => fd === descriptor)).toHaveLength(1);
+  });
+
+  it.skipIf(process.platform === "win32")(
+    "does not leak the descriptor when securing the service log throws",
+    async () => {
+      vi.spyOn(fsSync, "chmodSync").mockImplementation(() => {
+        throw new Error("chmod boom");
+      });
+      const openSpy = vi.spyOn(fsSync, "openSync");
+      const closeSpy = vi.spyOn(fsSync, "closeSync");
+
+      const result = await startBotDaemon("installed");
+
+      expect(result.success).toBe(false);
+      expect(spawnMock).not.toHaveBeenCalled();
+      const descriptor = openSpy.mock.results[0]?.value as number;
+      expect(closeSpy.mock.calls.filter(([fd]) => fd === descriptor)).toHaveLength(1);
+    },
+  );
+
+  it("hands a logs directory with a space and a non-ASCII character to the child", async () => {
+    logsDirState.value = path.join(tempDirPath, "logs dir é");
+    spawnMock.mockReturnValue({ pid: 4328, unref: vi.fn() });
+
+    const result = await startBotDaemon("installed");
+
+    expect(result.success).toBe(true);
+    const spawnOptions = spawnMock.mock.calls[0]?.[2] as { env: NodeJS.ProcessEnv };
+    expect(spawnOptions.env.OPENCODE_TELEGRAM_SERVICE_LOGS_DIR).toBe(logsDirState.value);
+    expect(getServiceLogsDirFromEnv(spawnOptions.env)).toBe(logsDirState.value);
+    expect(path.dirname(result.service!.logFilePath)).toBe(logsDirState.value);
+    await expect(fs.access(result.service!.logFilePath)).resolves.toBeUndefined();
+  });
+
+  it("keeps the cause of an open failure and logs it", async () => {
+    await fs.writeFile(logsDirState.value, "not a directory");
+
+    const result = await startBotDaemon("installed");
+
+    expect(result.error).toContain(`Cannot open the service log in ${logsDirState.value}`);
+    const errorCall = vi.mocked(logger.error).mock.calls.at(-1);
+    expect(errorCall?.[0]).toContain(logsDirState.value);
+    expect(errorCall?.[1]).toBeInstanceOf(Error);
+    expect((errorCall?.[1] as NodeJS.ErrnoException).code).toBeDefined();
   });
 
   it("fails before spawning when the logs directory path is a regular file", async () => {
@@ -219,10 +320,7 @@ describe("runtime/service/manager", () => {
       "opencode-telegram-bot-service-2020-01-02_00-00-00.log",
       "opencode-telegram-bot-service-2020-01-03_00-00-00.log",
     ];
-    const keptFiles = [
-      "opencode-telegram-bot-2020-01-01_00-00-00_123.log",
-      "notes.txt",
-    ];
+    const keptFiles = ["opencode-telegram-bot-2020-01-01_00-00-00_123.log", "notes.txt"];
     for (const name of [...oldServiceLogs, ...keptFiles]) {
       await fs.writeFile(path.join(logsDirState.value, name), "x");
     }
