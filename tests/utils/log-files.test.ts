@@ -7,6 +7,7 @@ import {
   SERVICE_LOG_FILE_PATTERN,
   buildMainLogFileName,
   buildServiceLogFileName,
+  compareLogNames,
   ensureLogsDir,
   getMainLogFilePattern,
   pruneLogFiles,
@@ -196,6 +197,24 @@ describe("utils/log-files filesystem helpers", () => {
     await expect(secureLogFile(path.join(root, "missing.log"))).rejects.toMatchObject({
       code: "ENOENT",
     });
+  });
+
+  it("orders mixed pid-suffix and plain names identically for every permutation", () => {
+    const names = ["p_9.log", "p_10.log", "p_1x.log"];
+    const permutations = [
+      [0, 1, 2],
+      [0, 2, 1],
+      [1, 0, 2],
+      [1, 2, 0],
+      [2, 0, 1],
+      [2, 1, 0],
+    ].map((order) => order.map((index) => names[index] as string));
+
+    const results = permutations.map((permutation) => [...permutation].sort(compareLogNames));
+
+    for (const result of results) {
+      expect(result).toEqual(["p_1x.log", "p_9.log", "p_10.log"]);
+    }
   });
 
   it("rejects when the target path is a regular file", async () => {

@@ -57,22 +57,44 @@ export async function secureLogFile(filePath: string): Promise<void> {
 
 const PID_SUFFIX_PATTERN = /^(.*)_(\d+)\.log$/;
 
-// Lexical order, except that a trailing "_<pid>.log" compares numerically so
-// same-second files from different processes order by pid ("9" before "10").
-function compareLogNames(a: string, b: string): number {
+function compareStrings(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+// Strict total order, oldest first:
+//   1. Names without a trailing "_<digits>.log" sort before names with one,
+//      and compare lexically within their group.
+//   2. Names with a pid suffix compare by the part before the pid lexically,
+//      then by pid numerically ("9" before "10"), then by the full name so
+//      equal-valued pids such as "07" and "7" still have a fixed order.
+export function compareLogNames(a: string, b: string): number {
   const matchA = PID_SUFFIX_PATTERN.exec(a);
   const matchB = PID_SUFFIX_PATTERN.exec(b);
 
-  if (matchA && matchB) {
-    const [, headA = "", pidA = "0"] = matchA;
-    const [, headB = "", pidB = "0"] = matchB;
-    if (headA !== headB) {
-      return headA < headB ? -1 : 1;
+  if (!matchA || !matchB) {
+    if (matchA) {
+      return 1;
     }
-    return Number(pidA) - Number(pidB);
+    if (matchB) {
+      return -1;
+    }
+    return compareStrings(a, b);
   }
 
-  return a < b ? -1 : a > b ? 1 : 0;
+  const [, headA = "", pidA = ""] = matchA;
+  const [, headB = "", pidB = ""] = matchB;
+  const byHead = compareStrings(headA, headB);
+  if (byHead !== 0) {
+    return byHead;
+  }
+
+  // Numeric compare on digit strings without precision loss.
+  const digitsA = pidA.replace(/^0+/, "");
+  const digitsB = pidB.replace(/^0+/, "");
+  if (digitsA.length !== digitsB.length) {
+    return digitsA.length - digitsB.length;
+  }
+  return compareStrings(digitsA, digitsB) || compareStrings(a, b);
 }
 
 export async function pruneLogFiles(
