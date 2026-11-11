@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import { createBot, restoreFollowedSessionOnPollingStart } from "../../bot/index.js";
 import { createScheduledTaskDeliverySender } from "../../bot/messages/scheduled-task-delivery.js";
-import { config } from "../../config.js";
+import { loadConfig } from "../../config.js";
 import {
   notifyOpencodeReadyIfHealthy,
   registerOpenCodeReadyRefreshHandler,
@@ -131,6 +131,8 @@ async function callTelegramAtStartup<T>(
 export async function startBotApp(): Promise<void> {
   await initializeLogger();
 
+  const config = await loadConfig();
+
   const mode = getRuntimeMode();
   const runtimePaths = getRuntimePaths();
   const version = await getBotVersion();
@@ -212,7 +214,10 @@ export async function startBotApp(): Promise<void> {
   const container = createAppContainer();
   registerOpenCodeReadyRefreshHandler(container);
   const { healthServer, opencodeAutoRestartService, scheduledTaskRuntime } = container;
-  await healthServer.start(config.health.port, version);
+  const actualHealthPort = await healthServer.start(config.health.port, version, config.health.autoScanEnabled);
+  if (actualHealthPort !== config.health.port) {
+    logger.info(`[App] Health server bound to port ${actualHealthPort} (requested: ${config.health.port})`);
+  }
   const localCommandRegistry = await LocalCommandRegistry.load({
     directoryPath: runtimePaths.localCommandsDirPath,
     builtInCommands: BUILT_IN_COMMAND_NAMES,

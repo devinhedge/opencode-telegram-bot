@@ -584,6 +584,13 @@ export const en = {
     "Enter OpenCode server password.\nPress Enter to keep the saved password.\n> ",
   "runtime.wizard.api_url_invalid": "Enter a valid URL (http/https) or press Enter for default.\n",
   "runtime.wizard.start": "OpenCode Telegram Bot setup.\n",
+  "runtime.wizard.backend_selected": "Using secret backend: {backend}\n",
+  "runtime.wizard.ask_keystore_password":
+    "Enter password for encrypted secret store:\n> ",
+  "runtime.wizard.keystore_password_required":
+    "Password is required for encrypted secret store. Please try again.\n",
+  "runtime.wizard.secret_verification_failed":
+    "Secret verification failed for account: {account}\n",
   "runtime.wizard.saved": "Configuration saved:\n- {envPath}\n",
   "runtime.wizard.not_configured_starting":
     "Application is not configured yet. Starting wizard...\n",

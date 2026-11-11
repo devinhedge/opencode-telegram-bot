@@ -2,6 +2,7 @@ import os from "node:os";
 import path from "node:path";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
+import type { SecretStore } from "../../src/secrets/secret-store.js";
 
 const mocked = vi.hoisted(() => ({
   createBotMock: vi.fn(),
@@ -32,6 +33,7 @@ const mocked = vi.hoisted(() => ({
   config: {
     health: {
       port: 3100,
+      autoScanEnabled: true,
     },
     opencode: {
       apiUrl: "http://localhost:4096",
@@ -69,6 +71,12 @@ vi.mock("../../src/bot/index.js", () => ({
 
 vi.mock("../../src/config.js", () => ({
   config: mocked.config,
+  loadConfig: vi.fn(async (store?: SecretStore) => {
+    if (store) {
+      await store.isAvailable();
+    }
+    return mocked.config;
+  }),
 }));
 
 vi.mock("../../src/opencode/ready-refresh.js", () => ({
@@ -293,7 +301,7 @@ describe("app/start-bot-app", () => {
     await startBotApp();
 
     expect(mocked.healthServerStartMock).toHaveBeenCalledTimes(1);
-    expect(mocked.healthServerStartMock).toHaveBeenCalledWith(3100, expect.any(String));
+    expect(mocked.healthServerStartMock).toHaveBeenCalledWith(3100, expect.any(String), true);
     expect(defined(mocked.healthServerStartMock.mock.invocationCallOrder[0])).toBeGreaterThan(
       defined(mocked.registerOpenCodeReadyRefreshHandlerMock.mock.invocationCallOrder[0]),
     );

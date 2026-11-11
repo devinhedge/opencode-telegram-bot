@@ -3,6 +3,10 @@ import { getRuntimePaths } from "./runtime/paths.js";
 import { isContainerRuntime } from "./runtime/container.js";
 import { BOT_HEALTH_PORT_ENV, resolveHealthPort } from "./runtime/health-port.js";
 import { normalizeLocale, type Locale } from "./i18n/index.js";
+import type { SecretStore } from "./secrets/secret-store.js";
+import { verifyIntegrity, storeIntegrityData } from "./secrets/integrity.js";
+import { migrateSecretsIfNeeded } from "./secrets/migrate-secrets.js";
+import { logger } from "./utils/logger.js";
 
 const runtimePaths = getRuntimePaths();
 dotenv.config({ path: runtimePaths.envFilePath, quiet: true });
@@ -215,7 +219,11 @@ function getOptionalSttRequestFormatEnvVar(
   return defaultValue;
 }
 
-export function buildTelegramConfig(): {
+export function buildTelegramConfig(secrets?: {
+  token?: string;
+  allowedUserId?: string;
+  proxySecret?: string;
+}): {
   token: string;
   allowedUserId: number;
   proxyUrl: string;
@@ -227,7 +235,6 @@ export function buildTelegramConfig(): {
   // grammY rejects an apiRoot ending with `/`, so normalize once at config
   // load instead of leaking the concern into every consumer.
   const apiRoot = getEnvVar("TELEGRAM_API_ROOT", false).replace(/\/+$/, "");
-  const proxySecret = getEnvVar("TELEGRAM_PROXY_SECRET", false);
   const forceIpv4 = getOptionalBooleanEnvVar("TELEGRAM_FORCE_IPV4", false);
 
   if (proxyUrl && apiRoot) {
@@ -237,7 +244,7 @@ export function buildTelegramConfig(): {
         "TELEGRAM_API_ROOT routes API calls through an HTTPS reverse proxy. Pick one.",
     );
   }
-  if (proxySecret && !apiRoot) {
+  if (secrets?.proxySecret && !apiRoot) {
     throw new Error(
       "TELEGRAM_PROXY_SECRET requires TELEGRAM_API_ROOT to be set. " +
         "Without a custom API root, the secret header would be sent to api.telegram.org.",
@@ -245,26 +252,84 @@ export function buildTelegramConfig(): {
   }
 
   return {
-    token: getEnvVar("TELEGRAM_BOT_TOKEN"),
-    allowedUserId: parseInt(getEnvVar("TELEGRAM_ALLOWED_USER_ID"), 10),
+    token: secrets?.token || getEnvVar("TELEGRAM_BOT_TOKEN", false) || "",
+    allowedUserId: secrets?.allowedUserId ? parseInt(secrets.allowedUserId, 10) : parseInt(getEnvVar("TELEGRAM_ALLOWED_USER_ID", false) || "0", 10),
     proxyUrl,
     apiRoot,
-    proxySecret,
+    proxySecret: secrets?.proxySecret || getEnvVar("TELEGRAM_PROXY_SECRET", false) || "",
     forceIpv4,
   };
 }
 
-const opencodeServerVersion = getOptionalOpencodeServerVersionEnvVar("OPENCODE_SERVER_VERSION");
+// opencodeServerVersion is detected at runtime (see detectOpencodeVersion)
+let opencodeServerVersion: OpencodeServerVersion = getOptionalOpencodeServerVersionEnvVar("OPENCODE_SERVER_VERSION");
+
+/** Detect the installed OpenCode version and return the API version (v1 or v2). */
+export async function detectOpencodeVersion(): Promise<OpencodeServerVersion> {
+  try {
+    const { readLocalOpencodeVersion, getOpencodeApiVersion } = await import("./opencode/process.js");
+    const versionString = await readLocalOpencodeVersion();
+    if (versionString) {
+      return getOpencodeApiVersion(versionString);
+    }
+  } catch {
+    // Fall through to default
+  }
+  return opencodeServerVersion;
+}
+
+/** Persist the detected OpenCode version to .env atomically. */
+export async function persistOpencodeVersion(version: OpencodeServerVersion): Promise<void> {
+  const fs = await import("node:fs/promises");
+  
+  const envPath = runtimePaths.envFilePath;
+  let content = "";
+  try {
+    content = await fs.readFile(envPath, "utf-8");
+  } catch {
+    // File doesn't exist, start fresh
+  }
+
+  const lines = content.split(/\r?\n/);
+  let found = false;
+  const updated = lines.map((line) => {
+    const match = line.match(/^OPENCODE_SERVER_VERSION\s*=/);
+    if (match) {
+      found = true;
+      return `OPENCODE_SERVER_VERSION=${version}`;
+    }
+    return line;
+  });
+
+  if (!found) {
+    updated.push(`OPENCODE_SERVER_VERSION=${version}`);
+  }
+
+  const newContent = updated.join("\n");
+  const tempPath = `${envPath}.tmp`;
+  await fs.writeFile(tempPath, newContent, "utf-8");
+  await fs.rename(tempPath, envPath);
+}
+
+/** Get the current detected opencode server version. */
+export function getOpencodeServerVersion(): OpencodeServerVersion {
+  return opencodeServerVersion;
+}
+
+/** Set the opencode server version (used during detection). */
+export function setOpencodeServerVersion(version: OpencodeServerVersion): void {
+  opencodeServerVersion = version;
+}
 const opencodeServerMode = resolveOpencodeServerMode(opencodeServerVersion);
 
-export const config = {
-  telegram: buildTelegramConfig(),
+const _config = {
+  telegram: buildTelegramConfig({}),
   opencode: {
     serverVersion: opencodeServerVersion,
     serverMode: opencodeServerMode,
     apiUrl: resolveOpencodeApiUrl(opencodeServerVersion, opencodeServerMode),
     username: getEnvVar("OPENCODE_SERVER_USERNAME", false) || "opencode",
-    password: getEnvVar("OPENCODE_SERVER_PASSWORD", false),
+    password: getEnvVar("OPENCODE_SERVER_PASSWORD", false) || "",
     autoRestartEnabled: getOptionalBooleanEnvVar("OPENCODE_AUTO_RESTART_ENABLED", false),
     monitorIntervalSec: getOptionalPositiveIntEnvVar("OPENCODE_MONITOR_INTERVAL_SEC", 300),
     model: {
@@ -276,7 +341,12 @@ export const config = {
     logLevel: getEnvVar("LOG_LEVEL", false) || "info",
   },
   health: {
-    port: resolveHealthPort(getEnvVar(BOT_HEALTH_PORT_ENV, false), isContainerRuntime()),
+    port: resolveHealthPort(
+      getEnvVar(BOT_HEALTH_PORT_ENV, false),
+      isContainerRuntime(),
+      getOptionalBooleanEnvVar("BOT_HEALTH_PORT_AUTO", true),
+    ),
+    autoScanEnabled: getOptionalBooleanEnvVar("BOT_HEALTH_PORT_AUTO", true),
   },
   bot: {
     sessionsListLimit: getOptionalPositiveIntEnvVar("SESSIONS_LIST_LIMIT", 10),
@@ -311,7 +381,7 @@ export const config = {
   },
   stt: {
     apiUrl: getEnvVar("STT_API_URL", false),
-    apiKey: getEnvVar("STT_API_KEY", false),
+    apiKey: getEnvVar("STT_API_KEY", false) || "",
     model: getEnvVar("STT_MODEL", false) || "whisper-large-v3-turbo",
     language: getEnvVar("STT_LANGUAGE", false),
     notePrompt: getEnvVar("STT_NOTE_PROMPT", false),
@@ -321,7 +391,7 @@ export const config = {
   },
   docExtractor: {
     apiUrl: getEnvVar("DOC_EXTRACTOR_URL", false),
-    apiKey: getEnvVar("DOC_EXTRACTOR_API_KEY", false),
+    apiKey: getEnvVar("DOC_EXTRACTOR_API_KEY", false) || "",
   },
   tts: (() => {
     const provider = getOptionalTtsProviderEnvVar("TTS_PROVIDER", "openai");
@@ -337,10 +407,127 @@ export const config = {
       provider === "elevenlabs" ? "eleven_flash_v2_5" : "gpt-4o-mini-tts";
     return {
       apiUrl: getEnvVar("TTS_API_URL", false),
-      apiKey: getEnvVar("TTS_API_KEY", false),
+      apiKey: getEnvVar("TTS_API_KEY", false) || "",
       provider,
       model: getEnvVar("TTS_MODEL", false) || defaultModel,
       voice: getEnvVar("TTS_VOICE", false) || defaultVoice,
     };
   })(),
 };
+
+
+let _cachedConfig: typeof _config | null = null;
+
+// Backward-compatible synchronous export. Populated at import time from .env;
+// secrets are overlaid by loadConfig() when a SecretStore is provided.
+export const config = _config;
+
+const SECRET_ACCOUNTS = {
+  telegramBotToken: "telegram_bot_token",
+  telegramProxySecret: "telegram_proxy_secret",
+  opencodeServerPassword: "opencode_server_password",
+  sttApiKey: "stt_api_key",
+  ttsApiKey: "tts_api_key",
+  docExtractorApiKey: "doc_extractor_api_key",
+  allowedUserId: "allowed_user_id",
+} as const;
+
+export async function loadConfig(secretStore?: SecretStore): Promise<typeof _config> {
+  if (_cachedConfig) {
+    return _cachedConfig;
+  }
+
+  // Auto-detect OpenCode version and override config
+  const previousVersion = opencodeServerVersion;
+  const detectedVersion = await detectOpencodeVersion();
+  if (detectedVersion !== previousVersion) {
+    logger.info(`[Config] OpenCode version changed: ${previousVersion} → ${detectedVersion} (auto-corrected)`);
+  } else {
+    logger.info(`[Config] Detected OpenCode ${detectedVersion}`);
+  }
+  setOpencodeServerVersion(detectedVersion);
+
+  // Persist detected version to .env
+  try {
+    await persistOpencodeVersion(detectedVersion);
+    logger.debug(`[Config] Persisted OPENCODE_SERVER_VERSION=${detectedVersion} to .env`);
+  } catch (error) {
+    logger.warn(`[Config] Failed to persist OpenCode version to .env: ${error}`);
+  }
+
+  // Create a secret store if one wasn't provided
+  if (!secretStore) {
+    try {
+      const { createSecretStore } = await import("./secrets/secret-store-factory.js");
+      secretStore = await createSecretStore({ appHome: runtimePaths.appHome });
+    } catch {
+      // No secret store available, continue with .env values
+      secretStore = undefined;
+    }
+  }
+
+  // Run migration from .env to secret store if secrets exist in .env
+  if (secretStore) {
+    await migrateSecretsIfNeeded(secretStore, runtimePaths.envFilePath);
+  }
+
+  const baseConfig = { ..._config };
+
+  // Override serverVersion and related fields based on detected version
+  baseConfig.opencode.serverVersion = opencodeServerVersion;
+  baseConfig.opencode.serverMode = resolveOpencodeServerMode(opencodeServerVersion);
+  baseConfig.opencode.apiUrl = resolveOpencodeApiUrl(opencodeServerVersion, baseConfig.opencode.serverMode);
+
+  if (secretStore) {
+    const secrets: Record<string, string | null> = {};
+
+    for (const [key, account] of Object.entries(SECRET_ACCOUNTS)) {
+      try {
+        secrets[key] = await secretStore.getSecret(account);
+      } catch {
+        secrets[key] = null;
+      }
+    }
+
+    if (secrets.telegramBotToken) {
+      baseConfig.telegram.token = secrets.telegramBotToken;
+    }
+    if (secrets.telegramProxySecret) {
+      baseConfig.telegram.proxySecret = secrets.telegramProxySecret;
+    }
+    if (secrets.opencodeServerPassword) {
+      baseConfig.opencode.password = secrets.opencodeServerPassword;
+    }
+    if (secrets.sttApiKey) {
+      baseConfig.stt.apiKey = secrets.sttApiKey;
+    }
+    if (secrets.ttsApiKey) {
+      baseConfig.tts.apiKey = secrets.ttsApiKey;
+    }
+    if (secrets.docExtractorApiKey) {
+      baseConfig.docExtractor.apiKey = secrets.docExtractorApiKey;
+    }
+    if (secrets.allowedUserId) {
+      baseConfig.telegram.allowedUserId = parseInt(secrets.allowedUserId, 10);
+    }
+
+    // Verify integrity of loaded secrets
+    const envValues: Record<string, string | undefined> = {
+      telegramBotToken: baseConfig.telegram.token,
+      telegramProxySecret: baseConfig.telegram.proxySecret || undefined,
+      opencodeServerPassword: baseConfig.opencode.password || undefined,
+      sttApiKey: baseConfig.stt.apiKey || undefined,
+      ttsApiKey: baseConfig.tts.apiKey || undefined,
+      docExtractorApiKey: baseConfig.docExtractor.apiKey || undefined,
+      allowedUserId: String(baseConfig.telegram.allowedUserId),
+    };
+
+    await verifyIntegrity(secretStore, envValues);
+
+    // Store/update integrity data for future verification
+    await storeIntegrityData(secretStore, envValues);
+  }
+
+  _cachedConfig = baseConfig;
+  return _cachedConfig;
+}

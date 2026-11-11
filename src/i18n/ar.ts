@@ -517,6 +517,14 @@ export const ar: I18nDictionary = {
     "لم يتم إعداد التطبيق بعد. جارٍ تشغيل معالج الإعداد...\n",
   "runtime.wizard.tty_required":
     "يتطلب معالج الإعداد التفاعلي طرفية TTY. شغّل `opencode-telegram config` في shell تفاعلية.",
+  "runtime.wizard.backend_selected":
+    "يتم استخدام مستودع الأسرار: {backend}\n",
+  "runtime.wizard.ask_keystore_password":
+    "أدخل كلمة المرور لمستودع الأسرار المشفر:\n> ",
+  "runtime.wizard.keystore_password_required":
+    "كلمة المرور مطلوبة لمستودع الأسرار المشفر. حاول مرة أخرى.\n",
+  "runtime.wizard.secret_verification_failed":
+    "فشل التحقق من السر للحساب: {account}\n",
   "runtime.container.command_unavailable":
     "⚠️ هذا الأمر غير متاح في صورة Docker.",
 
