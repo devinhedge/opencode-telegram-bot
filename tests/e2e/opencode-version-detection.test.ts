@@ -16,7 +16,7 @@ describe("OpenCode version sensing (real detection)", () => {
       const apiVersion = getOpencodeApiVersion(version);
       expect(["v1", "v2"]).toContain(apiVersion);
       // OpenCode 2.x → v2
-      const major = parseInt(version.split(".")[0], 10);
+      const major = parseInt(version.split(".")[0]!, 10);
       expect(apiVersion).toBe(major >= 2 ? "v2" : "v1");
     }
   });
