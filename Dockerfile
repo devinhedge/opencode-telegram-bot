@@ -44,6 +44,9 @@ ENV NODE_ENV=production
 # Set persistent home for the bot
 ENV OPENCODE_TELEGRAM_HOME=/app/data
 
+# Write logs under the app home; a real env var beats .env, and the data volume can shadow an image-baked .env
+ENV LOG_LOCATION=app
+
 # Create data directories with correct ownership for node user
 RUN mkdir -p /app/data/logs /app/data/run && \
     chown -R node:node /app

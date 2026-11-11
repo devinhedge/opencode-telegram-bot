@@ -532,6 +532,10 @@ export const pt: I18nDictionary = {
   "runtime.wizard.ask_server_version":
     "Select OpenCode server version:\n1 - OpenCode V1 (1.x, npm package opencode-ai)\n2 - OpenCode V2 (2.x, npm package @opencode/cli)\nPress Enter to use default: {defaultVersion}\n> ",
   "runtime.wizard.server_version_invalid": "Enter 1 or 2, or press Enter for default.\n",
+  "runtime.wizard.ask_log_location":
+    "Escolha onde os logs são gravados:\n1) default: o diretório de logs do sistema operacional\n2) app: a pasta de logs no diretório inicial do aplicativo\nPressione Enter para {defaultLocation}\n> ",
+  "runtime.wizard.log_location_invalid":
+    "Digite 1 ou 2, ou pressione Enter para o valor padrão.\n",
   "runtime.wizard.ask_server_password_required":
     "Enter OpenCode V2 server password (required).\nShow it with: opencode service get password\n> ",
   "runtime.wizard.server_password_required":

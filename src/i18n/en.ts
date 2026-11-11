@@ -576,6 +576,9 @@ export const en = {
   "runtime.wizard.ask_server_version":
     "Select OpenCode server version:\n1 - OpenCode V1 (1.x, npm package opencode-ai)\n2 - OpenCode V2 (2.x, npm package @opencode/cli)\nPress Enter to use default: {defaultVersion}\n> ",
   "runtime.wizard.server_version_invalid": "Enter 1 or 2, or press Enter for default.\n",
+  "runtime.wizard.ask_log_location":
+    "Choose where logs are written:\n1) default: the operating system log directory\n2) app: the app home logs folder\nPress Enter for {defaultLocation}\n> ",
+  "runtime.wizard.log_location_invalid": "Enter 1 or 2, or press Enter for default.\n",
   "runtime.wizard.ask_server_password_required":
     "Enter OpenCode V2 server password (required).\nShow it with: opencode service get password\n> ",
   "runtime.wizard.server_password_required":

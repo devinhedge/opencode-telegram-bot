@@ -530,6 +530,10 @@ export const ru: I18nDictionary = {
     "Выберите версию сервера OpenCode:\n1 - OpenCode V1 (1.x, npm-пакет opencode-ai)\n2 - OpenCode V2 (2.x, npm-пакет @opencode/cli)\nНажмите Enter, чтобы использовать значение по умолчанию: {defaultVersion}\n> ",
   "runtime.wizard.server_version_invalid":
     "Введите 1 или 2 либо нажмите Enter для значения по умолчанию.\n",
+  "runtime.wizard.ask_log_location":
+    "Выберите, куда записывать логи:\n1) default: каталог логов операционной системы\n2) app: папка logs в домашнем каталоге приложения\nНажмите Enter для {defaultLocation}\n> ",
+  "runtime.wizard.log_location_invalid":
+    "Введите 1 или 2 либо нажмите Enter для значения по умолчанию.\n",
   "runtime.wizard.ask_server_password_required":
     "Введите пароль сервера OpenCode V2 (обязательно).\nПоказать его: opencode service get password\n> ",
   "runtime.wizard.server_password_required":

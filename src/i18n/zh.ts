@@ -478,6 +478,9 @@ export const zh: I18nDictionary = {
   "runtime.wizard.ask_server_version":
     "Select OpenCode server version:\n1 - OpenCode V1 (1.x, npm package opencode-ai)\n2 - OpenCode V2 (2.x, npm package @opencode/cli)\nPress Enter to use default: {defaultVersion}\n> ",
   "runtime.wizard.server_version_invalid": "Enter 1 or 2, or press Enter for default.\n",
+  "runtime.wizard.ask_log_location":
+    "选择日志的写入位置：\n1) default：操作系统日志目录\n2) app：应用主目录下的 logs 文件夹\n按 Enter 使用 {defaultLocation}\n> ",
+  "runtime.wizard.log_location_invalid": "请输入 1 或 2，或按 Enter 使用默认值。\n",
   "runtime.wizard.ask_server_password_required":
     "Enter OpenCode V2 server password (required).\nShow it with: opencode service get password\n> ",
   "runtime.wizard.server_password_required":

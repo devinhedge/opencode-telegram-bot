@@ -17,6 +17,7 @@ import {
   type Locale,
 } from "../i18n/index.js";
 import type { OpencodeServerVersion } from "../config.js";
+import { parseLogLocation, type LogLocation } from "./log-location.js";
 
 const DEFAULT_API_URLS: Record<OpencodeServerVersion, string> = {
   v1: "http://localhost:4096",
@@ -45,6 +46,7 @@ interface WizardCollectedValues {
   apiUrl?: string | undefined;
   serverUsername: string;
   serverPassword?: string | undefined;
+  logLocation: LogLocation;
 }
 
 export interface WizardEnvValues {
@@ -57,6 +59,7 @@ export interface WizardEnvValues {
   OPENCODE_SERVER_PASSWORD?: string | undefined;
   OPENCODE_MODEL_PROVIDER: string;
   OPENCODE_MODEL_ID: string;
+  LOG_LOCATION?: LogLocation | undefined;
 }
 
 interface ParsedEnvAssignmentLine {
@@ -76,7 +79,10 @@ const WIZARD_ENV_KEYS: ReadonlyArray<keyof WizardEnvValues> = [
   "OPENCODE_SERVER_PASSWORD",
   "OPENCODE_MODEL_PROVIDER",
   "OPENCODE_MODEL_ID",
+  "LOG_LOCATION",
 ];
+
+const LOG_LOCATION_OPTIONS: ReadonlyArray<LogLocation> = ["default", "app"];
 
 function isPositiveInteger(value: string): boolean {
   return /^[1-9]\d*$/.test(value);
@@ -229,6 +235,7 @@ function buildFlatEnvFileContent(existingContent: string, values: WizardEnvValue
     ["OPENCODE_SERVER_PASSWORD", values.OPENCODE_SERVER_PASSWORD],
     ["OPENCODE_MODEL_PROVIDER", values.OPENCODE_MODEL_PROVIDER],
     ["OPENCODE_MODEL_ID", values.OPENCODE_MODEL_ID],
+    ["LOG_LOCATION", values.LOG_LOCATION],
   ];
 
   for (const [key, value] of orderedUpdates) {
@@ -477,6 +484,37 @@ async function askServerVersion(
   }
 }
 
+/** The location offered by default: the saved valid choice on a re-run, else `default`. */
+function getWizardLogLocationDefault(existingEnvContent: string | null): LogLocation {
+  if (existingEnvContent === null) {
+    return "default";
+  }
+
+  const saved = parseLogLocation(dotenv.parse(existingEnvContent).LOG_LOCATION);
+  return saved.kind === "valid" ? saved.value : "default";
+}
+
+async function askLogLocation(defaultLocation: LogLocation): Promise<LogLocation> {
+  const prompt = t("runtime.wizard.ask_log_location", { defaultLocation });
+
+  for (;;) {
+    const answer = (await askVisible(prompt)).trim().toLowerCase();
+
+    if (!answer) {
+      return defaultLocation;
+    }
+
+    const selectedLocation = LOG_LOCATION_OPTIONS.find(
+      (location, index) => answer === location || answer === String(index + 1),
+    );
+    if (selectedLocation) {
+      return selectedLocation;
+    }
+
+    process.stdout.write(t("runtime.wizard.log_location_invalid"));
+  }
+}
+
 async function askApiUrl(serverVersion: OpencodeServerVersion): Promise<string | undefined> {
   const prompt = t("runtime.wizard.ask_api_url", { defaultUrl: DEFAULT_API_URLS[serverVersion] });
 
@@ -562,6 +600,7 @@ async function collectWizardValues(
     ? dotenv.parse(existingEnvContent).OPENCODE_SERVER_PASSWORD?.trim()
     : undefined;
   const serverPassword = await askServerPassword(serverVersion, savedPassword);
+  const logLocation = await askLogLocation(getWizardLogLocationDefault(existingEnvContent));
 
   process.stdout.write("\n");
 
@@ -573,6 +612,7 @@ async function collectWizardValues(
     apiUrl,
     serverUsername,
     serverPassword,
+    logLocation,
   };
 }
 
@@ -639,6 +679,7 @@ export async function runWizardAndPersist(runtimePaths: RuntimePaths): Promise<v
     OPENCODE_SERVER_PASSWORD: wizardValues.serverPassword,
     OPENCODE_MODEL_PROVIDER: provider,
     OPENCODE_MODEL_ID: modelId,
+    LOG_LOCATION: wizardValues.logLocation,
   };
 
   // Separate secrets from non-secrets
@@ -653,6 +694,7 @@ export async function runWizardAndPersist(runtimePaths: RuntimePaths): Promise<v
     OPENCODE_SERVER_PASSWORD: "",
     OPENCODE_MODEL_PROVIDER: envValues.OPENCODE_MODEL_PROVIDER,
     OPENCODE_MODEL_ID: envValues.OPENCODE_MODEL_ID,
+    LOG_LOCATION: envValues.LOG_LOCATION,
   };
 
   // Extract secrets using SECRET_ENV_VARS mapping (only keys that exist in WizardEnvValues)
