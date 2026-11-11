@@ -4,11 +4,11 @@ vi.mock("../../src/runtime/prompts.js", () => {
   let inputIndex = 0;
 
   return {
-    askVisible: vi.fn((question: string) => {
+    askVisible: vi.fn((_question: string) => {
       const answer = mockInputs[inputIndex++];
       return Promise.resolve(answer);
     }),
-    askHidden: vi.fn((question: string) => {
+    askHidden: vi.fn((_question: string) => {
       const answer = mockInputs[inputIndex++];
       return Promise.resolve(answer);
     }),
@@ -20,9 +20,7 @@ vi.mock("../../src/runtime/prompts.js", () => {
 });
 
 // Mock secret-store-factory
-vi.mock("../../src/secrets/secret-store-factory.js", () => ({
-  createSecretStore: vi.fn(),
-}));
+vi.mock("../../src/secrets/secret-store-factory.js");
 
 import { readFile, rm } from "node:fs/promises";
 import path from "node:path";
@@ -30,7 +28,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestHome } from "../helpers/test-environment.js";
 import { setRuntimeMode } from "../../src/runtime/mode.js";
 import { FakeSecretStore } from "../../src/secrets/fake-secret-store.js";
-import { createSecretStore } from "../../src/secrets/secret-store-factory.js";
 import { EncryptedFileSecretStore } from "../../src/secrets/encrypted-file-secret-store.js";
 
 describe("runtime/bootstrap wizard with SecretStore", () => {

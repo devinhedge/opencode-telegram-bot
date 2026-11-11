@@ -133,7 +133,7 @@ describe("integrity", () => {
     });
 
     it("throws when checksum is missing from store", async () => {
-      const { computeChecksum, verifyIntegrity } = await loadIntegrityModule();
+      const { verifyIntegrity } = await loadIntegrityModule();
       const FakeStore = (await import("../../src/secrets/fake-secret-store.js")).FakeSecretStore;
       const store = new FakeStore();
 

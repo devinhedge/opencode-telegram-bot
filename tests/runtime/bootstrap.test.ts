@@ -8,14 +8,10 @@ import {
   getWizardServerVersionDefault,
   pickServerPassword,
   validateRuntimeEnvValues,
-  runConfigWizardCommand,
-  runWizardAndPersist,
 } from "../../src/runtime/bootstrap.js";
 import { t } from "../../src/i18n/index.js";
 import { setRuntimeMode } from "../../src/runtime/mode.js";
 import { createTestHome } from "../helpers/test-environment.js";
-import { FakeSecretStore } from "../../src/secrets/fake-secret-store.js";
-import { createSecretStore } from "../../src/secrets/secret-store-factory.js";
 
 const ENV_EXAMPLE_CONTENT = fs.readFileSync(path.resolve(process.cwd(), ".env.example"), "utf-8");
 

@@ -2,6 +2,7 @@ import os from "node:os";
 import path from "node:path";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
+import type { SecretStore } from "../../src/secrets/secret-store.js";
 
 const mocked = vi.hoisted(() => ({
   createBotMock: vi.fn(),
@@ -70,7 +71,7 @@ vi.mock("../../src/bot/index.js", () => ({
 
 vi.mock("../../src/config.js", () => ({
   config: mocked.config,
-  loadConfig: vi.fn(async (store?: any) => {
+  loadConfig: vi.fn(async (store?: SecretStore) => {
     if (store) {
       await store.isAvailable();
     }
