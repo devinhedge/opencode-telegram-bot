@@ -5,6 +5,7 @@ import { BOT_HEALTH_PORT_ENV, resolveHealthPort } from "./runtime/health-port.js
 import { normalizeLocale, type Locale } from "./i18n/index.js";
 import type { SecretStore } from "./secrets/secret-store.js";
 import { verifyIntegrity, storeIntegrityData } from "./secrets/integrity.js";
+import { migrateSecretsIfNeeded } from "./secrets/migrate-secrets.js";
 
 const runtimePaths = getRuntimePaths();
 dotenv.config({ path: runtimePaths.envFilePath, quiet: true });
@@ -217,7 +218,11 @@ function getOptionalSttRequestFormatEnvVar(
   return defaultValue;
 }
 
-export function buildTelegramConfig(): {
+export function buildTelegramConfig(secrets?: {
+  token?: string;
+  allowedUserId?: string;
+  proxySecret?: string;
+}): {
   token: string;
   allowedUserId: number;
   proxyUrl: string;
@@ -229,7 +234,6 @@ export function buildTelegramConfig(): {
   // grammY rejects an apiRoot ending with `/`, so normalize once at config
   // load instead of leaking the concern into every consumer.
   const apiRoot = getEnvVar("TELEGRAM_API_ROOT", false).replace(/\/+$/, "");
-  const proxySecret = getEnvVar("TELEGRAM_PROXY_SECRET", false);
   const forceIpv4 = getOptionalBooleanEnvVar("TELEGRAM_FORCE_IPV4", false);
 
   if (proxyUrl && apiRoot) {
@@ -239,7 +243,7 @@ export function buildTelegramConfig(): {
         "TELEGRAM_API_ROOT routes API calls through an HTTPS reverse proxy. Pick one.",
     );
   }
-  if (proxySecret && !apiRoot) {
+  if (secrets?.proxySecret && !apiRoot) {
     throw new Error(
       "TELEGRAM_PROXY_SECRET requires TELEGRAM_API_ROOT to be set. " +
         "Without a custom API root, the secret header would be sent to api.telegram.org.",
@@ -247,11 +251,11 @@ export function buildTelegramConfig(): {
   }
 
   return {
-    token: getEnvVar("TELEGRAM_BOT_TOKEN"),
-    allowedUserId: parseInt(getEnvVar("TELEGRAM_ALLOWED_USER_ID"), 10),
+    token: secrets?.token || getEnvVar("TELEGRAM_BOT_TOKEN", false) || "",
+    allowedUserId: secrets?.allowedUserId ? parseInt(secrets.allowedUserId, 10) : parseInt(getEnvVar("TELEGRAM_ALLOWED_USER_ID", false) || "0", 10),
     proxyUrl,
     apiRoot,
-    proxySecret,
+    proxySecret: secrets?.proxySecret || getEnvVar("TELEGRAM_PROXY_SECRET", false) || "",
     forceIpv4,
   };
 }
@@ -260,13 +264,13 @@ const opencodeServerVersion = getOptionalOpencodeServerVersionEnvVar("OPENCODE_S
 const opencodeServerMode = resolveOpencodeServerMode(opencodeServerVersion);
 
 const _config = {
-  telegram: buildTelegramConfig(),
+  telegram: buildTelegramConfig({}),
   opencode: {
     serverVersion: opencodeServerVersion,
     serverMode: opencodeServerMode,
     apiUrl: resolveOpencodeApiUrl(opencodeServerVersion, opencodeServerMode),
     username: getEnvVar("OPENCODE_SERVER_USERNAME", false) || "opencode",
-    password: getEnvVar("OPENCODE_SERVER_PASSWORD", false),
+    password: getEnvVar("OPENCODE_SERVER_PASSWORD", false) || "",
     autoRestartEnabled: getOptionalBooleanEnvVar("OPENCODE_AUTO_RESTART_ENABLED", false),
     monitorIntervalSec: getOptionalPositiveIntEnvVar("OPENCODE_MONITOR_INTERVAL_SEC", 300),
     model: {
@@ -278,7 +282,12 @@ const _config = {
     logLevel: getEnvVar("LOG_LEVEL", false) || "info",
   },
   health: {
-    port: resolveHealthPort(getEnvVar(BOT_HEALTH_PORT_ENV, false), isContainerRuntime()),
+    port: resolveHealthPort(
+      getEnvVar(BOT_HEALTH_PORT_ENV, false),
+      isContainerRuntime(),
+      getOptionalBooleanEnvVar("BOT_HEALTH_PORT_AUTO", true),
+    ),
+    autoScanEnabled: getOptionalBooleanEnvVar("BOT_HEALTH_PORT_AUTO", true),
   },
   bot: {
     sessionsListLimit: getOptionalPositiveIntEnvVar("SESSIONS_LIST_LIMIT", 10),
@@ -313,7 +322,7 @@ const _config = {
   },
   stt: {
     apiUrl: getEnvVar("STT_API_URL", false),
-    apiKey: getEnvVar("STT_API_KEY", false),
+    apiKey: getEnvVar("STT_API_KEY", false) || "",
     model: getEnvVar("STT_MODEL", false) || "whisper-large-v3-turbo",
     language: getEnvVar("STT_LANGUAGE", false),
     notePrompt: getEnvVar("STT_NOTE_PROMPT", false),
@@ -323,7 +332,7 @@ const _config = {
   },
   docExtractor: {
     apiUrl: getEnvVar("DOC_EXTRACTOR_URL", false),
-    apiKey: getEnvVar("DOC_EXTRACTOR_API_KEY", false),
+    apiKey: getEnvVar("DOC_EXTRACTOR_API_KEY", false) || "",
   },
   tts: (() => {
     const provider = getOptionalTtsProviderEnvVar("TTS_PROVIDER", "openai");
@@ -339,7 +348,7 @@ const _config = {
       provider === "elevenlabs" ? "eleven_flash_v2_5" : "gpt-4o-mini-tts";
     return {
       apiUrl: getEnvVar("TTS_API_URL", false),
-      apiKey: getEnvVar("TTS_API_KEY", false),
+      apiKey: getEnvVar("TTS_API_KEY", false) || "",
       provider,
       model: getEnvVar("TTS_MODEL", false) || defaultModel,
       voice: getEnvVar("TTS_VOICE", false) || defaultVoice,
@@ -367,6 +376,11 @@ const SECRET_ACCOUNTS = {
 export async function loadConfig(secretStore?: SecretStore): Promise<typeof _config> {
   if (_cachedConfig) {
     return _cachedConfig;
+  }
+
+  // Run migration from .env to secret store if secrets exist in .env
+  if (secretStore) {
+    await migrateSecretsIfNeeded(secretStore, runtimePaths.envFilePath);
   }
 
   const baseConfig = { ..._config };

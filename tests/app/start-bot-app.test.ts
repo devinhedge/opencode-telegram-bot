@@ -32,6 +32,7 @@ const mocked = vi.hoisted(() => ({
   config: {
     health: {
       port: 3100,
+      autoScanEnabled: true,
     },
     opencode: {
       apiUrl: "http://localhost:4096",
@@ -299,7 +300,7 @@ describe("app/start-bot-app", () => {
     await startBotApp();
 
     expect(mocked.healthServerStartMock).toHaveBeenCalledTimes(1);
-    expect(mocked.healthServerStartMock).toHaveBeenCalledWith(3100, expect.any(String));
+    expect(mocked.healthServerStartMock).toHaveBeenCalledWith(3100, expect.any(String), true);
     expect(defined(mocked.healthServerStartMock.mock.invocationCallOrder[0])).toBeGreaterThan(
       defined(mocked.registerOpenCodeReadyRefreshHandlerMock.mock.invocationCallOrder[0]),
     );

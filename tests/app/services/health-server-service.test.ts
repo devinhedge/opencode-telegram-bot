@@ -33,6 +33,13 @@ async function freePort(): Promise<number> {
   return port;
 }
 
+async function busyPort(): Promise<number> {
+  const server = http.createServer();
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const { port } = server.address() as AddressInfo;
+  return port;
+}
+
 async function request(
   port: number,
   path: string,
@@ -59,10 +66,31 @@ describe("app/services/health-server-service", () => {
   });
 
   it("does not listen when the port is 0", async () => {
-    await healthServer.start(0, "test-1.0.0");
+    const actual = await healthServer.start(0, "test-1.0.0");
 
+    expect(actual).toBe(0);
     expect(mocked.loggerInfoMock).toHaveBeenCalledWith(expect.stringContaining("disabled"));
     await expect(fetch(`http://127.0.0.1:${port}/health/live`)).rejects.toThrow();
+  });
+
+  it("returns actual port when start succeeds", async () => {
+    const actual = await healthServer.start(port, "test-1.0.0");
+    expect(actual).toBe(port);
+  });
+
+  it("scans to next port when preferred is in use and returns actual (auto-scan enabled)", async () => {
+    const busy = await busyPort();
+    // keep the busy port occupied by not closing it
+    const actual = await healthServer.start(busy, "test-1.0.0", true);
+    expect(actual).toBe(busy + 1);
+    expect(mocked.loggerInfoMock).toHaveBeenCalledWith(
+      expect.stringContaining(`(requested: ${busy})`),
+    );
+  });
+
+  it("fails fast when auto-scan disabled and port is in use", async () => {
+    const busy = await busyPort();
+    await expect(healthServer.start(busy, "test-1.0.0", false)).rejects.toThrow();
   });
 
   it("answers /health/live with 200 and basic info without checking OpenCode", async () => {
@@ -185,21 +213,21 @@ describe("app/services/health-server-service", () => {
     expect(stoppedLogs).toHaveLength(1);
   });
 
-  it("keeps running without the endpoint when the port is busy, and a later start retries", async () => {
+  it("scans to next port when preferred is in use and returns actual (auto-scan enabled)", async () => {
     const blocker = http.createServer();
     await new Promise<void>((resolve) => blocker.listen(port, "127.0.0.1", resolve));
     try {
-      await expect(healthServer.start(port, "test-1.0.0")).resolves.toBeUndefined();
-      expect(mocked.loggerWarnMock).toHaveBeenCalledWith(
-        expect.stringContaining(`could not listen on 127.0.0.1:${port}`),
-        expect.anything(),
+      const actual = await healthServer.start(port, "test-1.0.0", true);
+      expect(actual).toBe(port + 1);
+      expect(mocked.loggerInfoMock).toHaveBeenCalledWith(
+        expect.stringContaining(`(requested: ${port})`),
       );
     } finally {
       await new Promise<void>((resolve) => blocker.close(() => resolve()));
     }
 
-    await healthServer.start(port, "test-1.0.0");
-    const res = await request(port, "/health/live");
+    await healthServer.start(port + 1, "test-1.0.0");
+    const res = await request(port + 1, "/health/live");
 
     expect(res.status).toBe(200);
   });

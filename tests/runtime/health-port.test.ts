@@ -29,4 +29,14 @@ describe("runtime/health-port", () => {
       expect(resolveHealthPort(value, true)).toBe(3100);
     },
   );
+
+  it("accepts optional autoScanEnabled parameter (default true)", () => {
+    expect(resolveHealthPort("3100", false, true)).toBe(3100);
+    expect(resolveHealthPort("3100", false, false)).toBe(3100);
+  });
+
+  it("returns port as-is regardless of autoScanEnabled (scan logic is in HealthServer)", () => {
+    expect(resolveHealthPort("3200", false, false)).toBe(3200);
+    expect(resolveHealthPort("3200", true, true)).toBe(3200);
+  });
 });

@@ -214,7 +214,10 @@ export async function startBotApp(): Promise<void> {
   const container = createAppContainer();
   registerOpenCodeReadyRefreshHandler(container);
   const { healthServer, opencodeAutoRestartService, scheduledTaskRuntime } = container;
-  await healthServer.start(config.health.port, version);
+  const actualHealthPort = await healthServer.start(config.health.port, version, config.health.autoScanEnabled);
+  if (actualHealthPort !== config.health.port) {
+    logger.info(`[App] Health server bound to port ${actualHealthPort} (requested: ${config.health.port})`);
+  }
   const localCommandRegistry = await LocalCommandRegistry.load({
     directoryPath: runtimePaths.localCommandsDirPath,
     builtInCommands: BUILT_IN_COMMAND_NAMES,

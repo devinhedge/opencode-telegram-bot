@@ -528,7 +528,7 @@ describe("config telegram reverse-proxy", () => {
     vi.stubEnv("TELEGRAM_PROXY_SECRET", "shared-secret");
     const buildTelegramConfig = await loadBuilder();
 
-    expect(() => buildTelegramConfig()).toThrow(/TELEGRAM_PROXY_SECRET requires TELEGRAM_API_ROOT/);
+    expect(() => buildTelegramConfig({ proxySecret: "shared-secret" })).toThrow(/TELEGRAM_PROXY_SECRET requires TELEGRAM_API_ROOT/);
   });
 });
 
@@ -585,6 +585,7 @@ describe("config health port", () => {
     vi.stubEnv("OPENCODE_MODEL_PROVIDER", "test-provider");
     vi.stubEnv("OPENCODE_MODEL_ID", "test-model");
     vi.stubEnv("BOT_HEALTH_PORT", "");
+    vi.stubEnv("BOT_HEALTH_PORT_AUTO", "1");
     inContainer.mockReturnValue(false);
     // Pinned so the result does not depend on a /.dockerenv on the test machine.
     vi.doMock("../src/runtime/container.js", () => ({ isContainerRuntime: inContainer }));
@@ -632,5 +633,28 @@ describe("config health port", () => {
     const config = await loadConfig();
 
     expect(config.health.port).toBe(65535);
+  });
+
+  it("enables auto-scan by default (BOT_HEALTH_PORT_AUTO=1)", async () => {
+    const config = await loadConfig();
+    expect(config.health.autoScanEnabled).toBe(true);
+  });
+
+  it("disables auto-scan when BOT_HEALTH_PORT_AUTO=0", async () => {
+    vi.stubEnv("BOT_HEALTH_PORT_AUTO", "0");
+    const config = await loadConfig();
+    expect(config.health.autoScanEnabled).toBe(false);
+  });
+
+  it("enables auto-scan when BOT_HEALTH_PORT_AUTO=true", async () => {
+    vi.stubEnv("BOT_HEALTH_PORT_AUTO", "true");
+    const config = await loadConfig();
+    expect(config.health.autoScanEnabled).toBe(true);
+  });
+
+  it("disables auto-scan when BOT_HEALTH_PORT_AUTO=false", async () => {
+    vi.stubEnv("BOT_HEALTH_PORT_AUTO", "false");
+    const config = await loadConfig();
+    expect(config.health.autoScanEnabled).toBe(false);
   });
 });
