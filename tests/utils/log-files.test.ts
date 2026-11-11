@@ -9,9 +9,11 @@ import {
   buildServiceLogFileName,
   compareLogNames,
   ensureLogsDir,
+  ensureLogsDirSync,
   getMainLogFilePattern,
   pruneLogFiles,
   secureLogFile,
+  secureLogFileSync,
 } from "../../src/utils/log-files.js";
 
 const isWindows = process.platform === "win32";
@@ -235,5 +237,44 @@ describe("utils/log-files filesystem helpers", () => {
     } finally {
       spy.mockRestore();
     }
+  });
+
+  it.skipIf(isWindows)("ensureLogsDirSync creates a nested directory at 0o700", async () => {
+    const target = path.join(root, "s", "t");
+
+    ensureLogsDirSync(target);
+
+    expect((await fs.stat(target)).mode & 0o777).toBe(0o700);
+  });
+
+  it.skipIf(isWindows)("ensureLogsDirSync tightens an existing 0o755 directory", async () => {
+    const target = path.join(root, "existing-sync");
+    await fs.mkdir(target, { mode: 0o755 });
+    await fs.chmod(target, 0o755);
+
+    ensureLogsDirSync(target);
+
+    expect((await fs.stat(target)).mode & 0o777).toBe(0o700);
+  });
+
+  it("ensureLogsDirSync throws when the target path is a regular file", async () => {
+    const file = path.join(root, "not-a-dir-sync");
+    await fs.writeFile(file, "x");
+
+    expect(() => ensureLogsDirSync(file)).toThrow();
+  });
+
+  it.skipIf(isWindows)("secureLogFileSync tightens a 0o644 file to 0o600", async () => {
+    const file = path.join(root, "sync.log");
+    await fs.writeFile(file, "x");
+    await fs.chmod(file, 0o644);
+
+    secureLogFileSync(file);
+
+    expect((await fs.stat(file)).mode & 0o777).toBe(0o600);
+  });
+
+  it.skipIf(isWindows)("secureLogFileSync throws ENOENT on a missing file", () => {
+    expect(() => secureLogFileSync(path.join(root, "missing-sync.log"))).toThrow(/ENOENT/);
   });
 });

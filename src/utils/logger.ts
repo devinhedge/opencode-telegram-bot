@@ -7,9 +7,12 @@ import { resolveLogsDirPath } from "../runtime/log-location.js";
 import {
   buildMainLogFileName,
   ensureLogsDir,
+  ensureLogsDirSync,
+  FILE_MODE,
   getMainLogFilePattern,
   pruneLogFiles,
   secureLogFile,
+  secureLogFileSync,
 } from "./log-files.js";
 
 type LogLevel = "debug" | "info" | "warn" | "error";
@@ -17,8 +20,6 @@ type LogLevel = "debug" | "info" | "warn" | "error";
 const DEFAULT_LOG_LEVEL: LogLevel = "info";
 const DEFAULT_LOG_RETENTION = 10;
 const LOGGER_ERROR_PREFIX = "[LOGGER]";
-const LOG_DIR_MODE = 0o700;
-const LOG_FILE_MODE = 0o600;
 
 const LOG_LEVELS: Record<LogLevel, number> = {
   debug: 0,
@@ -122,8 +123,8 @@ function shouldLog(level: LogLevel): boolean {
   return LOG_LEVELS[level] >= LOG_LEVELS[configuredLevel];
 }
 
-function getLogFilePathForMode(logsDirPath: string, mode: RuntimeMode): string {
-  return path.join(logsDirPath, buildMainLogFileName(mode, new Date(), process.pid));
+function getLogFilePathForMode(dirPath: string, mode: RuntimeMode): string {
+  return path.join(dirPath, buildMainLogFileName(mode, new Date(), process.pid));
 }
 
 function reportLoggerInternalError(message: string, error?: unknown): void {
@@ -155,7 +156,10 @@ function installConsolePipeGuard(): void {
   (globalThis as Record<string, unknown>)[CONSOLE_PIPE_GUARD_KEY] = true;
 
   const handleStreamError = (error: unknown): void => {
-    if (error instanceof Error && (error as NodeJS.ErrnoException).code === "EPIPE") {
+    if (
+      error instanceof Error &&
+      (error as NodeJS.ErrnoException).code === "EPIPE"
+    ) {
       (globalThis as Record<string, unknown>)[CONSOLE_BROKEN_KEY] = true;
       return;
     }
@@ -246,17 +250,19 @@ function rotateInstalledLogIfNeeded(): void {
   }
 
   try {
-    // Rotation runs inside the synchronous write path, so it cannot use the
-    // async ensureLogsDir/secureLogFile helpers; it applies the same modes.
-    fs.mkdirSync(logsDirPath, { recursive: true, mode: LOG_DIR_MODE });
-    fs.appendFileSync(nextLogFilePath, "");
-    if (process.platform !== "win32") {
-      fs.chmodSync(nextLogFilePath, LOG_FILE_MODE);
-    }
+    // Rotation runs inside the synchronous write path, so it uses the
+    // synchronous helpers. New files are created owner-only; the chmod covers
+    // files that already existed with a wider mode.
+    ensureLogsDirSync(logsDirPath);
+    fs.appendFileSync(nextLogFilePath, "", { mode: FILE_MODE });
+    secureLogFileSync(nextLogFilePath);
     ensureLogStream(nextLogFilePath);
     cleanupOldLogsInBackground(logsDirPath, mode);
   } catch (error) {
-    reportLoggerInternalError(`Failed to rotate file logging to ${nextLogFilePath}.`, error);
+    reportLoggerInternalError(
+      `Failed to rotate file logging to ${nextLogFilePath}.`,
+      error,
+    );
     closeLogStream();
     logFilePath = null;
   }
@@ -292,7 +298,7 @@ async function initializeLoggerInternal(): Promise<void> {
     logsDirPath = resolvedDirPath;
     await ensureLogsDir(resolvedDirPath);
     const nextLogFilePath = getLogFilePathForMode(resolvedDirPath, mode);
-    await fsPromises.appendFile(nextLogFilePath, "");
+    await fsPromises.appendFile(nextLogFilePath, "", { mode: FILE_MODE });
     await secureLogFile(nextLogFilePath);
     ensureLogStream(nextLogFilePath);
     await cleanupOldLogs(resolvedDirPath, mode);

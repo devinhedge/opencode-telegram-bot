@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import fsPromises from "node:fs/promises";
 import path from "node:path";
 import type { RuntimeMode } from "../runtime/mode.js";
@@ -5,7 +6,7 @@ import type { RuntimeMode } from "../runtime/mode.js";
 export const LOG_FILE_PREFIX = "opencode-telegram-bot";
 
 const DIR_MODE = 0o700;
-const FILE_MODE = 0o600;
+export const FILE_MODE = 0o600;
 
 function formatTimestampForFile(now: Date): string {
   return now.toISOString().slice(0, 19).replace(/:/g, "-").replace("T", "_");
@@ -52,6 +53,24 @@ export async function ensureLogsDir(dirPath: string): Promise<void> {
 export async function secureLogFile(filePath: string): Promise<void> {
   if (process.platform !== "win32") {
     await fsPromises.chmod(filePath, FILE_MODE);
+  }
+}
+
+// Synchronous variant of ensureLogsDir for the logger's synchronous rotation
+// path. Same behavior and constants; errors are thrown to the caller.
+export function ensureLogsDirSync(dirPath: string): void {
+  fs.mkdirSync(dirPath, { recursive: true, mode: DIR_MODE });
+
+  if (process.platform !== "win32") {
+    fs.chmodSync(dirPath, DIR_MODE);
+  }
+}
+
+// Synchronous variant of secureLogFile. Errors (for example ENOENT) are thrown
+// to the caller; chmod is skipped on Windows.
+export function secureLogFileSync(filePath: string): void {
+  if (process.platform !== "win32") {
+    fs.chmodSync(filePath, FILE_MODE);
   }
 }
 

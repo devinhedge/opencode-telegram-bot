@@ -395,7 +395,8 @@ describe("utils/logger", () => {
     vi.stubEnv("LOG_LOCATION", "app");
     setRuntimeMode("sources");
 
-    const { initializeLogger, logger, __resetLoggerForTests } = await loadLoggerModule();
+    const { initializeLogger, logger, __resetLoggerForTests } =
+      await loadLoggerModule();
 
     await initializeLogger();
     logger.info("before non-EPIPE");
@@ -491,36 +492,107 @@ describe("utils/logger", () => {
     __resetLoggerForTests();
   });
 
-  it("tightens a pre-existing 0755 directory and 0644 file on every start", async () => {
-    if (process.platform === "win32") {
-      return;
-    }
+  it.skipIf(process.platform === "win32").each([
+    ["installed", "opencode-telegram-bot-2026-04-11.log"],
+    ["sources", `opencode-telegram-bot-2026-04-11_12-34-56_${process.pid}.log`],
+  ] as const)(
+    "tightens a pre-existing 0755 directory and 0644 file on every start in %s mode",
+    async (mode, fileName) => {
+      const tempHome = await createTempHome();
+      const logsDirPath = path.join(tempHome, "logs");
+      const logFile = path.join(logsDirPath, fileName);
 
-    const tempHome = await createTempHome();
-    const logsDirPath = path.join(tempHome, "logs");
-    const logFile = path.join(logsDirPath, "opencode-telegram-bot-2026-04-11.log");
+      await fs.mkdir(logsDirPath, { recursive: true });
+      await fs.chmod(logsDirPath, 0o755);
+      await fs.writeFile(logFile, "old\n");
+      await fs.chmod(logFile, 0o644);
 
-    await fs.mkdir(logsDirPath, { recursive: true });
-    await fs.chmod(logsDirPath, 0o755);
-    await fs.writeFile(logFile, "old\n");
-    await fs.chmod(logFile, 0o644);
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-04-11T12:34:56.000Z"));
+      vi.stubEnv("LOG_LEVEL", "info");
+      vi.stubEnv("OPENCODE_TELEGRAM_HOME", tempHome);
+      vi.stubEnv("LOG_LOCATION", "app");
+      setRuntimeMode(mode);
 
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-04-11T12:34:56.000Z"));
-    vi.stubEnv("LOG_LEVEL", "info");
-    vi.stubEnv("OPENCODE_TELEGRAM_HOME", tempHome);
-    vi.stubEnv("LOG_LOCATION", "app");
-    setRuntimeMode("installed");
+      const { initializeLogger, __resetLoggerForTests } = await loadLoggerModule();
+      const { __resetLogsDirForTests } = await import("../../src/runtime/log-location.js");
 
-    const { initializeLogger, __resetLoggerForTests } = await loadLoggerModule();
+      await initializeLogger();
+      expect((await fs.stat(logsDirPath)).mode & 0o777).toBe(0o700);
+      expect((await fs.stat(logFile)).mode & 0o777).toBe(0o600);
 
-    await initializeLogger();
+      await fs.chmod(logsDirPath, 0o755);
+      await fs.chmod(logFile, 0o644);
+      __resetLoggerForTests();
+      __resetLogsDirForTests();
 
-    expect((await fs.stat(logsDirPath)).mode & 0o777).toBe(0o700);
-    expect((await fs.stat(logFile)).mode & 0o777).toBe(0o600);
+      await initializeLogger();
+      expect((await fs.stat(logsDirPath)).mode & 0o777).toBe(0o700);
+      expect((await fs.stat(logFile)).mode & 0o777).toBe(0o600);
 
-    __resetLoggerForTests();
-  });
+      __resetLoggerForTests();
+    },
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "re-tightens a loosened directory when rotation runs",
+    async () => {
+      const tempHome = await createTempHome();
+      const logsDirPath = path.join(tempHome, "logs");
+
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-04-11T23:59:59.000Z"));
+      vi.stubEnv("LOG_LEVEL", "info");
+      vi.stubEnv("OPENCODE_TELEGRAM_HOME", tempHome);
+      vi.stubEnv("LOG_LOCATION", "app");
+      setRuntimeMode("installed");
+
+      const { initializeLogger, logger, __flushLoggerForTests, __resetLoggerForTests } =
+        await loadLoggerModule();
+      vi.spyOn(console, "log").mockImplementation(() => undefined);
+
+      await initializeLogger();
+      await fs.chmod(logsDirPath, 0o755);
+      vi.setSystemTime(new Date("2026-04-12T00:00:01.000Z"));
+      logger.info("after midnight");
+      await __flushLoggerForTests();
+
+      expect((await fs.stat(logsDirPath)).mode & 0o777).toBe(0o700);
+
+      __resetLoggerForTests();
+    },
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "tightens a pre-existing wider-mode next-day file when rotation runs",
+    async () => {
+      const tempHome = await createTempHome();
+      const logsDirPath = path.join(tempHome, "logs");
+      const nextDayFile = path.join(logsDirPath, "opencode-telegram-bot-2026-04-12.log");
+
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-04-11T23:59:59.000Z"));
+      vi.stubEnv("LOG_LEVEL", "info");
+      vi.stubEnv("OPENCODE_TELEGRAM_HOME", tempHome);
+      vi.stubEnv("LOG_LOCATION", "app");
+      setRuntimeMode("installed");
+
+      const { initializeLogger, logger, __flushLoggerForTests, __resetLoggerForTests } =
+        await loadLoggerModule();
+      vi.spyOn(console, "log").mockImplementation(() => undefined);
+
+      await initializeLogger();
+      await fs.writeFile(nextDayFile, "old\n");
+      await fs.chmod(nextDayFile, 0o644);
+      vi.setSystemTime(new Date("2026-04-12T00:00:01.000Z"));
+      logger.info("after midnight");
+      await __flushLoggerForTests();
+
+      expect((await fs.stat(nextDayFile)).mode & 0o777).toBe(0o600);
+
+      __resetLoggerForTests();
+    },
+  );
 
   it("secures the new daily file created by rotation", async () => {
     if (process.platform === "win32") {
