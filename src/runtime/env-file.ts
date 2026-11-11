@@ -6,8 +6,19 @@ export async function writeFileAtomically(filePath: string, content: string): Pr
   await fs.mkdir(path.dirname(filePath), { recursive: true });
 
   const tempFilePath = `${filePath}.${process.pid}.tmp`;
-  await fs.writeFile(tempFilePath, content, "utf-8");
-  await fs.rename(tempFilePath, filePath);
+  try {
+    await fs.writeFile(tempFilePath, content, "utf-8");
+    await fs.rename(tempFilePath, filePath);
+  } catch (error) {
+    await fs.rm(tempFilePath, { force: true }).catch(() => undefined);
+    throw error;
+  }
+}
+
+function isActiveAssignmentOf(line: string, key: string): boolean {
+  const withoutExport = line.replace(/^\s*export\s+/, "");
+  const separatorIndex = withoutExport.indexOf("=");
+  return separatorIndex !== -1 && withoutExport.slice(0, separatorIndex).trim() === key;
 }
 
 async function readExistingEnvContent(envFilePath: string): Promise<string> {
@@ -32,13 +43,13 @@ export async function persistEnvValue(
   value: string,
 ): Promise<void> {
   const existingContent = await readExistingEnvContent(envFilePath);
-  const assignmentPrefix = new RegExp(`^\\s*(?:export\\s+)?${key}\\s*=`);
+  const lineEnding = existingContent.includes("\r\n") ? "\r\n" : "\n";
 
   const existingLines =
     existingContent === "" ? [] : existingContent.replace(/\r?\n$/, "").split(/\r?\n/);
-  const keptLines = existingLines.filter((line) => !assignmentPrefix.test(line));
+  const keptLines = existingLines.filter((line) => !isActiveAssignmentOf(line, key));
 
-  const nextContent = `${[...keptLines, `${key}=${value}`].join("\n")}\n`;
+  const nextContent = `${[...keptLines, `${key}=${value}`].join(lineEnding)}${lineEnding}`;
 
   await writeFileAtomically(envFilePath, nextContent);
   await finalizeEnvFile(envFilePath);

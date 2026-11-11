@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { persistEnvValue } from "../../src/runtime/env-file.js";
+import { persistEnvValue, writeFileAtomically } from "../../src/runtime/env-file.js";
 
 describe("runtime/env-file", () => {
   let tempDir: string;
@@ -47,6 +47,61 @@ describe("runtime/env-file", () => {
     expect(await fs.readFile(envFilePath, "utf-8")).toBe(
       "# header\n\nA=1\n\n# tail\nLOG_LOCATION=app\n",
     );
+  });
+
+  it("removes every duplicate active assignment and appends one", async () => {
+    await fs.mkdir(path.dirname(envFilePath), { recursive: true });
+    await fs.writeFile(envFilePath, "LOG_LOCATION=a\nA=1\nLOG_LOCATION=b\n", "utf-8");
+
+    await persistEnvValue(envFilePath, "LOG_LOCATION", "app");
+
+    expect(await fs.readFile(envFilePath, "utf-8")).toBe("A=1\nLOG_LOCATION=app\n");
+  });
+
+  it("treats an export line as the active assignment", async () => {
+    await fs.mkdir(path.dirname(envFilePath), { recursive: true });
+    await fs.writeFile(envFilePath, "export LOG_LOCATION=bad\nA=1\n", "utf-8");
+
+    await persistEnvValue(envFilePath, "LOG_LOCATION", "app");
+
+    expect(await fs.readFile(envFilePath, "utf-8")).toBe("A=1\nLOG_LOCATION=app\n");
+  });
+
+  it("matches the key literally, not as a pattern", async () => {
+    await fs.mkdir(path.dirname(envFilePath), { recursive: true });
+    await fs.writeFile(envFilePath, "AXB=1\nA.B=2\n", "utf-8");
+
+    await persistEnvValue(envFilePath, "A.B", "x");
+
+    expect(await fs.readFile(envFilePath, "utf-8")).toBe("AXB=1\nA.B=x\n");
+  });
+
+  it("preserves CRLF line endings", async () => {
+    await fs.mkdir(path.dirname(envFilePath), { recursive: true });
+    await fs.writeFile(envFilePath, "A=1\r\nLOG_LOCATION=bad\r\nB=2\r\n", "utf-8");
+
+    await persistEnvValue(envFilePath, "LOG_LOCATION", "app");
+
+    expect(await fs.readFile(envFilePath, "utf-8")).toBe("A=1\r\nB=2\r\nLOG_LOCATION=app\r\n");
+  });
+
+  it("handles a file without a trailing newline", async () => {
+    await fs.mkdir(path.dirname(envFilePath), { recursive: true });
+    await fs.writeFile(envFilePath, "A=1\nB=2", "utf-8");
+
+    await persistEnvValue(envFilePath, "LOG_LOCATION", "app");
+
+    expect(await fs.readFile(envFilePath, "utf-8")).toBe("A=1\nB=2\nLOG_LOCATION=app\n");
+  });
+
+  it("removes the temp file and rethrows when the write fails", async () => {
+    const targetPath = path.join(tempDir, "target");
+    await fs.mkdir(targetPath);
+
+    await expect(writeFileAtomically(targetPath, "A=1\n")).rejects.toThrow();
+
+    const entries = await fs.readdir(tempDir);
+    expect(entries.filter((name) => name.endsWith(".tmp"))).toEqual([]);
   });
 
   it("appends when the key is absent", async () => {
