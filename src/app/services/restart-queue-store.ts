@@ -1,21 +1,8 @@
 import fs from "node:fs/promises";
-import path from "node:path";
-import { logger } from "../../utils/logger.js";
+import * as path from "node:path";
+import type { QueuedPrompt } from "../../app/managers/prompt-queue-manager.js";
 
-export interface QueuedPrompt {
-  id: string;
-  text: string;
-  fileParts: unknown[];
-  photos: unknown[];
-  displayText: string;
-  mediaBytes: number;
-  responseMode?: "text_only" | "text_and_tts";
-  inbox?: {
-    sessionId: string;
-    inboxId: string;
-    delivery: "steer" | "queue";
-  };
-}
+export type { QueuedPrompt };
 
 export interface RestartQueueState {
   version: number;

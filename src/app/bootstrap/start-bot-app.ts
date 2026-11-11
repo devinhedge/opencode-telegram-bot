@@ -22,6 +22,10 @@ import { flushLogger, getLogFilePath, initializeLogger, logger } from "../../uti
 import { safeBackgroundTask } from "../../utils/safe-background-task.js";
 import { getTelegramRetryAfterMs } from "../../utils/telegram-rate-limit-retry.js";
 import { createAppContainer } from "./app-container.js";
+import { promptQueue } from "../managers/prompt-queue-manager.js";
+import { saveRestartQueue } from "../services/restart-queue-store.js";
+import { RestartCoordinator } from "../services/restart-coordinator.js";
+import * as path from "node:path";
 
 const SHUTDOWN_TIMEOUT_MS = 5000;
 const SETTINGS_FLUSH_TIMEOUT_MS = 1000;
@@ -235,6 +239,14 @@ export async function startBotApp(): Promise<void> {
     },
   });
 
+  const isRestarting = process.env.RESTARTING === "1";
+  const restartGracePeriodSec = config.restart?.gracePeriodSec ?? 60;
+  const restartCoordinator = new RestartCoordinator();
+  if (isRestarting) {
+    restartCoordinator.requestRestart();
+    logger.info("[App] Restart requested, draining in-flight work...");
+  }
+
   let shutdownStarted = false;
   let shutdownTimeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -245,24 +257,67 @@ export async function startBotApp(): Promise<void> {
 
     shutdownStarted = true;
     logger.info(`[App] Received ${signal}, shutting down...`);
+
+    if (isRestarting) {
+      logger.info("[App] Restart mode: draining in-flight operations...");
+    }
+
     container.cleanupProcess(`app_shutdown_${signal.toLowerCase()}`);
     opencodeAutoRestartService.stop();
     scheduledTaskRuntime.shutdown();
     void healthServer.stop();
 
+    // Drain in-flight operations if restarting
+    const drainPromise = isRestarting
+      ? restartCoordinator.waitForDrain(restartGracePeriodSec * 1000)
+      : Promise.resolve(true);
+
     shutdownTimeout = setTimeout(() => {
-      logger.warn(`[App] Shutdown did not finish in ${SHUTDOWN_TIMEOUT_MS}ms, forcing exit.`);
+      logger.warn(`[App] Shutdown did not finish in ${isRestarting ? restartGracePeriodSec : SHUTDOWN_TIMEOUT_MS / 1000}s, forcing exit.`);
       void flushSettingsWithTimeout()
         .then(() => flushLoggerWithTimeout())
         .finally(() => process.exit(0));
-    }, SHUTDOWN_TIMEOUT_MS);
+    }, isRestarting ? restartGracePeriodSec * 1000 : SHUTDOWN_TIMEOUT_MS);
     shutdownTimeout.unref?.();
 
+    // Stop bot synchronously (stops accepting new messages)
     try {
       bot.stop();
     } catch (error) {
       logger.warn("[App] Failed to stop Telegram bot cleanly", error);
     }
+
+    void drainPromise.then(async (drained) => {
+      if (isRestarting) {
+        if (drained) {
+          logger.info("[App] All in-flight operations completed.");
+        } else {
+          logger.warn("[App] Grace period expired, forcing exit with in-flight operations.");
+        }
+
+        // Persist queued messages
+        try {
+          const queuedPrompts = promptQueue.list();
+          const state = {
+            version: 1,
+            savedAt: new Date().toISOString(),
+            sessionDirectory: process.cwd(),
+            sessionId: "",
+            queuedPrompts,
+            inboxPrompts: [],
+          };
+          const restartQueuePath = path.join(runtimePaths.runDirPath, "restart-queue.json");
+          await saveRestartQueue(state, restartQueuePath);
+          logger.info(`[App] Persisted ${queuedPrompts.length} queued messages to restart-queue.json`);
+        } catch (error) {
+          logger.warn("[App] Failed to persist restart queue", error);
+        }
+      }
+
+      void clearManagedServiceState().catch((error) => {
+        logger.warn("[App] Failed to clear managed service state", error);
+      });
+    });
 
     void clearManagedServiceState().catch((error) => {
       logger.warn("[App] Failed to clear managed service state", error);
@@ -312,6 +367,44 @@ export async function startBotApp(): Promise<void> {
       onStart: (botInfo) => {
         logger.info(`Bot @${botInfo.username} started!`);
         restoreFollowedSessionOnPollingStart(bot, container);
+
+        // Restore queued messages from previous restart
+        void (async () => {
+          try {
+            const restartQueuePath = path.join(runtimePaths.runDirPath, "restart-queue.json");
+            const { loadRestartQueue } = await import("../services/restart-queue-store.js");
+            const state = await loadRestartQueue(restartQueuePath);
+            if (state) {
+              logger.info(`[App] Restored ${state.queuedPrompts.length} queued messages from previous restart`);
+              // Restore queued prompts to promptQueue
+              const { promptQueue } = await import("../managers/prompt-queue-manager.js");
+              for (const prompt of state.queuedPrompts) {
+                const input: Record<string, unknown> = {
+                  text: prompt.text,
+                  fileParts: prompt.fileParts,
+                  photos: prompt.photos,
+                  displayText: prompt.displayText,
+                  mediaBytes: prompt.mediaBytes,
+                };
+                if (prompt.responseMode) {
+                  input.responseMode = prompt.responseMode;
+                }
+                promptQueue.add(input as never);
+              }
+              for (const prompt of state.inboxPrompts) {
+                if (prompt.inbox) {
+                  promptQueue.confirmReservation(prompt.inbox.inboxId, {
+                    displayText: prompt.displayText,
+                    responseMode: prompt.responseMode ?? "text_only",
+                    inbox: prompt.inbox,
+                  });
+                }
+              }
+            }
+          } catch (error) {
+            logger.warn("[App] Failed to restore restart queue", error);
+          }
+        })();
       },
     });
   } catch (error) {
