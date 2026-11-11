@@ -88,7 +88,8 @@ function writeOptionalLine(message: string | null): void {
   }
 }
 
-async function runStartCommand(mode: RuntimeMode | undefined, daemon: boolean): Promise<number> {
+async function runStartCommand(mode: RuntimeMode | undefined, daemon: boolean, restart: boolean): Promise<number> {
+  const { logger } = await import("./utils/logger.js");
   const modeResult = resolveRuntimeMode({
     defaultMode: "installed",
     explicitMode: mode,
@@ -108,7 +109,41 @@ async function runStartCommand(mode: RuntimeMode | undefined, daemon: boolean): 
   await ensureRuntimeConfigForStart();
 
   if (daemon) {
-    const { startBotDaemon } = await import("./runtime/service/manager.js");
+    const { startBotDaemon, stopBotDaemon } = await import("./runtime/service/manager.js");
+    const currentStatus = await import("./runtime/service/manager.js").then(m => m.getBotServiceStatus());
+
+    if (restart && currentStatus.status === "running" && currentStatus.service) {
+      logger.info(`[CLI] Restart requested, stopping daemon (PID=${currentStatus.service.pid})...`);
+      const stopResult = await stopBotDaemon();
+      if (!stopResult.success && !stopResult.alreadyStopped) {
+        throw new Error(stopResult.error || "Failed to stop daemon");
+      }
+
+      // Wait for process to exit
+      const startTime = Date.now();
+      while (Date.now() - startTime < 60000) {
+        try {
+          process.kill(currentStatus.service.pid, 0);
+          await new Promise(resolve => setTimeout(resolve, 100));
+        } catch {
+          break;
+        }
+      }
+    } else if (!restart && currentStatus.status === "running" && currentStatus.service) {
+      const runtimePaths = getRuntimePaths();
+      writeStdout(CLI_MESSAGES.startAlreadyRunning);
+      writeStdout("");
+      writeStdout(
+        formatServiceDetails({
+          pid: currentStatus.service.pid,
+          startedAt: currentStatus.service.startedAt,
+          logFilePath: currentStatus.service.logFilePath,
+          appHome: runtimePaths.appHome,
+        }),
+      );
+      return EXIT_SUCCESS;
+    }
+
     const result = await startBotDaemon(modeResult.mode);
     const cleanupMessage = formatServiceCleanupMessage(result.cleanupReason);
     const runtimePaths = getRuntimePaths();
@@ -116,20 +151,6 @@ async function runStartCommand(mode: RuntimeMode | undefined, daemon: boolean): 
     writeOptionalLine(cleanupMessage);
 
     if (!result.success) {
-      if (result.alreadyRunning && result.service) {
-        writeStdout(CLI_MESSAGES.startAlreadyRunning);
-        writeStdout("");
-        writeStdout(
-          formatServiceDetails({
-            pid: result.service.pid,
-            startedAt: result.service.startedAt,
-            logFilePath: result.service.logFilePath,
-            appHome: runtimePaths.appHome,
-          }),
-        );
-        return EXIT_SUCCESS;
-      }
-
       throw new Error(result.error || CLI_MESSAGES.unknownServiceError);
     }
 
@@ -238,7 +259,7 @@ async function runCli(argv: string[]): Promise<number> {
   }
 
   if (parsedArgs.command === "start") {
-    return runStartCommand(parsedArgs.mode, parsedArgs.daemon);
+    return runStartCommand(parsedArgs.mode, parsedArgs.daemon, parsedArgs.restart);
   }
 
   if (parsedArgs.command === "config") {
