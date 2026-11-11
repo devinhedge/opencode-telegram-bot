@@ -4,8 +4,12 @@ import type { SecretStore } from "./secret-store.js";
  * In-memory SecretStore used for tests and development. Not persistent.
  */
 export class FakeSecretStore implements SecretStore {
-  public readonly name = "fake";
+  public readonly name: string;
   private readonly secrets = new Map<string, string>();
+
+  constructor(name = "fake") {
+    this.name = name;
+  }
 
   async isAvailable(): Promise<boolean> {
     return true;

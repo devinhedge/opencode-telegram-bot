@@ -66,7 +66,8 @@ describe("runtime/bootstrap wizard with SecretStore", () => {
   });
 
   it("wizard writes secrets to SecretStore and non-secrets to .env", async () => {
-    const { __setMockInputs } = await import("../../src/runtime/prompts.js");
+    const prompts = await import("../../src/runtime/prompts.js");
+    const { __setMockInputs } = prompts as typeof prompts & { __setMockInputs: (inputs: string[]) => void };
     const { createSecretStore } = await import("../../src/secrets/secret-store-factory.js");
     const { runWizardAndPersist } = await import("../../src/runtime/bootstrap.js");
     const { getRuntimePaths } = await import("../../src/runtime/paths.js");
@@ -109,13 +110,13 @@ describe("runtime/bootstrap wizard with SecretStore", () => {
   });
 
   it("wizard reports active backend name", async () => {
-    const { __setMockInputs } = await import("../../src/runtime/prompts.js");
+    const prompts = await import("../../src/runtime/prompts.js");
+    const { __setMockInputs } = prompts as typeof prompts & { __setMockInputs: (inputs: string[]) => void };
     const { createSecretStore } = await import("../../src/secrets/secret-store-factory.js");
     const { runWizardAndPersist } = await import("../../src/runtime/bootstrap.js");
     const { getRuntimePaths } = await import("../../src/runtime/paths.js");
 
-    const customStore = new FakeSecretStore();
-    customStore.name = "custom-backend";
+    const customStore = new FakeSecretStore("custom-backend");
 
     vi.mocked(createSecretStore).mockResolvedValue(customStore);
 
@@ -142,7 +143,8 @@ describe("runtime/bootstrap wizard with SecretStore", () => {
   });
 
   it("wizard prompts for password when encrypted-file backend is used", async () => {
-    const { __setMockInputs } = await import("../../src/runtime/prompts.js");
+    const prompts = await import("../../src/runtime/prompts.js");
+    const { __setMockInputs } = prompts as typeof prompts & { __setMockInputs: (inputs: string[]) => void };
     const { createSecretStore } = await import("../../src/secrets/secret-store-factory.js");
     const { runWizardAndPersist } = await import("../../src/runtime/bootstrap.js");
     const { getRuntimePaths } = await import("../../src/runtime/paths.js");
