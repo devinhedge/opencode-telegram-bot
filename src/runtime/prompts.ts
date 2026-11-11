@@ -15,6 +15,26 @@ export async function askVisible(question: string): Promise<string> {
   }
 }
 
+// Like askVisible, but resolves null when input ends (readline closes) before an answer.
+export async function askVisibleOrEof(question: string): Promise<string | null> {
+  const rl = createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  try {
+    return await new Promise<string | null>((resolve) => {
+      rl.once("close", () => resolve(null));
+      rl.question(question).then(
+        (answer) => resolve(answer.trim()),
+        () => resolve(null),
+      );
+    });
+  } finally {
+    rl.close();
+  }
+}
+
 export async function askHidden(question: string): Promise<string> {
   return new Promise((resolve) => {
     const rl = readline.createInterface({

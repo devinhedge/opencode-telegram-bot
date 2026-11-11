@@ -179,15 +179,129 @@ describe("resolveLogsDirPath", () => {
 
     expect(dir).toBe(canonicalDir);
     expect(warn).toHaveBeenCalledTimes(1);
-    const message = String(warn.mock.calls[0]?.[0]);
-    expect(message).toBe(
-      t("runtime.logs.env_read_failed", {
-        envPath: envFilePath,
-        reason: message.slice(message.indexOf("EISDIR")).split("\n")[0] ?? "",
-      }),
+    const expectedReason = await fs.readFile(envFilePath, "utf-8").then(
+      () => "",
+      (error: Error) => error.message,
     );
-    expect(message).toContain(envFilePath);
-    expect(message).toContain("EISDIR");
+    expect(expectedReason).toContain("EISDIR");
+    expect(warn).toHaveBeenCalledWith(
+      t("runtime.logs.env_read_failed", { envPath: envFilePath, reason: expectedReason }),
+    );
+  });
+
+  it("shares one resolution between concurrent calls", async () => {
+    await fs.writeFile(envFilePath, "LOG_LOCATION=bogus\n", "utf-8");
+    const ask = vi.fn().mockResolvedValue("app");
+    const options = { env: baseEnv(), isInteractive: true, ask, warn: vi.fn() };
+
+    const [first, second] = await Promise.all([
+      resolveLogsDirPath(options),
+      resolveLogsDirPath(options),
+    ]);
+
+    expect(first).toBe(appLogsDir);
+    expect(second).toBe(appLogsDir);
+    expect(ask).toHaveBeenCalledTimes(1);
+  });
+
+  it("writes each localized warning to stderr with exactly one trailing newline", async () => {
+    const writes: string[] = [];
+    const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation((chunk) => {
+      writes.push(String(chunk));
+      return true;
+    });
+
+    try {
+      await fs.writeFile(envFilePath, "LOG_LOCATION=bogus\n", "utf-8");
+      await resolveLogsDirPath({ env: baseEnv(), isInteractive: false });
+      __resetLogsDirForTests();
+      await resolveLogsDirPath({ env: baseEnv({ LOG_LOCATION: "bogus" }) });
+      __resetLogsDirForTests();
+      vi.mocked(persistEnvValue).mockRejectedValueOnce(new Error("disk full"));
+      await resolveLogsDirPath({
+        env: baseEnv(),
+        isInteractive: true,
+        ask: vi.fn().mockResolvedValueOnce("x").mockResolvedValueOnce("app"),
+      });
+      __resetLogsDirForTests();
+      await fs.rm(envFilePath);
+      await fs.mkdir(envFilePath);
+      await resolveLogsDirPath({ env: baseEnv(), isInteractive: false });
+    } finally {
+      stderrSpy.mockRestore();
+    }
+
+    expect(writes.length).toBeGreaterThanOrEqual(6);
+    for (const written of writes) {
+      expect(written.endsWith("\n")).toBe(true);
+      expect(written.endsWith("\n\n")).toBe(false);
+    }
+  });
+
+  it("uses default and warns once when input ends during the prompt", async () => {
+    await fs.writeFile(envFilePath, "LOG_LOCATION=bogus\n", "utf-8");
+    const warn = vi.fn();
+    const ask = vi.fn().mockResolvedValue(null);
+    const dir = await resolveLogsDirPath({ env: baseEnv(), isInteractive: true, ask, warn });
+
+    expect(dir).toBe(canonicalDir);
+    expect(ask).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenLastCalledWith(
+      t("runtime.logs.location_invalid_no_tty", { value: "bogus" }),
+    );
+    expect(persistEnvValue).not.toHaveBeenCalled();
+    expect(await fs.readFile(envFilePath, "utf-8")).toBe("LOG_LOCATION=bogus\n");
+  });
+
+  it("gives up after 3 invalid answers, using default without persisting", async () => {
+    await fs.writeFile(envFilePath, "LOG_LOCATION=bogus\n", "utf-8");
+    const warn = vi.fn();
+    const ask = vi.fn().mockResolvedValue("garbage");
+    const dir = await resolveLogsDirPath({ env: baseEnv(), isInteractive: true, ask, warn });
+
+    expect(dir).toBe(canonicalDir);
+    expect(ask).toHaveBeenCalledTimes(3);
+    expect(warn).toHaveBeenLastCalledWith(
+      t("runtime.logs.location_invalid_no_tty", { value: "bogus" }),
+    );
+    expect(persistEnvValue).not.toHaveBeenCalled();
+  });
+
+  it("gives up after 3 empty answers", async () => {
+    await fs.writeFile(envFilePath, "LOG_LOCATION=bogus\n", "utf-8");
+    const ask = vi.fn().mockResolvedValue("");
+    const dir = await resolveLogsDirPath({
+      env: baseEnv(),
+      isInteractive: true,
+      ask,
+      warn: vi.fn(),
+    });
+
+    expect(dir).toBe(canonicalDir);
+    expect(ask).toHaveBeenCalledTimes(3);
+  });
+
+  it("translates early warnings with BOT_LOCALE read from .env", async () => {
+    await fs.writeFile(envFilePath, "BOT_LOCALE=de\nLOG_LOCATION=bogus\n", "utf-8");
+    const warn = vi.fn();
+    await resolveLogsDirPath({ env: baseEnv(), isInteractive: false, warn });
+
+    expect(warn).toHaveBeenCalledWith(
+      t("runtime.logs.location_invalid_no_tty", { value: "bogus" }, "de"),
+    );
+    expect(t("runtime.logs.location_invalid_no_tty", { value: "bogus" }, "de")).not.toBe(
+      t("runtime.logs.location_invalid_no_tty", { value: "bogus" }, "en"),
+    );
+  });
+
+  it("prefers BOT_LOCALE from the environment over .env", async () => {
+    await fs.writeFile(envFilePath, "BOT_LOCALE=de\nLOG_LOCATION=bogus\n", "utf-8");
+    const warn = vi.fn();
+    await resolveLogsDirPath({ env: baseEnv({ BOT_LOCALE: "fr" }), isInteractive: false, warn });
+
+    expect(warn).toHaveBeenCalledWith(
+      t("runtime.logs.location_invalid_no_tty", { value: "bogus" }, "fr"),
+    );
   });
 
   it("does not keep a rejected resolution memoized", async () => {

@@ -4,10 +4,11 @@ import path from "node:path";
 import dotenv from "dotenv";
 // This module runs before the logger is initialized: never import src/utils/logger.ts here,
 // directly or transitively.
-import { t } from "../i18n/index.js";
+import type { I18nKey } from "../i18n/en.js";
+import { resolveSupportedLocale, t, type Locale } from "../i18n/index.js";
 import { persistEnvValue } from "./env-file.js";
 import { getRuntimePaths } from "./paths.js";
-import { askVisible } from "./prompts.js";
+import { askVisibleOrEof } from "./prompts.js";
 import { getServiceLogsDirFromEnv, isServiceChildProcess } from "./service/env.js";
 
 export type LogLocation = "default" | "app";
@@ -58,11 +59,16 @@ export function resolveCanonicalLogsDir(
 export interface ResolveLogsDirOptions {
   env?: NodeJS.ProcessEnv;
   isInteractive?: boolean;
-  ask?: (prompt: string) => Promise<string>;
+  // Resolves null when input ends before an answer.
+  ask?: (prompt: string) => Promise<string | null>;
   warn?: (message: string) => void;
 }
 
+type Translate = (key: I18nKey, params?: Parameters<typeof t>[1]) => string;
+
 const LOG_LOCATION_KEY = "LOG_LOCATION";
+const BOT_LOCALE_KEY = "BOT_LOCALE";
+const MAX_PROMPT_ATTEMPTS = 3;
 
 let resolvedLogsDir: Promise<string> | undefined;
 
@@ -74,8 +80,14 @@ function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+// Translates with an explicit locale so the global runtime locale is never mutated; the
+// resolver runs before config.ts loads .env, so BOT_LOCALE may exist only in the .env file.
+function translatorFor(locale: Locale | null): Translate {
+  return (key, params) => t(key, params, locale ?? undefined);
+}
+
 // Returns undefined when the file does not exist; any other read error propagates.
-async function readEnvFileLogLocation(envFilePath: string): Promise<string | undefined> {
+async function readEnvFile(envFilePath: string): Promise<Record<string, string> | undefined> {
   let content: string;
   try {
     content = await fs.readFile(envFilePath, "utf-8");
@@ -86,24 +98,30 @@ async function readEnvFileLogLocation(envFilePath: string): Promise<string | und
     throw error;
   }
 
-  return dotenv.parse(content)[LOG_LOCATION_KEY];
+  return dotenv.parse(content);
 }
 
+// Returns null when the user gives up: input ended or too many invalid answers.
 async function promptForLogLocation(
   raw: string,
   envFilePath: string,
-  ask: (prompt: string) => Promise<string>,
+  ask: (prompt: string) => Promise<string | null>,
   warn: (message: string) => void,
-): Promise<LogLocation> {
-  warn(t("runtime.logs.location_invalid", { value: raw }));
+  translate: Translate,
+): Promise<LogLocation | null> {
+  warn(translate("runtime.logs.location_invalid", { value: raw }));
 
-  for (;;) {
-    const answer = (await ask(t("runtime.logs.ask_location", { envPath: envFilePath })))
-      .trim()
-      .toLowerCase();
+  for (let attempt = 0; attempt < MAX_PROMPT_ATTEMPTS; attempt += 1) {
+    const reply = await ask(translate("runtime.logs.ask_location", { envPath: envFilePath }));
+    if (reply === null) {
+      return null;
+    }
 
+    const answer = reply.trim().toLowerCase();
     if (answer !== "default" && answer !== "app") {
-      warn(t("runtime.logs.location_choice_invalid"));
+      if (attempt < MAX_PROMPT_ATTEMPTS - 1) {
+        warn(translate("runtime.logs.location_choice_invalid"));
+      }
       continue;
     }
 
@@ -111,7 +129,7 @@ async function promptForLogLocation(
       await persistEnvValue(envFilePath, LOG_LOCATION_KEY, answer);
     } catch (error) {
       warn(
-        t("runtime.logs.location_persist_failed", {
+        translate("runtime.logs.location_persist_failed", {
           envPath: envFilePath,
           reason: describeError(error),
         }),
@@ -120,6 +138,8 @@ async function promptForLogLocation(
 
     return answer;
   }
+
+  return null;
 }
 
 async function resolveLogsDir(options: ResolveLogsDirOptions): Promise<string> {
@@ -127,8 +147,10 @@ async function resolveLogsDir(options: ResolveLogsDirOptions): Promise<string> {
   const warn = options.warn ?? writeStderr;
   const isInteractive =
     options.isInteractive ?? Boolean(process.stdin.isTTY && process.stdout.isTTY);
-  const ask = options.ask ?? askVisible;
+  const ask = options.ask ?? askVisibleOrEof;
 
+  // The parent process already resolved LOG_LOCATION (warning or prompting as needed) and
+  // passed the result down, so the child skips re-resolving it and any invalid-value warning.
   if (isServiceChildProcess(env)) {
     const serviceLogsDir = getServiceLogsDirFromEnv(env);
     if (serviceLogsDir) {
@@ -138,16 +160,24 @@ async function resolveLogsDir(options: ResolveLogsDirOptions): Promise<string> {
 
   const runtimePaths = getRuntimePaths();
   const canonicalDir = resolveCanonicalLogsDir(process.platform, env, os.homedir());
+  const envLocale = resolveSupportedLocale(env[BOT_LOCALE_KEY]);
+  let translate = translatorFor(envLocale);
 
   let setting = parseLogLocation(env[LOG_LOCATION_KEY]);
   const fromRealEnv = setting.kind !== "unset";
 
-  if (!fromRealEnv) {
+  if (!fromRealEnv || !envLocale) {
     try {
-      setting = parseLogLocation(await readEnvFileLogLocation(runtimePaths.envFilePath));
+      const fileValues = await readEnvFile(runtimePaths.envFilePath);
+      if (!envLocale) {
+        translate = translatorFor(resolveSupportedLocale(fileValues?.[BOT_LOCALE_KEY]));
+      }
+      if (!fromRealEnv) {
+        setting = parseLogLocation(fileValues?.[LOG_LOCATION_KEY]);
+      }
     } catch (error) {
       warn(
-        t("runtime.logs.env_read_failed", {
+        translate("runtime.logs.env_read_failed", {
           envPath: runtimePaths.envFilePath,
           reason: describeError(error),
         }),
@@ -164,18 +194,23 @@ async function resolveLogsDir(options: ResolveLogsDirOptions): Promise<string> {
   if (setting.kind === "valid") {
     location = setting.value;
   } else if (fromRealEnv) {
-    warn(t("runtime.logs.location_invalid_env", { value: setting.raw }));
+    warn(translate("runtime.logs.location_invalid_env", { value: setting.raw }));
     location = "default";
-  } else if (isInteractive) {
-    location = await promptForLogLocation(setting.raw, runtimePaths.envFilePath, ask, warn);
   } else {
-    warn(t("runtime.logs.location_invalid_no_tty", { value: setting.raw }));
-    location = "default";
+    const answered = isInteractive
+      ? await promptForLogLocation(setting.raw, runtimePaths.envFilePath, ask, warn, translate)
+      : null;
+    if (answered === null) {
+      warn(translate("runtime.logs.location_invalid_no_tty", { value: setting.raw }));
+    }
+    location = answered ?? "default";
   }
 
   return location === "app" ? runtimePaths.logsDirPath : canonicalDir;
 }
 
+// Later callers' options are ignored by design: the first call decides the process-wide result,
+// and concurrent callers share that same pending resolution.
 export function resolveLogsDirPath(options: ResolveLogsDirOptions = {}): Promise<string> {
   if (!resolvedLogsDir) {
     const pending = resolveLogsDir(options);
@@ -190,6 +225,7 @@ export function resolveLogsDirPath(options: ResolveLogsDirOptions = {}): Promise
   return resolvedLogsDir;
 }
 
+// Matches the existing __resetLoggerForTests convention in src/utils/logger.ts.
 export function __resetLogsDirForTests(): void {
   resolvedLogsDir = undefined;
 }
