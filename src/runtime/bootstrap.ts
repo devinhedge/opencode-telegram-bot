@@ -713,6 +713,21 @@ export async function ensureRuntimeConfigForStart(): Promise<void> {
     return;
   }
 
+  // Check if secrets are available in the secret store
+  try {
+    const { createSecretStore } = await import("../secrets/secret-store-factory.js");
+    const store = await createSecretStore({ appHome: runtimePaths.appHome });
+    const token = await store.getSecret("telegram_bot_token");
+    const userId = await store.getSecret("allowed_user_id");
+
+    if (token && userId) {
+      // Secrets are in the keychain, so .env is valid even without them
+      return;
+    }
+  } catch {
+    // Secret store not available, fall through to wizard
+  }
+
   process.stdout.write(t("runtime.wizard.not_configured_starting"));
   await runWizardAndPersist(runtimePaths);
 }

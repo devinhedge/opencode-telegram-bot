@@ -378,6 +378,17 @@ export async function loadConfig(secretStore?: SecretStore): Promise<typeof _con
     return _cachedConfig;
   }
 
+  // Create a secret store if one wasn't provided
+  if (!secretStore) {
+    try {
+      const { createSecretStore } = await import("./secrets/secret-store-factory.js");
+      secretStore = await createSecretStore({ appHome: runtimePaths.appHome });
+    } catch {
+      // No secret store available, continue with .env values
+      secretStore = undefined;
+    }
+  }
+
   // Run migration from .env to secret store if secrets exist in .env
   if (secretStore) {
     await migrateSecretsIfNeeded(secretStore, runtimePaths.envFilePath);
