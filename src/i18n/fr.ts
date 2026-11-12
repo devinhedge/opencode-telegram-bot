@@ -567,6 +567,8 @@ export const fr: I18nDictionary = {
     'Valeur LOG_LOCATION invalide "{value}" dans l\'environnement. Utilisation de default.\n',
   "runtime.logs.container_overrides_default":
     "Exécution dans un conteneur : LOG_LOCATION=default est remplacé par app, les journaux sont donc écrits dans le dossier des journaux du répertoire de l'application.\n",
+  "runtime.logs.container_invalid_value":
+    'Valeur LOG_LOCATION invalide "{value}" ; dans un conteneur, les journaux sont écrits dans le répertoire de l\'application.\n',
   "runtime.logs.location_persist_failed":
     "Impossible d'enregistrer LOG_LOCATION dans {envPath} : {reason}\n",
   "runtime.logs.env_read_failed": "Impossible de lire {envPath} : {reason}\n",

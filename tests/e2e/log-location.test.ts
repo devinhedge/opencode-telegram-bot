@@ -12,6 +12,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { isContainerRuntime } from "../../src/runtime/container.js";
 import { resolveCanonicalLogsDir } from "../../src/runtime/log-location.js";
 
 // Real-process check: the built entrypoint initializes the logger before it loads the
@@ -125,29 +126,38 @@ function logFilesIn(dirPath: string): string[] {
   return existsSync(dirPath) ? readdirSync(dirPath).filter((name) => LOG_FILE_NAME.test(name)) : [];
 }
 
+// The spawned process cannot be told it is not in a container: /.dockerenv is read from the real
+// filesystem. Inside a container the default location is the app home, so the canonical-directory
+// case cannot run there.
+const hostIsContainer = isContainerRuntime();
+
 describe.each(RUNTIME_MODES)("built entrypoint log location in %s mode", (mode) => {
-  it("writes the main log to the canonical directory when LOG_LOCATION is unset", async () => {
-    const appHome = join(root, "app-home");
-    mkdirSync(appHome);
-    const env = buildEnv(appHome, mode, {});
-    const canonicalDir = resolveCanonicalLogsDir(process.platform, env, env.HOME as string);
-    expect(canonicalDir.startsWith(root)).toBe(true);
+  it.skipIf(hostIsContainer)(
+    "writes the main log to the canonical directory when LOG_LOCATION is unset",
+    async () => {
+      const appHome = join(root, "app-home");
+      mkdirSync(appHome);
+      const env = buildEnv(appHome, mode, {});
+      const canonicalDir = resolveCanonicalLogsDir(process.platform, env, env.HOME as string);
+      expect(canonicalDir.startsWith(root)).toBe(true);
 
-    const result = await runBot(env, mode);
+      const result = await runBot(env, mode);
 
-    // The logger is initialized before the config loads (src/index.ts), and the failed
-    // startup exits through process.exit(1) after a bounded flush, so the log file exists
-    // once the child has exited.
-    expect(result.code).toBe(1);
-    expect(result.output).toContain("Failed to start bot");
-    const files = logFilesIn(canonicalDir);
-    expect(files).toHaveLength(1);
-    if (!isWindows) {
-      expect(statSync(canonicalDir).mode & 0o777).toBe(0o700);
-      expect(statSync(join(canonicalDir, files[0]!)).mode & 0o777).toBe(0o600);
-    }
-    expect(logFilesIn(join(appHome, "logs"))).toEqual([]);
-  }, 30_000);
+      // The logger is initialized before the config loads (src/index.ts), and the failed
+      // startup exits through process.exit(1) after a bounded flush, so the log file exists
+      // once the child has exited.
+      expect(result.code).toBe(1);
+      expect(result.output).toContain("Failed to start bot");
+      const files = logFilesIn(canonicalDir);
+      expect(files).toHaveLength(1);
+      if (!isWindows) {
+        expect(statSync(canonicalDir).mode & 0o777).toBe(0o700);
+        expect(statSync(join(canonicalDir, files[0]!)).mode & 0o777).toBe(0o600);
+      }
+      expect(logFilesIn(join(appHome, "logs"))).toEqual([]);
+    },
+    30_000,
+  );
 
   it("writes the main log to <appHome>/logs and nothing to the canonical directory when LOG_LOCATION=app", async () => {
     const appHome = join(root, "app-home");

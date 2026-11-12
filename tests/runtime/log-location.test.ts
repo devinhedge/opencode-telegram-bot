@@ -557,6 +557,8 @@ describe("resolveLogsDirPath", () => {
     const containerEnv = (extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv =>
       baseEnv({ OPENCODE_TELEGRAM_CONTAINER: "1", ...extra });
     const overrideWarning = t("runtime.logs.container_overrides_default");
+    const invalidValueWarning = (value: string): string =>
+      t("runtime.logs.container_invalid_value", { value });
 
     afterEach(() => {
       dockerEnvState.exists = false;
@@ -607,28 +609,79 @@ describe("resolveLogsDirPath", () => {
       expect(dir).toBe(appLogsDir);
     });
 
-    it("uses the app logs directory for an invalid value with only the invalid-value warning", async () => {
+    it("never calls os.homedir for an unset LOG_LOCATION", async () => {
+      const homedirSpy = vi.spyOn(os, "homedir").mockImplementation(() => {
+        throw new Error("no home");
+      });
+
+      try {
+        const dir = await resolveLogsDirPath({ env: containerEnv(), warn: vi.fn() });
+
+        expect(dir).toBe(appLogsDir);
+        expect(homedirSpy).not.toHaveBeenCalled();
+      } finally {
+        homedirSpy.mockRestore();
+      }
+    });
+
+    it("uses the app logs directory for an invalid .env value without a terminal, with one container warning", async () => {
       await fs.writeFile(envFilePath, "LOG_LOCATION=bogus\n", "utf-8");
       const warn = vi.fn();
       const dir = await resolveLogsDirPath({ env: containerEnv(), isInteractive: false, warn });
 
       expect(dir).toBe(appLogsDir);
-      expect(warn).toHaveBeenCalledTimes(1);
-      expect(warn).toHaveBeenCalledWith(
-        t("runtime.logs.location_invalid_no_tty", { value: "bogus" }),
-      );
+      expect(warn.mock.calls.map(([message]) => message)).toEqual([invalidValueWarning("bogus")]);
     });
 
-    it("uses the app logs directory for an invalid real-environment value with one warning", async () => {
+    it("never prompts or persists for an invalid .env value even with a terminal", async () => {
+      await fs.writeFile(envFilePath, "A=1\nLOG_LOCATION=bogus\n", "utf-8");
       const warn = vi.fn();
+      const ask = vi.fn();
       const dir = await resolveLogsDirPath({
-        env: containerEnv({ LOG_LOCATION: "bogus" }),
+        env: containerEnv(),
+        isInteractive: true,
+        ask,
         warn,
       });
 
       expect(dir).toBe(appLogsDir);
+      expect(ask).not.toHaveBeenCalled();
+      expect(persistEnvValue).not.toHaveBeenCalled();
+      expect(warn.mock.calls.map(([message]) => message)).toEqual([invalidValueWarning("bogus")]);
+      expect(await fs.readFile(envFilePath, "utf-8")).toBe("A=1\nLOG_LOCATION=bogus\n");
+    });
+
+    it("does not prompt for an invalid .env value when prompting is disabled", async () => {
+      await fs.writeFile(envFilePath, "LOG_LOCATION=bogus\n", "utf-8");
+      const warn = vi.fn();
+      const dir = await resolveLogsDirPath({ env: containerEnv(), prompt: false, warn });
+
+      expect(dir).toBe(appLogsDir);
+      expect(warn.mock.calls.map(([message]) => message)).toEqual([invalidValueWarning("bogus")]);
+    });
+
+    it("uses the app logs directory for an invalid real-environment value with one container warning", async () => {
+      const warn = vi.fn();
+      const ask = vi.fn();
+      const dir = await resolveLogsDirPath({
+        env: containerEnv({ LOG_LOCATION: "bogus" }),
+        isInteractive: true,
+        ask,
+        warn,
+      });
+
+      expect(dir).toBe(appLogsDir);
+      expect(ask).not.toHaveBeenCalled();
+      expect(warn.mock.calls.map(([message]) => message)).toEqual([invalidValueWarning("bogus")]);
+    });
+
+    it("uses the app logs directory when .env is unreadable", async () => {
+      await fs.mkdir(envFilePath);
+      const warn = vi.fn();
+      const dir = await resolveLogsDirPath({ env: containerEnv(), warn });
+
+      expect(dir).toBe(appLogsDir);
       expect(warn).toHaveBeenCalledTimes(1);
-      expect(warn).toHaveBeenCalledWith(t("runtime.logs.location_invalid_env", { value: "bogus" }));
     });
 
     it("keeps the handed-down service directory over the container rule", async () => {

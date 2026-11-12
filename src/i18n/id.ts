@@ -543,7 +543,9 @@ export const id: I18nDictionary = {
   "runtime.logs.location_invalid_env":
     'Nilai LOG_LOCATION tidak valid "{value}" di lingkungan. Menggunakan default.\n',
   "runtime.logs.container_overrides_default":
-    "Berjalan di dalam kontainer: LOG_LOCATION=default diganti dengan app, sehingga log ditulis ke folder log di direktori utama aplikasi.\n",
+    "Berjalan di dalam kontainer: LOG_LOCATION=default diganti dengan app, sehingga log ditulis ke folder log di direktori home aplikasi.\n",
+  "runtime.logs.container_invalid_value":
+    'Nilai LOG_LOCATION tidak valid "{value}"; di dalam kontainer log ditulis ke direktori home aplikasi.\n',
   "runtime.logs.location_persist_failed":
     "Tidak dapat menyimpan LOG_LOCATION ke {envPath}: {reason}\n",
   "runtime.logs.env_read_failed": "Tidak dapat membaca {envPath}: {reason}\n",

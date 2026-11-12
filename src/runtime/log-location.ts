@@ -222,6 +222,13 @@ async function resolveLogsDir(options: ResolveLogsDirOptions): Promise<string> {
     return getDefaultDir();
   }
 
+  // Inside a container an invalid value never prompts and is never persisted: the app home is
+  // the only location that survives the container, so one warning is all the user needs.
+  if (setting.kind === "invalid" && isContainerRuntime({ env })) {
+    warn(translate("runtime.logs.container_invalid_value", { value: setting.raw }));
+    return runtimePaths.logsDirPath;
+  }
+
   let location: LogLocation;
   if (setting.kind === "valid") {
     location = setting.value;

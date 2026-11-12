@@ -11,6 +11,18 @@ import { createTestHome } from "../helpers/test-environment.js";
 // directories in the repository root.
 
 const { spawnMock } = vi.hoisted(() => ({ spawnMock: vi.fn() }));
+// Keeps the host's /.dockerenv out of the tests: inside a container the default location is the
+// app home, which would change what the canonical-directory test expects.
+const dockerEnvState = vi.hoisted(() => ({ exists: false }));
+
+vi.mock("../../src/runtime/container.js", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../../src/runtime/container.js")>();
+  return {
+    ...original,
+    isContainerRuntime: (options?: Parameters<typeof original.isContainerRuntime>[0]) =>
+      original.isContainerRuntime({ dockerEnvExists: () => dockerEnvState.exists, ...options }),
+  };
+});
 
 vi.mock("node:child_process", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:child_process")>();
@@ -41,6 +53,7 @@ describe("log location integration", () => {
     vi.stubEnv("OPENCODE_TELEGRAM_HOME", appHome);
     vi.stubEnv("OPENCODE_TELEGRAM_RUNTIME_MODE", "installed");
     vi.stubEnv("LOG_LOCATION", undefined);
+    vi.stubEnv("OPENCODE_TELEGRAM_CONTAINER", "");
     vi.stubEnv("OPENCODE_TELEGRAM_SERVICE_CHILD", undefined);
     vi.stubEnv("OPENCODE_TELEGRAM_SERVICE_LOGS_DIR", undefined);
     vi.stubEnv("OPENCODE_TELEGRAM_SERVICE_STATE_PATH", undefined);
@@ -58,6 +71,7 @@ describe("log location integration", () => {
   });
 
   afterEach(async () => {
+    dockerEnvState.exists = false;
     const { __resetLoggerForTests } = await import("../../src/utils/logger.js");
     const { __resetLogsDirForTests } = await import("../../src/runtime/log-location.js");
     __resetLoggerForTests();
@@ -124,6 +138,20 @@ describe("log location integration", () => {
     expect(spawnedServiceLogsDir()).toBe(expectedDir);
     await expectOwnerOnly(expectedDir, mainLogPath, serviceLogPath);
     await expect(fs.access(path.join(appHome, "logs"))).rejects.toThrow();
+  });
+
+  it("writes both logs to <appHome>/logs by default inside a container", async () => {
+    dockerEnvState.exists = true;
+    const expectedDir = path.join(appHome, "logs");
+
+    const { mainLogPath, serviceLogPath } = await runLoggerThenDaemon();
+
+    expect(path.dirname(mainLogPath)).toBe(expectedDir);
+    expect(path.dirname(serviceLogPath)).toBe(expectedDir);
+    expect(spawnedServiceLogsDir()).toBe(expectedDir);
+    await expect(fs.readdir(path.join(root, "xdg-state"))).rejects.toThrow();
+    await expect(fs.readdir(path.join(homeDir, "Library"))).rejects.toThrow();
+    await expect(fs.readdir(path.join(root, "local-app-data"))).rejects.toThrow();
   });
 
   it("writes both logs to <appHome>/logs when LOG_LOCATION=app", async () => {

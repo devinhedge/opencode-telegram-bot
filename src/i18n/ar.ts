@@ -531,7 +531,9 @@ export const ar: I18nDictionary = {
   "runtime.logs.location_invalid_env":
     'قيمة LOG_LOCATION غير صالحة "{value}" في البيئة. سيتم استخدام default.\n',
   "runtime.logs.container_overrides_default":
-    "التشغيل داخل حاوية: يتم استبدال LOG_LOCATION=default بـ app، لذا تُكتب السجلات في مجلد سجلات المنزل الخاص بالتطبيق.\n",
+    "التشغيل داخل حاوية: يتم استبدال LOG_LOCATION=default بـ app، لذا تُكتب السجلات في مجلد logs داخل المجلد الرئيسي للتطبيق.\n",
+  "runtime.logs.container_invalid_value":
+    'قيمة LOG_LOCATION غير صالحة "{value}"؛ داخل الحاوية تُكتب السجلات في المجلد الرئيسي للتطبيق.\n',
   "runtime.logs.location_persist_failed": "تعذر حفظ LOG_LOCATION في {envPath}: {reason}\n",
   "runtime.logs.env_read_failed": "تعذرت قراءة {envPath}: {reason}\n",
   "runtime.wizard.tty_required":

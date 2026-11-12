@@ -501,6 +501,8 @@ export const zh: I18nDictionary = {
   "runtime.logs.location_invalid_env": '环境变量中的 LOG_LOCATION 值 "{value}" 无效。将使用 default。\n',
   "runtime.logs.container_overrides_default":
     "正在容器中运行：LOG_LOCATION=default 被替换为 app，日志将写入应用主目录下的 logs 文件夹。\n",
+  "runtime.logs.container_invalid_value":
+    '无效的 LOG_LOCATION 值 "{value}"；在容器中，日志将写入应用主目录。\n',
   "runtime.logs.location_persist_failed": "无法将 LOG_LOCATION 保存到 {envPath}：{reason}\n",
   "runtime.logs.env_read_failed": "无法读取 {envPath}：{reason}\n",
   "runtime.wizard.tty_required":
