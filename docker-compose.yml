@@ -11,6 +11,7 @@ services:
       - OPENCODE_API_URL=${OPENCODE_API_URL:-http://127.0.0.1:4096}
       - OPENCODE_TELEGRAM_HOME=/app/data
       - OPENCODE_TELEGRAM_CONTAINER=1
+      - LOG_LOCATION=app
     env_file:
       - .env
     volumes:

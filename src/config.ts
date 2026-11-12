@@ -1,6 +1,7 @@
 import dotenv from "dotenv";
 import { getRuntimePaths } from "./runtime/paths.js";
 import { isContainerRuntime } from "./runtime/container.js";
+import { persistEnvValue } from "./runtime/env-file.js";
 import { BOT_HEALTH_PORT_ENV, resolveHealthPort } from "./runtime/health-port.js";
 import { normalizeLocale, type Locale } from "./i18n/index.js";
 import type { SecretStore } from "./secrets/secret-store.js";
@@ -278,37 +279,9 @@ export async function detectOpencodeVersion(): Promise<OpencodeServerVersion> {
   return opencodeServerVersion;
 }
 
-/** Persist the detected OpenCode version to .env atomically. */
+/** Persist the detected OpenCode version to .env atomically, keeping the file's mode. */
 export async function persistOpencodeVersion(version: OpencodeServerVersion): Promise<void> {
-  const fs = await import("node:fs/promises");
-  
-  const envPath = runtimePaths.envFilePath;
-  let content = "";
-  try {
-    content = await fs.readFile(envPath, "utf-8");
-  } catch {
-    // File doesn't exist, start fresh
-  }
-
-  const lines = content.split(/\r?\n/);
-  let found = false;
-  const updated = lines.map((line) => {
-    const match = line.match(/^OPENCODE_SERVER_VERSION\s*=/);
-    if (match) {
-      found = true;
-      return `OPENCODE_SERVER_VERSION=${version}`;
-    }
-    return line;
-  });
-
-  if (!found) {
-    updated.push(`OPENCODE_SERVER_VERSION=${version}`);
-  }
-
-  const newContent = updated.join("\n");
-  const tempPath = `${envPath}.tmp`;
-  await fs.writeFile(tempPath, newContent, "utf-8");
-  await fs.rename(tempPath, envPath);
+  await persistEnvValue(runtimePaths.envFilePath, "OPENCODE_SERVER_VERSION", version);
 }
 
 /** Get the current detected opencode server version. */

@@ -244,6 +244,71 @@ describe("runtime/bootstrap", () => {
     );
     expect(updated.trimEnd().endsWith("ANOTHER_CUSTOM=1")).toBe(true);
   });
+
+  const BASE_WIZARD_VALUES = {
+    BOT_LOCALE: "en",
+    TELEGRAM_BOT_TOKEN: "token:value",
+    TELEGRAM_ALLOWED_USER_ID: "42",
+    OPENCODE_SERVER_VERSION: "v1",
+    OPENCODE_SERVER_USERNAME: "opencode",
+    OPENCODE_MODEL_PROVIDER: "opencode",
+    OPENCODE_MODEL_ID: "big-pickle",
+  } as const;
+
+  it("writes LOG_LOCATION over the commented template line", () => {
+    const updated = buildEnvFileContent(
+      "",
+      { ...BASE_WIZARD_VALUES, LOG_LOCATION: "app" },
+      ENV_EXAMPLE_CONTENT,
+    );
+
+    expect(updated).toMatch(/^LOG_LOCATION=app$/m);
+    expect(updated).not.toContain("# LOG_LOCATION=default");
+  });
+
+  it("keeps LOG_LOCATION out of .env when the wizard value is undefined", () => {
+    const updated = buildEnvFileContent("", { ...BASE_WIZARD_VALUES }, ENV_EXAMPLE_CONTENT);
+
+    expect(updated).not.toMatch(/^LOG_LOCATION=/m);
+    expect(updated).toContain("# LOG_LOCATION=default");
+  });
+
+  it("writes LOG_LOCATION in the flat layout without a template", () => {
+    const updated = buildEnvFileContent("", { ...BASE_WIZARD_VALUES, LOG_LOCATION: "default" });
+
+    expect(updated).toMatch(/^LOG_LOCATION=default$/m);
+  });
+
+  it("documents LOG_LOCATION as a commented entry in .env.example", () => {
+    expect(ENV_EXAMPLE_CONTENT).toMatch(/^# LOG_LOCATION=default\r?$/m);
+  });
+
+  it("sets LOG_LOCATION=app in the Docker image", () => {
+    const dockerfile = fs.readFileSync(path.resolve(process.cwd(), "Dockerfile"), "utf-8");
+
+    expect(dockerfile).toMatch(/^ENV LOG_LOCATION=app\r?$/m);
+  });
+
+  it("marks the Docker image as a container so plain docker run and Podman are detected", () => {
+    const dockerfile = fs.readFileSync(path.resolve(process.cwd(), "Dockerfile"), "utf-8");
+
+    expect(dockerfile).toMatch(/^ENV OPENCODE_TELEGRAM_CONTAINER=1\r?$/m);
+  });
+
+  it("sets LOG_LOCATION=app in the Compose environment so env_file cannot override the image", () => {
+    const compose = fs.readFileSync(path.resolve(process.cwd(), "docker-compose.yml"), "utf-8");
+
+    expect(compose).toMatch(/^\s*-\s*LOG_LOCATION=app\r?$/m);
+  });
+
+  it("does not override LOG_LOCATION in the desktop Compose file", () => {
+    const desktop = fs.readFileSync(
+      path.resolve(process.cwd(), "docker-compose.desktop.yml"),
+      "utf-8",
+    );
+
+    expect(desktop).not.toMatch(/^[^#\n]*LOG_LOCATION/m);
+  });
 });
 
 describe("runtime/bootstrap installed configuration", () => {
@@ -308,6 +373,14 @@ describe("runtime/bootstrap installed configuration", () => {
     await ensureRuntimeConfigForStart();
 
     expect(fs.existsSync(path.join(tempHome, "settings.json"))).toBe(false);
+  });
+
+  it("stays valid when process.env carries a LOG_LOCATION", async () => {
+    vi.stubEnv("LOG_LOCATION", "app");
+
+    await ensureRuntimeConfigForStart();
+
+    expect(fs.existsSync(path.join(tempHome, ".env"))).toBe(false);
   });
 
   it("rejects an invalid process.env value even when .env is valid", async () => {

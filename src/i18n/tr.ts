@@ -516,6 +516,10 @@ export const tr: I18nDictionary = {
   "runtime.wizard.ask_server_version":
     "Select OpenCode server version:\n1 - OpenCode V1 (1.x, npm package opencode-ai)\n2 - OpenCode V2 (2.x, npm package @opencode/cli)\nPress Enter to use default: {defaultVersion}\n> ",
   "runtime.wizard.server_version_invalid": "Enter 1 or 2, or press Enter for default.\n",
+  "runtime.wizard.ask_log_location":
+    "Günlüklerin nereye yazılacağını seçin:\n1) default: işletim sisteminin günlük dizini\n2) app: uygulama ana dizinindeki logs klasörü\n{defaultLocation} için Enter'a basın\n> ",
+  "runtime.wizard.log_location_invalid":
+    "1, 2, default veya app girin ya da {defaultLocation} için Enter'a basın.\n",
   "runtime.wizard.ask_server_password_required":
     "Enter OpenCode V2 server password (required).\nShow it with: opencode service get password\n> ",
   "runtime.wizard.server_password_required":
@@ -528,6 +532,24 @@ export const tr: I18nDictionary = {
   "runtime.wizard.saved": "Yapılandırma kaydedildi:\n- {envPath}\n",
   "runtime.wizard.not_configured_starting":
     "Uygulama henüz yapılandırılmadı. Sihirbaz başlatılıyor...\n",
+  "runtime.logs.location_invalid":
+    'Geçersiz LOG_LOCATION değeri "{value}". İzin verilen değerler: default, app.\n',
+  "runtime.logs.ask_location":
+    "Günlük konumunu seçin:\n1) default: işletim sisteminin günlük dizini\n2) app: uygulama ana dizinindeki logs klasörü\nYanıt {envPath} dosyasına kaydedilir.\n> ",
+  "runtime.logs.location_choice_invalid": "1, 2, default veya app yazın.\n",
+  "runtime.logs.location_invalid_no_tty":
+    'Geçersiz LOG_LOCATION değeri "{value}" ve etkileşimli terminal yok. default kullanılıyor.\n',
+  "runtime.logs.location_invalid_gave_up":
+    'Geçersiz LOG_LOCATION değeri "{value}" ve geçerli bir yanıt verilmedi. default kullanılıyor.\n',
+  "runtime.logs.location_invalid_env":
+    'Ortamda geçersiz LOG_LOCATION değeri "{value}". default kullanılıyor.\n',
+  "runtime.logs.container_overrides_default":
+    "Kapsayıcı içinde çalışılıyor: LOG_LOCATION=default yerine app kullanılır, bu yüzden günlükler uygulama ana dizinindeki logs klasörüne yazılır.\n",
+  "runtime.logs.container_invalid_value":
+    'Geçersiz LOG_LOCATION değeri "{value}"; kapsayıcı içinde günlükler uygulama ana dizinine yazılır.\n',
+  "runtime.logs.location_persist_failed":
+    "LOG_LOCATION {envPath} dosyasına kaydedilemedi: {reason}\n",
+  "runtime.logs.env_read_failed": "{envPath} okunamadı: {reason}\n",
   "runtime.wizard.tty_required":
     "Etkileşimli sihirbaz bir TTY terminali gerektirir. `opencode-telegram config` komutunu etkileşimli bir kabukta çalıştırın.",
   "runtime.wizard.backend_selected":

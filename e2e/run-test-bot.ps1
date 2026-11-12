@@ -258,6 +258,10 @@ $previousStateHome = $env:XDG_STATE_HOME
 $previousConfigDir = $env:OPENCODE_CONFIG_DIR
 $previousServerMode = $env:OPENCODE_SERVER_MODE
 $previousStandPidFile = $env:OPENCODE_STAND_PID_FILE
+$previousLogLocation = $env:LOG_LOCATION
+# Logs default to the per-user canonical directory; "app" keeps them in $testHome\logs
+# so a run never writes outside the isolated home. It also overrides LOG_LOCATION in e2e/.env.
+$env:LOG_LOCATION = "app"
 if ($opencodeBin) { $env:PATH = "$opencodeBin;$env:PATH" }
 if ($OpencodeVersion) { $env:OPENCODE_SERVER_VERSION = $OpencodeVersion }
 # Both versions record the spawned server so teardown can tell it from another
@@ -292,6 +296,7 @@ try {
     Restore-EnvValue "OPENCODE_CONFIG_DIR" $previousConfigDir
     Restore-EnvValue "OPENCODE_SERVER_MODE" $previousServerMode
     Restore-EnvValue "OPENCODE_STAND_PID_FILE" $previousStandPidFile
+    Restore-EnvValue "LOG_LOCATION" $previousLogLocation
     if ($FaultProxy) {
         Restore-EnvValue "TELEGRAM_API_ROOT" $previousApiRoot
     }

@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs";
 import { dirname } from "node:path";
 import { randomBytes, scrypt, createCipheriv, createDecipheriv } from "node:crypto";
 import { promisify } from "node:util";
+import { resolveSymlinkTarget, writeFileAtomically } from "../runtime/env-file.js";
 import type { SecretStore } from "./secret-store.js";
 
 const scryptAsync = promisify(scrypt) as (
@@ -51,6 +52,17 @@ export class EncryptedFileSecretStore implements SecretStore {
       if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
     }
 
+    if (raw !== null && process.platform !== "win32") {
+      try {
+        // Best effort: an older or hand-copied file may be group or other readable. The file
+        // stays usable when this fails, so the failure is ignored. Tightening before the
+        // password check is acceptable: the file only becomes more restrictive.
+        await fs.chmod(this.filePath, 0o600);
+      } catch {
+        // ignored
+      }
+    }
+
     if (raw === null) {
       this.salt = randomBytes(SALT_LENGTH);
       this.key = (await scryptAsync(password, this.salt, KEY_LENGTH)) as Buffer;
@@ -95,8 +107,10 @@ export class EncryptedFileSecretStore implements SecretStore {
       ciphertext: ciphertext.toString("base64"),
     };
 
-    await fs.mkdir(dirname(this.filePath), { recursive: true });
-    await fs.writeFile(this.filePath, JSON.stringify(payload), "utf8");
+    // Atomic replace through an owner-only temp file: the rename gives secrets.enc a fresh 0600
+    // file (tightening a wider existing one), and a crash mid-write cannot truncate the secrets.
+    // A symlinked secrets.enc keeps its link and the target is replaced.
+    await writeFileAtomically(await resolveSymlinkTarget(this.filePath), JSON.stringify(payload));
   }
 
   async getSecret(account: string): Promise<string | null> {

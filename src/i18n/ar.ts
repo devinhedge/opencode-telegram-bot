@@ -503,6 +503,10 @@ export const ar: I18nDictionary = {
   "runtime.wizard.ask_server_version":
     "Select OpenCode server version:\n1 - OpenCode V1 (1.x, npm package opencode-ai)\n2 - OpenCode V2 (2.x, npm package @opencode/cli)\nPress Enter to use default: {defaultVersion}\n> ",
   "runtime.wizard.server_version_invalid": "Enter 1 or 2, or press Enter for default.\n",
+  "runtime.wizard.ask_log_location":
+    "اختر مكان كتابة السجلات:\n1) default: دليل سجلات نظام التشغيل\n2) app: مجلد logs داخل المجلد الرئيسي للتطبيق\nاضغط Enter لاستخدام {defaultLocation}\n> ",
+  "runtime.wizard.log_location_invalid":
+    "أدخل 1 أو 2 أو default أو app، أو اضغط Enter لاستخدام {defaultLocation}.\n",
   "runtime.wizard.ask_server_password_required":
     "Enter OpenCode V2 server password (required).\nShow it with: opencode service get password\n> ",
   "runtime.wizard.server_password_required":
@@ -515,6 +519,23 @@ export const ar: I18nDictionary = {
   "runtime.wizard.saved": "تم حفظ الإعدادات في:\n- {envPath}\n",
   "runtime.wizard.not_configured_starting":
     "لم يتم إعداد التطبيق بعد. جارٍ تشغيل معالج الإعداد...\n",
+  "runtime.logs.location_invalid":
+    'قيمة LOG_LOCATION غير صالحة "{value}". القيم المسموح بها: default، app.\n',
+  "runtime.logs.ask_location":
+    "اختر موقع السجلات:\n1) default: دليل سجلات نظام التشغيل\n2) app: مجلد logs داخل المجلد الرئيسي للتطبيق\nسيتم حفظ الإجابة في {envPath}.\n> ",
+  "runtime.logs.location_choice_invalid": "أدخل 1 أو 2 أو default أو app.\n",
+  "runtime.logs.location_invalid_no_tty":
+    'قيمة LOG_LOCATION غير صالحة "{value}" ولا يتوفر طرفية تفاعلية. سيتم استخدام default.\n',
+  "runtime.logs.location_invalid_gave_up":
+    'قيمة LOG_LOCATION غير صالحة "{value}" ولم تُقدَّم إجابة صالحة. سيتم استخدام default.\n',
+  "runtime.logs.location_invalid_env":
+    'قيمة LOG_LOCATION غير صالحة "{value}" في البيئة. سيتم استخدام default.\n',
+  "runtime.logs.container_overrides_default":
+    "التشغيل داخل حاوية: يتم استبدال LOG_LOCATION=default بـ app، لذا تُكتب السجلات في مجلد logs داخل المجلد الرئيسي للتطبيق.\n",
+  "runtime.logs.container_invalid_value":
+    'قيمة LOG_LOCATION غير صالحة "{value}"؛ داخل الحاوية تُكتب السجلات في المجلد الرئيسي للتطبيق.\n',
+  "runtime.logs.location_persist_failed": "تعذر حفظ LOG_LOCATION في {envPath}: {reason}\n",
+  "runtime.logs.env_read_failed": "تعذرت قراءة {envPath}: {reason}\n",
   "runtime.wizard.tty_required":
     "يتطلب معالج الإعداد التفاعلي طرفية TTY. شغّل `opencode-telegram config` في shell تفاعلية.",
   "runtime.wizard.backend_selected":

@@ -191,6 +191,9 @@ if [ "$skip_build" -eq 0 ]; then
 fi
 
 export OPENCODE_TELEGRAM_HOME="$test_home"
+# Logs default to the per-user canonical directory; "app" keeps them in $test_home/logs
+# so a run never writes outside the isolated home. It also overrides LOG_LOCATION in e2e/.env.
+export LOG_LOCATION="app"
 
 # exec below replaces this shell, so these reach the bot process only.
 [ -z "$opencode_bin" ] || export PATH="$opencode_bin:$PATH"
