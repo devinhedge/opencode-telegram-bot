@@ -543,6 +543,8 @@ export const tr: I18nDictionary = {
     'Geçersiz LOG_LOCATION değeri "{value}" ve geçerli bir yanıt verilmedi. default kullanılıyor.\n',
   "runtime.logs.location_invalid_env":
     'Ortamda geçersiz LOG_LOCATION değeri "{value}". default kullanılıyor.\n',
+  "runtime.logs.container_overrides_default":
+    "Kapsayıcı içinde çalışılıyor: LOG_LOCATION=default yerine app kullanılır, bu yüzden günlükler uygulama ana dizinindeki logs klasörüne yazılır.\n",
   "runtime.logs.location_persist_failed":
     "LOG_LOCATION {envPath} dosyasına kaydedilemedi: {reason}\n",
   "runtime.logs.env_read_failed": "{envPath} okunamadı: {reason}\n",

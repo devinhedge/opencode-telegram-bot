@@ -609,6 +609,8 @@ export const en = {
     'Invalid LOG_LOCATION value "{value}" and no valid answer was given. Using default.\n',
   "runtime.logs.location_invalid_env":
     'Invalid LOG_LOCATION value "{value}" in the environment. Using default.\n',
+  "runtime.logs.container_overrides_default":
+    "Running in a container: LOG_LOCATION=default is replaced by app, so logs go to the app home logs folder.\n",
   "runtime.logs.location_persist_failed":
     "Could not save LOG_LOCATION to {envPath}: {reason}\n",
   "runtime.logs.env_read_failed": "Could not read {envPath}: {reason}\n",

@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 // directly or transitively.
 import type { I18nKey } from "../i18n/en.js";
 import { resolveSupportedLocale, t, type Locale } from "../i18n/index.js";
+import { isContainerRuntime } from "./container.js";
 import { persistEnvValue } from "./env-file.js";
 import { getLogRetention } from "../utils/log-files.js";
 import { getRuntimePaths } from "./paths.js";
@@ -182,6 +183,11 @@ async function resolveLogsDir(options: ResolveLogsDirOptions): Promise<string> {
   // LOG_LOCATION=app never needs it.
   const getCanonicalDir = (): string =>
     resolveCanonicalLogsDir(process.platform, env, os.homedir());
+  // Inside a container the default location is the app home: the canonical directory lies outside
+  // the data volume and is lost with the container. A plain `docker run -e` or `--env-file`
+  // replaces the image's LOG_LOCATION=app, so the rule applies to a resulting default.
+  const getDefaultDir = (): string =>
+    isContainerRuntime({ env }) ? runtimePaths.logsDirPath : getCanonicalDir();
   const envLocale = resolveSupportedLocale(env[BOT_LOCALE_KEY]);
   let translate = translatorFor(envLocale);
 
@@ -207,13 +213,13 @@ async function resolveLogsDir(options: ResolveLogsDirOptions): Promise<string> {
             reason: describeError(error),
           }),
         );
-        return getCanonicalDir();
+        return getDefaultDir();
       }
     }
   }
 
   if (setting.kind === "unset") {
-    return getCanonicalDir();
+    return getDefaultDir();
   }
 
   let location: LogLocation;
@@ -242,7 +248,11 @@ async function resolveLogsDir(options: ResolveLogsDirOptions): Promise<string> {
     location = answered ?? "default";
   }
 
-  return location === "app" ? runtimePaths.logsDirPath : getCanonicalDir();
+  if (location === "default" && setting.kind === "valid" && isContainerRuntime({ env })) {
+    warn(translate("runtime.logs.container_overrides_default"));
+  }
+
+  return location === "app" ? runtimePaths.logsDirPath : getDefaultDir();
 }
 
 // LOG_RETENTION lookup shared by the logger and the daemon manager: the real environment first,

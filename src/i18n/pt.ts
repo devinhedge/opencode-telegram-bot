@@ -559,6 +559,8 @@ export const pt: I18nDictionary = {
     'Valor de LOG_LOCATION inválido "{value}" e nenhuma resposta válida foi fornecida. Usando default.\n',
   "runtime.logs.location_invalid_env":
     'Valor de LOG_LOCATION inválido "{value}" no ambiente. Usando default.\n',
+  "runtime.logs.container_overrides_default":
+    "Execução em um contêiner: LOG_LOCATION=default é substituído por app, então os logs são gravados na pasta de logs do diretório do aplicativo.\n",
   "runtime.logs.location_persist_failed":
     "Não foi possível salvar LOG_LOCATION em {envPath}: {reason}\n",
   "runtime.logs.env_read_failed": "Não foi possível ler {envPath}: {reason}\n",

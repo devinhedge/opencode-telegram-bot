@@ -550,6 +550,8 @@ export const ko: I18nDictionary = {
     '잘못된 LOG_LOCATION 값 "{value}"이며 유효한 답변이 입력되지 않았습니다. default를 사용합니다.\n',
   "runtime.logs.location_invalid_env":
     '환경 변수의 LOG_LOCATION 값 "{value}"이(가) 잘못되었습니다. default를 사용합니다.\n',
+  "runtime.logs.container_overrides_default":
+    "컨테이너에서 실행 중입니다. LOG_LOCATION=default가 app으로 대체되어 로그는 앱 홈의 logs 폴더에 기록됩니다.\n",
   "runtime.logs.location_persist_failed":
     "LOG_LOCATION을 {envPath}에 저장하지 못했습니다: {reason}\n",
   "runtime.logs.env_read_failed": "{envPath}을(를) 읽지 못했습니다: {reason}\n",

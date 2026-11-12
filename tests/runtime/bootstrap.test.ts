@@ -289,6 +289,12 @@ describe("runtime/bootstrap", () => {
     expect(dockerfile).toMatch(/^ENV LOG_LOCATION=app\r?$/m);
   });
 
+  it("marks the Docker image as a container so plain docker run and Podman are detected", () => {
+    const dockerfile = fs.readFileSync(path.resolve(process.cwd(), "Dockerfile"), "utf-8");
+
+    expect(dockerfile).toMatch(/^ENV OPENCODE_TELEGRAM_CONTAINER=1\r?$/m);
+  });
+
   it("sets LOG_LOCATION=app in the Compose environment so env_file cannot override the image", () => {
     const compose = fs.readFileSync(path.resolve(process.cwd(), "docker-compose.yml"), "utf-8");
 

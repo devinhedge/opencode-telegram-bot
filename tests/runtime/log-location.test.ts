@@ -14,6 +14,17 @@ import { t } from "../../src/i18n/index.js";
 import { persistEnvValue } from "../../src/runtime/env-file.js";
 
 const pathsState = vi.hoisted(() => ({ appHome: "" }));
+// Keeps the host's /.dockerenv out of the tests; a test sets exists to simulate it.
+const dockerEnvState = vi.hoisted(() => ({ exists: false }));
+
+vi.mock("../../src/runtime/container.js", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../../src/runtime/container.js")>();
+  return {
+    ...original,
+    isContainerRuntime: (options?: Parameters<typeof original.isContainerRuntime>[0]) =>
+      original.isContainerRuntime({ dockerEnvExists: () => dockerEnvState.exists, ...options }),
+  };
+});
 
 vi.mock("../../src/runtime/paths.js", () => ({
   getRuntimePaths: () => ({
@@ -530,6 +541,120 @@ describe("resolveLogsDirPath", () => {
       });
 
       expect(dir).toBe(canonicalDir);
+    });
+  });
+
+  describe("inside a container", () => {
+    const containerEnv = (extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv =>
+      baseEnv({ OPENCODE_TELEGRAM_CONTAINER: "1", ...extra });
+    const overrideWarning = t("runtime.logs.container_overrides_default");
+
+    afterEach(() => {
+      dockerEnvState.exists = false;
+    });
+
+    it("resolves an unset LOG_LOCATION to the app logs directory without a warning", async () => {
+      const warn = vi.fn();
+      const dir = await resolveLogsDirPath({ env: containerEnv(), warn });
+
+      expect(dir).toBe(appLogsDir);
+      expect(warn).not.toHaveBeenCalled();
+    });
+
+    it("resolves LOG_LOCATION=default from the real environment to the app logs directory with one warning", async () => {
+      const warn = vi.fn();
+      const dir = await resolveLogsDirPath({
+        env: containerEnv({ LOG_LOCATION: "default" }),
+        warn,
+      });
+
+      expect(dir).toBe(appLogsDir);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn).toHaveBeenCalledWith(overrideWarning);
+    });
+
+    it("resolves LOG_LOCATION=default from .env to the app logs directory with one warning", async () => {
+      await fs.writeFile(envFilePath, "LOG_LOCATION=default\n", "utf-8");
+      const warn = vi.fn();
+      const dir = await resolveLogsDirPath({ env: containerEnv(), warn });
+
+      expect(dir).toBe(appLogsDir);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn).toHaveBeenCalledWith(overrideWarning);
+    });
+
+    it("keeps an explicit app without a warning", async () => {
+      const warn = vi.fn();
+      const dir = await resolveLogsDirPath({ env: containerEnv({ LOG_LOCATION: "app" }), warn });
+
+      expect(dir).toBe(appLogsDir);
+      expect(warn).not.toHaveBeenCalled();
+    });
+
+    it("detects a container from /.dockerenv", async () => {
+      dockerEnvState.exists = true;
+      const dir = await resolveLogsDirPath({ env: baseEnv(), warn: vi.fn() });
+
+      expect(dir).toBe(appLogsDir);
+    });
+
+    it("uses the app logs directory for an invalid value with only the invalid-value warning", async () => {
+      await fs.writeFile(envFilePath, "LOG_LOCATION=bogus\n", "utf-8");
+      const warn = vi.fn();
+      const dir = await resolveLogsDirPath({ env: containerEnv(), isInteractive: false, warn });
+
+      expect(dir).toBe(appLogsDir);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn).toHaveBeenCalledWith(
+        t("runtime.logs.location_invalid_no_tty", { value: "bogus" }),
+      );
+    });
+
+    it("uses the app logs directory for an invalid real-environment value with one warning", async () => {
+      const warn = vi.fn();
+      const dir = await resolveLogsDirPath({
+        env: containerEnv({ LOG_LOCATION: "bogus" }),
+        warn,
+      });
+
+      expect(dir).toBe(appLogsDir);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn).toHaveBeenCalledWith(t("runtime.logs.location_invalid_env", { value: "bogus" }));
+    });
+
+    it("keeps the handed-down service directory over the container rule", async () => {
+      const override = path.join(tempDir, "from-parent");
+      const warn = vi.fn();
+      const dir = await resolveLogsDirPath({
+        env: containerEnv({
+          OPENCODE_TELEGRAM_SERVICE_CHILD: "1",
+          OPENCODE_TELEGRAM_SERVICE_LOGS_DIR: override,
+          LOG_LOCATION: "default",
+        }),
+        warn,
+      });
+
+      expect(dir).toBe(override);
+      expect(warn).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("outside a container", () => {
+    it("treats a false container flag as not a container", async () => {
+      const warn = vi.fn();
+      const unset = await resolveLogsDirPath({
+        env: baseEnv({ OPENCODE_TELEGRAM_CONTAINER: "0" }),
+        warn,
+      });
+      __resetLogsDirForTests();
+      const explicit = await resolveLogsDirPath({
+        env: baseEnv({ OPENCODE_TELEGRAM_CONTAINER: "false", LOG_LOCATION: "default" }),
+        warn,
+      });
+
+      expect(unset).toBe(canonicalDir);
+      expect(explicit).toBe(canonicalDir);
+      expect(warn).not.toHaveBeenCalled();
     });
   });
 

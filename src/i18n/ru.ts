@@ -557,6 +557,8 @@ export const ru: I18nDictionary = {
     'Недопустимое значение LOG_LOCATION "{value}", корректный ответ не получен. Используется default.\n',
   "runtime.logs.location_invalid_env":
     'Недопустимое значение LOG_LOCATION "{value}" в окружении. Используется default.\n',
+  "runtime.logs.container_overrides_default":
+    "Запуск в контейнере: LOG_LOCATION=default заменяется на app, поэтому журналы записываются в папку logs домашнего каталога приложения.\n",
   "runtime.logs.location_persist_failed":
     "Не удалось сохранить LOG_LOCATION в {envPath}: {reason}\n",
   "runtime.logs.env_read_failed": "Не удалось прочитать {envPath}: {reason}\n",
