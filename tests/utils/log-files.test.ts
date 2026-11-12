@@ -3,11 +3,9 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  LOG_FILE_PREFIX,
   SERVICE_LOG_FILE_PATTERN,
   buildMainLogFileName,
   buildServiceLogFileName,
-  compareLogNames,
   ensureLogsDir,
   ensureLogsDirSync,
   getLogRetention,
@@ -21,10 +19,6 @@ const isWindows = process.platform === "win32";
 const NOW = new Date("2026-03-04T05:06:07.000Z");
 
 describe("utils/log-files naming", () => {
-  it("uses the documented prefix", () => {
-    expect(LOG_FILE_PREFIX).toBe("opencode-telegram-bot");
-  });
-
   it("builds installed and sources main names", () => {
     expect(buildMainLogFileName("installed", NOW, 42)).toBe("opencode-telegram-bot-2026-03-04.log");
     expect(buildMainLogFileName("sources", NOW, 42)).toBe(
@@ -202,7 +196,8 @@ describe("utils/log-files filesystem helpers", () => {
     });
   });
 
-  it("orders mixed pid-suffix and plain names identically for every permutation", () => {
+  it("prunes mixed pid-suffix and plain names in the same order for every permutation", async () => {
+    // Oldest first the order is p_1x.log (no pid suffix), p_9.log, p_10.log (numeric pid).
     const names = ["p_9.log", "p_10.log", "p_1x.log"];
     const permutations = [
       [0, 1, 2],
@@ -213,10 +208,18 @@ describe("utils/log-files filesystem helpers", () => {
       [2, 1, 0],
     ].map((order) => order.map((index) => names[index] as string));
 
-    const results = permutations.map((permutation) => [...permutation].sort(compareLogNames));
+    for (const [index, permutation] of permutations.entries()) {
+      const dir = path.join(root, `permutation-${index}`);
+      await fs.mkdir(dir);
+      for (const name of permutation) {
+        await fs.writeFile(path.join(dir, name), "x");
+      }
 
-    for (const result of results) {
-      expect(result).toEqual(["p_1x.log", "p_9.log", "p_10.log"]);
+      await pruneLogFiles(dir, /^p_.*\.log$/, 2, vi.fn());
+      expect((await fs.readdir(dir)).sort()).toEqual(["p_10.log", "p_9.log"]);
+
+      await pruneLogFiles(dir, /^p_.*\.log$/, 1, vi.fn());
+      expect(await fs.readdir(dir)).toEqual(["p_10.log"]);
     }
   });
 

@@ -4,7 +4,7 @@ import path from "node:path";
 import { exec, spawn } from "node:child_process";
 import { promisify } from "node:util";
 import { getRuntimePaths } from "../paths.js";
-import { resolveLogsDirPath } from "../log-location.js";
+import { resolveLogRetention, resolveLogsDirPath } from "../log-location.js";
 import { buildServiceChildEnv } from "./env.js";
 import { logger } from "../../utils/logger.js";
 import {
@@ -12,7 +12,6 @@ import {
   SERVICE_LOG_FILE_PATTERN,
   buildServiceLogFileName,
   ensureLogsDir,
-  getLogRetention,
   pruneLogFiles,
   secureLogFileSync,
 } from "../../utils/log-files.js";
@@ -286,7 +285,7 @@ export async function startBotDaemon(mode?: string): Promise<ServiceOperationRes
     await pruneLogFiles(
       logsDirPath,
       SERVICE_LOG_FILE_PATTERN,
-      getLogRetention(),
+      await resolveLogRetention(),
       (message, error) => logger.warn(`[Manager] ${message}`, error),
     );
 

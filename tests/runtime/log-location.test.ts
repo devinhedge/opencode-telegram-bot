@@ -6,6 +6,7 @@ import {
   __resetLogsDirForTests,
   parseLogLocation,
   resolveCanonicalLogsDir,
+  resolveLogRetention,
   resolveLogsDirPath,
 } from "../../src/runtime/log-location.js";
 import { t } from "../../src/i18n/index.js";
@@ -477,5 +478,66 @@ describe("resolveLogsDirPath", () => {
 
     expect(second).toBe(first);
     expect(ask).toHaveBeenCalledTimes(1);
+  });
+
+  describe("without a home directory", () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it("resolves LOG_LOCATION=app without calling os.homedir", async () => {
+      vi.spyOn(os, "homedir").mockImplementation(() => {
+        throw new Error("no home");
+      });
+
+      const dir = await resolveLogsDirPath({
+        env: { LOG_LOCATION: "app" },
+        isInteractive: false,
+        warn: vi.fn(),
+      });
+
+      expect(dir).toBe(appLogsDir);
+    });
+  });
+});
+
+describe("resolveLogRetention", () => {
+  let tempDir: string;
+  let envFilePath: string;
+
+  beforeEach(async () => {
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "log-retention-test-"));
+    pathsState.appHome = path.join(tempDir, "app");
+    await fs.mkdir(pathsState.appHome, { recursive: true });
+    envFilePath = path.join(pathsState.appHome, ".env");
+  });
+
+  afterEach(async () => {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  });
+
+  it("reads LOG_RETENTION from the .env file when the environment has none", async () => {
+    await fs.writeFile(envFilePath, "LOG_RETENTION=3\n", "utf-8");
+
+    await expect(resolveLogRetention({ env: {} })).resolves.toBe(3);
+  });
+
+  it("lets the real environment beat the .env file", async () => {
+    await fs.writeFile(envFilePath, "LOG_RETENTION=3\n", "utf-8");
+
+    await expect(resolveLogRetention({ env: { LOG_RETENTION: "5" } })).resolves.toBe(5);
+  });
+
+  it("falls back to the default for a missing or unusable value", async () => {
+    await expect(resolveLogRetention({ env: {} })).resolves.toBe(10);
+
+    await fs.writeFile(envFilePath, "LOG_RETENTION=abc\n", "utf-8");
+    await expect(resolveLogRetention({ env: {} })).resolves.toBe(10);
+  });
+
+  it("falls back to the default when .env cannot be read", async () => {
+    await fs.mkdir(envFilePath);
+
+    await expect(resolveLogRetention({ env: {} })).resolves.toBe(10);
   });
 });

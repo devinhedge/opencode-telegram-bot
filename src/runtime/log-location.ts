@@ -7,6 +7,7 @@ import dotenv from "dotenv";
 import type { I18nKey } from "../i18n/en.js";
 import { resolveSupportedLocale, t, type Locale } from "../i18n/index.js";
 import { persistEnvValue } from "./env-file.js";
+import { getLogRetention } from "../utils/log-files.js";
 import { getRuntimePaths } from "./paths.js";
 import { askVisibleOrEof } from "./prompts.js";
 import { getServiceLogsDirFromEnv, isServiceChildProcess } from "./service/env.js";
@@ -67,6 +68,7 @@ export interface ResolveLogsDirOptions {
 type Translate = (key: I18nKey, params?: Parameters<typeof t>[1]) => string;
 
 const LOG_LOCATION_KEY = "LOG_LOCATION";
+const LOG_RETENTION_KEY = "LOG_RETENTION";
 const BOT_LOCALE_KEY = "BOT_LOCALE";
 const MAX_PROMPT_ATTEMPTS = 3;
 
@@ -159,7 +161,10 @@ async function resolveLogsDir(options: ResolveLogsDirOptions): Promise<string> {
   }
 
   const runtimePaths = getRuntimePaths();
-  const canonicalDir = resolveCanonicalLogsDir(process.platform, env, os.homedir());
+  // Computed lazily: os.homedir() can throw (for example an arbitrary uid with no HOME), and
+  // LOG_LOCATION=app never needs it.
+  const getCanonicalDir = (): string =>
+    resolveCanonicalLogsDir(process.platform, env, os.homedir());
   const envLocale = resolveSupportedLocale(env[BOT_LOCALE_KEY]);
   let translate = translatorFor(envLocale);
 
@@ -185,13 +190,13 @@ async function resolveLogsDir(options: ResolveLogsDirOptions): Promise<string> {
             reason: describeError(error),
           }),
         );
-        return canonicalDir;
+        return getCanonicalDir();
       }
     }
   }
 
   if (setting.kind === "unset") {
-    return canonicalDir;
+    return getCanonicalDir();
   }
 
   let location: LogLocation;
@@ -210,7 +215,27 @@ async function resolveLogsDir(options: ResolveLogsDirOptions): Promise<string> {
     location = answered ?? "default";
   }
 
-  return location === "app" ? runtimePaths.logsDirPath : canonicalDir;
+  return location === "app" ? runtimePaths.logsDirPath : getCanonicalDir();
+}
+
+// LOG_RETENTION lookup shared by the logger and the daemon manager: the real environment first,
+// then the .env file in the app home (config.ts has not loaded it into process.env yet when the
+// logger prunes). A missing, unreadable, or unusable value yields the default.
+export async function resolveLogRetention(
+  options: { env?: NodeJS.ProcessEnv } = {},
+): Promise<number> {
+  const env = options.env ?? process.env;
+
+  if (env[LOG_RETENTION_KEY]) {
+    return getLogRetention(env);
+  }
+
+  try {
+    const fileValues = await readEnvFile(getRuntimePaths().envFilePath);
+    return getLogRetention(fileValues ?? {});
+  } catch {
+    return getLogRetention({});
+  }
 }
 
 // Later callers' options are ignored by design: the first call decides the process-wide result,

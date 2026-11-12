@@ -3,13 +3,12 @@ import fsPromises from "node:fs/promises";
 import path from "node:path";
 import { inspect } from "node:util";
 import { getRuntimeMode, type RuntimeMode } from "../runtime/mode.js";
-import { resolveLogsDirPath } from "../runtime/log-location.js";
+import { resolveLogRetention, resolveLogsDirPath } from "../runtime/log-location.js";
 import {
   buildMainLogFileName,
   ensureLogsDir,
   ensureLogsDirSync,
   FILE_MODE,
-  getLogRetention,
   getMainLogFilePattern,
   pruneLogFiles,
   secureLogFile,
@@ -34,6 +33,7 @@ let logsDirPath: string | null = null;
 let initializePromise: Promise<void> | null = null;
 let cleanupPromise: Promise<void> | null = null;
 let streamErrorReported = false;
+let initializeFailed = false;
 const CONSOLE_BROKEN_KEY = "__opencodeTelegramBotConsoleOutputBroken";
 
 function normalizeLogLevel(value: string): LogLevel {
@@ -198,7 +198,7 @@ async function cleanupOldLogs(dirPath: string, mode: RuntimeMode): Promise<void>
   await pruneLogFiles(
     dirPath,
     getMainLogFilePattern(mode),
-    getLogRetention(),
+    await resolveLogRetention(),
     reportLoggerInternalError,
   );
 }
@@ -269,7 +269,9 @@ function writeToFile(line: string): void {
 }
 
 async function initializeLoggerInternal(): Promise<void> {
-  if (logStream && logFilePath) {
+  // A failed attempt is not retried: the entrypoints call initializeLogger twice, and the
+  // unusable-directory warning must appear once per process.
+  if ((logStream && logFilePath) || initializeFailed) {
     return;
   }
 
@@ -286,6 +288,7 @@ async function initializeLoggerInternal(): Promise<void> {
     ensureLogStream(nextLogFilePath);
     await cleanupOldLogs(resolvedDirPath, mode);
   } catch (error) {
+    initializeFailed = true;
     reportLoggerInternalError(`Failed to initialize file logging in ${resolvedDirPath}.`, error);
     closeLogStream();
     logFilePath = null;
@@ -343,6 +346,7 @@ export function __resetLoggerForTests(): void {
   logFilePath = null;
   logsDirPath = null;
   streamErrorReported = false;
+  initializeFailed = false;
   (globalThis as Record<string, unknown>)[CONSOLE_BROKEN_KEY] = false;
   closeLogStream();
 }

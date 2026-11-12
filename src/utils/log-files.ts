@@ -3,7 +3,7 @@ import fsPromises from "node:fs/promises";
 import path from "node:path";
 import type { RuntimeMode } from "../runtime/mode.js";
 
-export const LOG_FILE_PREFIX = "opencode-telegram-bot";
+const LOG_FILE_PREFIX = "opencode-telegram-bot";
 
 const DIR_MODE = 0o700;
 export const FILE_MODE = 0o600;
@@ -103,7 +103,7 @@ function compareStrings(a: string, b: string): number {
 //   2. Names with a pid suffix compare by the part before the pid lexically,
 //      then by pid numerically ("9" before "10"), then by the full name so
 //      equal-valued pids such as "07" and "7" still have a fixed order.
-export function compareLogNames(a: string, b: string): number {
+function compareLogNames(a: string, b: string): number {
   const matchA = PID_SUFFIX_PATTERN.exec(a);
   const matchB = PID_SUFFIX_PATTERN.exec(b);
 

@@ -56,9 +56,13 @@ const { resolveLogsDirPathMock, logsDirState } = vi.hoisted(() => {
   };
 });
 
-vi.mock("../../../src/runtime/log-location.js", () => ({
-  resolveLogsDirPath: resolveLogsDirPathMock,
-}));
+vi.mock("../../../src/runtime/log-location.js", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../../../src/runtime/log-location.js")>();
+  return {
+    resolveLogsDirPath: resolveLogsDirPathMock,
+    resolveLogRetention: original.resolveLogRetention,
+  };
+});
 
 vi.mock("node:child_process", () => ({
   spawn: spawnMock,
@@ -340,6 +344,31 @@ describe("runtime/service/manager", () => {
       expect(remaining).toContain(name);
     }
     expect(remaining.filter((name) => SERVICE_LOG_FILE_PATTERN.test(name))).toHaveLength(2);
+  });
+
+  it("prunes service logs to a LOG_RETENTION that exists only in the .env file", async () => {
+    vi.stubEnv("LOG_RETENTION", "");
+    spawnMock.mockReturnValue({ pid: 4325, unref: vi.fn() });
+
+    await fs.writeFile(runtimePathsState.value.envFilePath, "LOG_RETENTION=1\n", "utf-8");
+    await fs.mkdir(logsDirState.value, { recursive: true });
+    const oldServiceLogs = [
+      "opencode-telegram-bot-service-2020-01-01_00-00-00.log",
+      "opencode-telegram-bot-service-2020-01-02_00-00-00.log",
+    ];
+    for (const name of oldServiceLogs) {
+      await fs.writeFile(path.join(logsDirState.value, name), "x");
+    }
+
+    try {
+      const result = await startBotDaemon("installed");
+      expect(result.success).toBe(true);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+
+    const remaining = await fs.readdir(logsDirState.value);
+    expect(remaining.filter((name) => SERVICE_LOG_FILE_PATTERN.test(name))).toHaveLength(1);
   });
 
   it("cleans stale daemon state during status check", async () => {
