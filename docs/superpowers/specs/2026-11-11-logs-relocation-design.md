@@ -1,7 +1,7 @@
 ---
 title: Logs Relocation Design
 status: approved
-version: 0.4.0
+version: 0.5.0
 last_updated: 2026-11-12
 review_date: 2027-05-12
 branch: feat/logs-relocation
@@ -84,7 +84,8 @@ Logs are written to the canonical per-user log directory of each operating syste
 - Builder-found files to change are left to the builder: `config.ts`, `.env.example`, the `config` wizard prompt text and its localized strings, the Dockerfile and compose files.
 
 - The Docker image sets `LOG_LOCATION=app` as `ENV LOG_LOCATION=app` in the Dockerfile plus `LOG_LOCATION=app` in the `environment` list of `docker-compose.yml`, instead of an inserted `.env`. A real environment variable beats `.env` and beats Compose `env_file` values, and a data volume mounted at the app home can shadow an `.env` baked into the image.
-- Decision 12 is broadened to `LOG_LOCATION=app`: on Windows the logger relies on the default ACLs inherited from the parent directory, which is the app home under `%APPDATA%` (or `OPENCODE_TELEGRAM_HOME`) for `app` and `%LOCALAPPDATA%` for `default`, and applies no extra permission handling.
+- The Windows ACL statement of decision 12 also applies to `LOG_LOCATION=app`: on Windows the logger relies on the default ACLs inherited from the parent directory, which is the app home under `%APPDATA%` (or `OPENCODE_TELEGRAM_HOME`) for `app` and `%LOCALAPPDATA%` for `default`, and applies no extra permission handling.
+- Inside a container (`OPENCODE_TELEGRAM_CONTAINER` truthy or `/.dockerenv` present), an unset or `default` `LOG_LOCATION` resolves to `app`, because a real environment variable from `docker run -e` or `--env-file` overrides the image's `ENV`. An explicit `app` and the handed-down service directory are unchanged. One localized warning is written when an explicit `default` is overridden. The Dockerfile sets `OPENCODE_TELEGRAM_CONTAINER=1`.
 - `LOG_RETENTION` is looked up in the real environment first, then in the app-home `.env` file, by one helper (`resolveLogRetention`) shared by the logger prunes and the daemon service-log prune. Without it, a `LOG_RETENTION` set only in `.env` never applied, because the logger prunes before the config loads `.env` into the environment and the daemon parent never loads it.
 
 ## Open questions
