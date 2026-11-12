@@ -1,7 +1,7 @@
 ---
 title: Uninstaller Design
 status: draft
-version: 0.8.0
+version: 0.9.0
 last_updated: 2026-11-12
 review_date: 2027-05-12
 branch: feat/uninstaller
@@ -78,6 +78,7 @@ Status: draft. Records decisions made with the owner. Not approved for planning.
 16. A Makefile for macOS and Linux provides `install`, `config`, `start`, `stop`, `restart`, `uninstall`, and `help`. The Makefile does not cover Windows.
 17. The Makefile is a separate feature with its own spec, written after this one. `make uninstall` stops the daemon, runs `opencode-telegram uninstall` from the checkout's built `dist/cli.js` (so it works when the global install is broken), and removes the CLI install that `make install` made. This spec covers the `uninstall` command only.
 18. The `uninstall` command does not remove its own CLI install. Where the Makefile is not used (Windows), the command finishes by printing the exact `npm uninstall -g @grinev/opencode-telegram-bot` command to run.
+19. Stopping the OpenCode server (decision 8) is opt-in through `--stop-opencode`. The command shows the PID and command line found on the configured port and asks y/n separately; `--yes` does not skip that question, and with no terminal available the step is skipped with a message.
 
 ## Agent calls (not yet confirmed by owner)
 
@@ -108,4 +109,4 @@ Existing patterns: `tests/runtime/service/manager.test.ts` (mocked `spawn` and `
 
 ## Open questions
 
-- How the opt-in OpenCode server stop (decision 8) is triggered and targeted: the bot keeps no record of the server it starts, so finding it means a port lookup that can reach a server the user started.
+None.
