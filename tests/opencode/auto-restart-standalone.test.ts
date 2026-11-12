@@ -11,6 +11,18 @@ const mocked = vi.hoisted(() => ({
   serverVersion: "v2" as "v1" | "v2",
 }));
 
+// Keeps the host's /.dockerenv out of the tests; a test sets exists to simulate it.
+const dockerEnvState = vi.hoisted(() => ({ exists: false }));
+
+vi.mock("../../src/runtime/container.js", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../../src/runtime/container.js")>();
+  return {
+    ...original,
+    isContainerRuntime: (options?: Parameters<typeof original.isContainerRuntime>[0]) =>
+      original.isContainerRuntime({ dockerEnvExists: () => dockerEnvState.exists, ...options }),
+  };
+});
+
 vi.mock("../../src/config.js", () => ({
   config: {
     opencode: {

@@ -4,8 +4,17 @@ import path from "node:path";
 import { exec, spawn } from "node:child_process";
 import { promisify } from "node:util";
 import { getRuntimePaths } from "../paths.js";
+import { resolveLogRetention, resolveLogsDirPath } from "../log-location.js";
 import { buildServiceChildEnv } from "./env.js";
 import { logger } from "../../utils/logger.js";
+import {
+  FILE_MODE,
+  SERVICE_LOG_FILE_PATTERN,
+  buildServiceLogFileName,
+  ensureLogsDir,
+  pruneLogFiles,
+  secureLogFileSync,
+} from "../../utils/log-files.js";
 import type {
   BotServiceState,
   BotServiceStatus,
@@ -17,15 +26,6 @@ const execAsync = promisify(exec);
 const SERVICE_STATE_FILE_NAME = "bot-service.json";
 const PROCESS_EXIT_POLL_MS = 100;
 const DEFAULT_STOP_TIMEOUT_MS = 5000;
-
-function sanitizeTimestampForFile(timestamp: string): string {
-  return timestamp.replace(/:/g, "-").replace("T", "_");
-}
-
-function createServiceLogFilePath(logsDirPath: string): string {
-  const timestamp = sanitizeTimestampForFile(new Date().toISOString().slice(0, 19));
-  return path.join(logsDirPath, `bot-service-${timestamp}.log`);
-}
 
 function isValidServiceState(value: unknown): value is BotServiceState {
   if (!value || typeof value !== "object") {
@@ -257,16 +257,38 @@ export async function startBotDaemon(mode?: string): Promise<ServiceOperationRes
   }
 
   const runtimePaths = getRuntimePaths();
-  await Promise.all([
-    fsPromises.mkdir(runtimePaths.runDirPath, { recursive: true }),
-    fsPromises.mkdir(runtimePaths.logsDirPath, { recursive: true }),
-  ]);
+  await fsPromises.mkdir(runtimePaths.runDirPath, { recursive: true });
 
   const stateFilePath = getServiceStateFilePath();
-  const logFilePath = createServiceLogFilePath(runtimePaths.logsDirPath);
-  const logFileDescriptor = fs.openSync(logFilePath, "a");
+  let logsDirPath: string | null = null;
+  let logFileDescriptor: number | null = null;
 
   try {
+    // The daemon refuses to start when its service log cannot be opened: the
+    // child inherits this descriptor as stdout/stderr, and a failure here also
+    // signals a broken installation.
+    let logFilePath: string;
+    try {
+      logsDirPath = await resolveLogsDirPath();
+      await ensureLogsDir(logsDirPath);
+      logFilePath = path.join(logsDirPath, buildServiceLogFileName(new Date()));
+      logFileDescriptor = fs.openSync(logFilePath, "a", FILE_MODE);
+      secureLogFileSync(logFilePath);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `Cannot open the service log in ${logsDirPath ?? "the logs directory"}: ${reason}`,
+        { cause: error },
+      );
+    }
+
+    await pruneLogFiles(
+      logsDirPath,
+      SERVICE_LOG_FILE_PATTERN,
+      await resolveLogRetention(),
+      (message, error) => logger.warn(`[Manager] ${message}`, error),
+    );
+
     const childArgs = [getServiceEntryScriptPath(), "start"];
     if (mode) {
       childArgs.push("--mode", mode);
@@ -276,7 +298,7 @@ export async function startBotDaemon(mode?: string): Promise<ServiceOperationRes
       detached: true,
       stdio: ["ignore", logFileDescriptor, logFileDescriptor],
       windowsHide: true,
-      env: buildServiceChildEnv(process.env, stateFilePath),
+      env: buildServiceChildEnv(process.env, stateFilePath, logsDirPath),
     });
 
     if (!childProcess.pid) {
@@ -304,7 +326,10 @@ export async function startBotDaemon(mode?: string): Promise<ServiceOperationRes
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    logger.error(`[Manager] Daemon start failed: ${errorMessage}${cleanupInfo}`);
+    logger.error(
+      `[Manager] Daemon start failed: ${errorMessage}${cleanupInfo}`,
+      ...(error instanceof Error && error.cause !== undefined ? [error.cause] : []),
+    );
     await clearServiceStateFile(stateFilePath);
     return {
       success: false,
@@ -313,7 +338,9 @@ export async function startBotDaemon(mode?: string): Promise<ServiceOperationRes
       error: errorMessage,
     };
   } finally {
-    fs.closeSync(logFileDescriptor);
+    if (logFileDescriptor !== null) {
+      fs.closeSync(logFileDescriptor);
+    }
   }
 }
 

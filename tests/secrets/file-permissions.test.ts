@@ -1,8 +1,17 @@
-import { describe, expect, it, beforeEach, afterEach } from "vitest";
-import { mkdtemp, rm, stat, writeFile, readFile, chmod } from "node:fs/promises";
+import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
+import fsPromises, { mkdtemp, rm, stat, writeFile, readFile, chmod } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { hardenEnvFile, reopenEnvFileForEdit, finalizeEnvFile } from "../../src/secrets/file-permissions.js";
+
+// Windows reports only the owner-write bit (0o666 writable, 0o444 read-only), so the exact POSIX
+// bits are asserted off Windows and the owner-write bit is asserted everywhere.
+function expectFileMode(mode: number, expected: 0o600 | 0o400): void {
+  expect((mode & 0o200) !== 0).toBe(expected === 0o600);
+  if (process.platform !== "win32") {
+    expect(mode & 0o777).toBe(expected);
+  }
+}
 
 describe("file-permissions", () => {
   let dir: string;
@@ -21,22 +30,39 @@ describe("file-permissions", () => {
     await hardenEnvFile(envFilePath);
     const stats = await stat(envFilePath);
     // 0600 = owner read/write only (octal 0o600 = decimal 384)
-    expect(stats.mode & 0o777).toBe(0o600);
+    expectFileMode(stats.mode, 0o600);
   });
 
   it("hardenEnvFile writes content with 0600", async () => {
     await hardenEnvFile(envFilePath, "TEST_KEY=test_value\n");
     const stats = await stat(envFilePath);
-    expect(stats.mode & 0o777).toBe(0o600);
+    expectFileMode(stats.mode, 0o600);
     const content = await readFile(envFilePath, "utf8");
     expect(content).toBe("TEST_KEY=test_value\n");
   });
+
+  it.skipIf(process.platform === "win32")(
+    "hardenEnvFile creates the file owner-only from the start when writing content",
+    async () => {
+      const writeFileSpy = vi.spyOn(fsPromises, "writeFile");
+
+      try {
+        await hardenEnvFile(envFilePath, "TEST_KEY=test_value\n");
+
+        const contentWrites = writeFileSpy.mock.calls.filter(([target]) => target === envFilePath);
+        expect(contentWrites).toHaveLength(1);
+        expect(contentWrites[0]?.[2]).toMatchObject({ mode: 0o600 });
+      } finally {
+        writeFileSpy.mockRestore();
+      }
+    },
+  );
 
   it("reopenEnvFileForEdit sets 0600 for editing", async () => {
     await hardenEnvFile(envFilePath, "TEST_KEY=test_value\n");
     await reopenEnvFileForEdit(envFilePath);
     const stats = await stat(envFilePath);
-    expect(stats.mode & 0o777).toBe(0o600);
+    expectFileMode(stats.mode, 0o600);
     // Should be able to write after reopening
     await writeFile(envFilePath, "TEST_KEY=new_value\n", "utf8");
     const content = await readFile(envFilePath, "utf8");
@@ -48,7 +74,7 @@ describe("file-permissions", () => {
     await finalizeEnvFile(envFilePath);
     const stats = await stat(envFilePath);
     // 0400 = owner read only (octal 0o400 = decimal 256)
-    expect(stats.mode & 0o777).toBe(0o400);
+    expectFileMode(stats.mode, 0o400);
   });
 
   it("finalizeEnvFile prevents writes", async () => {
@@ -64,7 +90,7 @@ describe("file-permissions", () => {
     // Reopen for edit should work
     await reopenEnvFileForEdit(envFilePath);
     const stats = await stat(envFilePath);
-    expect(stats.mode & 0o777).toBe(0o600);
+    expectFileMode(stats.mode, 0o600);
     // Should be able to write after reopening
     await writeFile(envFilePath, "TEST_KEY=recovered_value\n", "utf8");
     const content = await readFile(envFilePath, "utf8");
@@ -75,7 +101,7 @@ describe("file-permissions", () => {
     const nestedPath = join(dir, "nested", "deep", ".env");
     await hardenEnvFile(nestedPath, "NESTED=value\n");
     const stats = await stat(nestedPath);
-    expect(stats.mode & 0o777).toBe(0o600);
+    expectFileMode(stats.mode, 0o600);
     const content = await readFile(nestedPath, "utf8");
     expect(content).toBe("NESTED=value\n");
   });
@@ -85,7 +111,7 @@ describe("file-permissions", () => {
     await chmod(envFilePath, 0o644); // World readable
     await hardenEnvFile(envFilePath);
     const stats = await stat(envFilePath);
-    expect(stats.mode & 0o777).toBe(0o600);
+    expectFileMode(stats.mode, 0o600);
     const content = await readFile(envFilePath, "utf8");
     expect(content).toBe("EXISTING=value\n");
   });
@@ -93,7 +119,7 @@ describe("file-permissions", () => {
   it("reopenEnvFileForEdit on non-existent file creates it with 0600", async () => {
     await reopenEnvFileForEdit(envFilePath);
     const stats = await stat(envFilePath);
-    expect(stats.mode & 0o777).toBe(0o600);
+    expectFileMode(stats.mode, 0o600);
   });
 
   it("finalizeEnvFile on non-existent file throws", async () => {

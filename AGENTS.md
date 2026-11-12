@@ -201,10 +201,13 @@ The project uses `src/utils/logger.ts` with level-based logging.
 
 Log files:
 
-- In source mode logs are stored `<project root>/logs` by default.
-- Each source-mode bot run writes to a separate file named `bot-YYYY-MM-DD_HH-MM-SS_<pid>.log`.
-- The `logs/` directory is gitignored, so search inside it directly: use `path: "logs"` with `pattern: "*.log"`.
-- Installed mode writes under the installed app home `logs` directory and uses daily files named `bot-YYYY-MM-DD.log`.
+- Logs are written to the per-user log directory of the OS in both source and installed mode: macOS `~/Library/Logs/opencode-telegram-bot/`; Linux `$XDG_STATE_HOME/opencode-telegram-bot/logs/` (default `~/.local/state/opencode-telegram-bot/logs/`); Windows `%LOCALAPPDATA%\opencode-telegram-bot\Logs\`.
+- `LOG_LOCATION=app` (in `.env` or the environment; the environment still beats `.env`) writes to `<appHome>/logs` instead; the Docker image sets it. Inside a container an unset, `default`, or invalid value resolves to `app` (an invalid value warns once and never prompts). `OPENCODE_TELEGRAM_HOME` alone does not move logs.
+- Source mode writes one file per run named `opencode-telegram-bot-YYYY-MM-DD_HH-MM-SS_<pid>.log`; installed mode writes daily files named `opencode-telegram-bot-YYYY-MM-DD.log`; the daemon output is `opencode-telegram-bot-service-YYYY-MM-DD_HH-MM-SS.log`.
+- To find logs, search the absolute path of the directory above (or `<appHome>/logs` when `LOG_LOCATION=app`) with `pattern: "opencode-telegram-bot-*.log"`. In source mode the logs are not inside the repository, so `path: "logs"` finds nothing.
+- `<appHome>` is `OPENCODE_TELEGRAM_HOME` when set; otherwise the current working directory in source mode, and in installed mode `~/Library/Application Support/opencode-telegram-bot` (macOS), `$XDG_CONFIG_HOME` or `~/.config` plus `/opencode-telegram-bot` (Linux), `%APPDATA%\opencode-telegram-bot` (Windows; `%USERPROFILE%\AppData\Roaming\opencode-telegram-bot` when `APPDATA` is unset).
+- Installed-mode daily logs, sources-mode per-launch logs, and daemon service logs are each pruned separately by `LOG_RETENTION` (environment first, then `.env`, resolved by `resolveLogRetention` in `src/runtime/log-location.ts`).
+- If the log directory cannot be used, the bot warns on stderr, stops file logging, and keeps running; the daemon refuses to start if it cannot open its service log.
 
 Levels:
 

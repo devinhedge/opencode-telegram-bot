@@ -538,6 +538,10 @@ export const fr: I18nDictionary = {
   "runtime.wizard.ask_server_version":
     "Select OpenCode server version:\n1 - OpenCode V1 (1.x, npm package opencode-ai)\n2 - OpenCode V2 (2.x, npm package @opencode/cli)\nPress Enter to use default: {defaultVersion}\n> ",
   "runtime.wizard.server_version_invalid": "Enter 1 or 2, or press Enter for default.\n",
+  "runtime.wizard.ask_log_location":
+    "Choisissez où les journaux sont écrits :\n1) default : le répertoire de journaux du système d'exploitation\n2) app : le dossier des journaux du répertoire de l'application\nAppuyez sur Entrée pour {defaultLocation}\n> ",
+  "runtime.wizard.log_location_invalid":
+    "Saisissez 1, 2, default ou app, ou appuyez sur Entrée pour {defaultLocation}.\n",
   "runtime.wizard.ask_server_password_required":
     "Enter OpenCode V2 server password (required).\nShow it with: opencode service get password\n> ",
   "runtime.wizard.server_password_required":
@@ -550,6 +554,24 @@ export const fr: I18nDictionary = {
   "runtime.wizard.saved": "Configuration enregistrée :\n- {envPath}\n",
   "runtime.wizard.not_configured_starting":
     "L'application n'est pas encore configurée. Lancement de l'assistant...\n",
+  "runtime.logs.location_invalid":
+    'Valeur LOG_LOCATION invalide "{value}". Valeurs autorisées : default, app.\n',
+  "runtime.logs.ask_location":
+    "Choisissez l'emplacement des logs :\n1) default : le répertoire de journaux du système d'exploitation\n2) app : le dossier des journaux du répertoire de l'application\nLa réponse est enregistrée dans {envPath}.\n> ",
+  "runtime.logs.location_choice_invalid": "Saisissez 1, 2, default ou app.\n",
+  "runtime.logs.location_invalid_no_tty":
+    'Valeur LOG_LOCATION invalide "{value}" et aucun terminal interactif disponible. Utilisation de default.\n',
+  "runtime.logs.location_invalid_gave_up":
+    'Valeur LOG_LOCATION invalide "{value}" et aucune réponse valide fournie. Utilisation de default.\n',
+  "runtime.logs.location_invalid_env":
+    'Valeur LOG_LOCATION invalide "{value}" dans l\'environnement. Utilisation de default.\n',
+  "runtime.logs.container_overrides_default":
+    "Exécution dans un conteneur : LOG_LOCATION=default est remplacé par app, les journaux sont donc écrits dans le dossier des journaux du répertoire de l'application.\n",
+  "runtime.logs.container_invalid_value":
+    'Valeur LOG_LOCATION invalide "{value}" ; dans un conteneur, les journaux sont écrits dans le répertoire de l\'application.\n',
+  "runtime.logs.location_persist_failed":
+    "Impossible d'enregistrer LOG_LOCATION dans {envPath} : {reason}\n",
+  "runtime.logs.env_read_failed": "Impossible de lire {envPath} : {reason}\n",
   "runtime.wizard.tty_required":
     "L'assistant interactif nécessite un terminal TTY. Exécutez `opencode-telegram config` dans un shell interactif.",
   "runtime.wizard.backend_selected":

@@ -535,6 +535,10 @@ export const de: I18nDictionary = {
   "runtime.wizard.ask_server_version":
     "Select OpenCode server version:\n1 - OpenCode V1 (1.x, npm package opencode-ai)\n2 - OpenCode V2 (2.x, npm package @opencode/cli)\nPress Enter to use default: {defaultVersion}\n> ",
   "runtime.wizard.server_version_invalid": "Enter 1 or 2, or press Enter for default.\n",
+  "runtime.wizard.ask_log_location":
+    "Wählen Sie, wo Logs gespeichert werden:\n1) default: das Log-Verzeichnis des Betriebssystems\n2) app: der Logs-Ordner im App-Home\nEnter drücken für {defaultLocation}\n> ",
+  "runtime.wizard.log_location_invalid":
+    "Geben Sie 1, 2, default oder app ein oder drücken Sie Enter für {defaultLocation}.\n",
   "runtime.wizard.ask_server_password_required":
     "Enter OpenCode V2 server password (required).\nShow it with: opencode service get password\n> ",
   "runtime.wizard.server_password_required":
@@ -547,6 +551,24 @@ export const de: I18nDictionary = {
   "runtime.wizard.saved": "Konfiguration gespeichert:\n- {envPath}\n",
   "runtime.wizard.not_configured_starting":
     "Anwendung ist noch nicht konfiguriert. Starte Assistent...\n",
+  "runtime.logs.location_invalid":
+    'Ungültiger LOG_LOCATION-Wert "{value}". Erlaubte Werte: default, app.\n',
+  "runtime.logs.ask_location":
+    "Wähle den Speicherort der Logs:\n1) default: das Log-Verzeichnis des Betriebssystems\n2) app: der Logs-Ordner im App-Home\nDie Antwort wird in {envPath} gespeichert.\n> ",
+  "runtime.logs.location_choice_invalid": "Gib 1, 2, default oder app ein.\n",
+  "runtime.logs.location_invalid_no_tty":
+    'Ungültiger LOG_LOCATION-Wert "{value}" und kein interaktives Terminal verfügbar. Verwende default.\n',
+  "runtime.logs.location_invalid_gave_up":
+    'Ungültiger LOG_LOCATION-Wert "{value}" und keine gültige Antwort erhalten. Verwende default.\n',
+  "runtime.logs.location_invalid_env":
+    'Ungültiger LOG_LOCATION-Wert "{value}" in der Umgebung. Verwende default.\n',
+  "runtime.logs.container_overrides_default":
+    "Ausführung in einem Container: LOG_LOCATION=default wird durch app ersetzt, daher werden die Logs im Logs-Ordner des App-Homes gespeichert.\n",
+  "runtime.logs.container_invalid_value":
+    'Ungültiger LOG_LOCATION-Wert "{value}"; in einem Container werden die Logs im App-Home gespeichert.\n',
+  "runtime.logs.location_persist_failed":
+    "LOG_LOCATION konnte nicht in {envPath} gespeichert werden: {reason}\n",
+  "runtime.logs.env_read_failed": "{envPath} konnte nicht gelesen werden: {reason}\n",
   "runtime.wizard.tty_required":
     "Der interaktive Assistent erfordert ein TTY-Terminal. Führe `opencode-telegram config` in einer interaktiven Shell aus.",
   "runtime.wizard.backend_selected":

@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
-import { mkdtemp, rm } from "node:fs/promises";
+import { chmod, lstat, mkdir, mkdtemp, readdir, rm, stat, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { EncryptedFileSecretStore } from "../../src/secrets/encrypted-file-secret-store.js";
@@ -88,4 +88,120 @@ describe("EncryptedFileSecretStore", () => {
   it("isAvailable true", async () => {
     expect(await new EncryptedFileSecretStore(filePath).isAvailable()).toBe(true);
   });
+});
+
+describe("EncryptedFileSecretStore file mode", () => {
+  let dir: string;
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), "efs-mode-"));
+  });
+  afterEach(async () => {
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  it.skipIf(process.platform === "win32")("creates secrets.enc as 0600", async () => {
+    const filePath = join(dir, "secrets.enc");
+    const store = new EncryptedFileSecretStore(filePath);
+    await store.unlock("pw");
+    await store.setSecret("acct", "value");
+
+    expect((await stat(filePath)).mode & 0o777).toBe(0o600);
+  });
+
+  it("keeps working when secrets.enc already exists", async () => {
+    const filePath = join(dir, "secrets.enc");
+    const first = new EncryptedFileSecretStore(filePath);
+    await first.unlock("pw");
+    await first.setSecret("acct", "one");
+    await first.setSecret("acct", "two");
+
+    const second = new EncryptedFileSecretStore(filePath);
+    await second.unlock("pw");
+    expect(await second.getSecret("acct")).toBe("two");
+    if (process.platform !== "win32") {
+      expect((await stat(filePath)).mode & 0o777).toBe(0o600);
+    }
+  });
+
+  it.skipIf(process.platform === "win32")(
+    "updates the target of a symlinked secrets.enc, keeping the link",
+    async () => {
+      const targetPath = join(dir, "real", "target.enc");
+      const linkPath = join(dir, "secrets.enc");
+      await mkdir(join(dir, "real"));
+      const first = new EncryptedFileSecretStore(targetPath);
+      await first.unlock("pw");
+      await first.setSecret("acct", "one");
+      await symlink(targetPath, linkPath);
+
+      const second = new EncryptedFileSecretStore(linkPath);
+      await second.unlock("pw");
+      // Widened after the unlock-time tightening, so only the write path can make it 0600 again.
+      await chmod(targetPath, 0o644);
+      await second.setSecret("acct", "two");
+
+      expect((await lstat(linkPath)).isSymbolicLink()).toBe(true);
+      expect((await stat(targetPath)).mode & 0o777).toBe(0o600);
+      const third = new EncryptedFileSecretStore(targetPath);
+      await third.unlock("pw");
+      expect(await third.getSecret("acct")).toBe("two");
+    },
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "creates the target of a dangling symlinked secrets.enc, keeping the link",
+    async () => {
+      const targetPath = join(dir, "real", "target.enc");
+      const linkPath = join(dir, "secrets.enc");
+      await mkdir(join(dir, "real"));
+      await symlink(targetPath, linkPath);
+
+      const store = new EncryptedFileSecretStore(linkPath);
+      await store.unlock("pw");
+      await store.setSecret("acct", "one");
+
+      expect((await lstat(linkPath)).isSymbolicLink()).toBe(true);
+      expect((await stat(targetPath)).mode & 0o777).toBe(0o600);
+      const reread = new EncryptedFileSecretStore(targetPath);
+      await reread.unlock("pw");
+      expect(await reread.getSecret("acct")).toBe("one");
+    },
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "tightens a wider secrets.enc to 0600 on unlock",
+    async () => {
+      const filePath = join(dir, "secrets.enc");
+      const first = new EncryptedFileSecretStore(filePath);
+      await first.unlock("pw");
+      await first.setSecret("acct", "one");
+      await chmod(filePath, 0o644);
+
+      await new EncryptedFileSecretStore(filePath).unlock("pw");
+
+      expect((await stat(filePath)).mode & 0o777).toBe(0o600);
+    },
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "tightens an existing wider secrets.enc to 0600 and keeps its content valid",
+    async () => {
+      const filePath = join(dir, "secrets.enc");
+      const first = new EncryptedFileSecretStore(filePath);
+      await first.unlock("pw");
+      await first.setSecret("acct", "one");
+      await chmod(filePath, 0o644);
+
+      const second = new EncryptedFileSecretStore(filePath);
+      await second.unlock("pw");
+      await second.setSecret("other", "two");
+
+      expect((await stat(filePath)).mode & 0o777).toBe(0o600);
+      const third = new EncryptedFileSecretStore(filePath);
+      await third.unlock("pw");
+      expect(await third.getSecret("acct")).toBe("one");
+      expect(await third.getSecret("other")).toBe("two");
+      expect((await readdir(dir)).filter((name) => name.endsWith(".tmp"))).toEqual([]);
+    },
+  );
 });

@@ -13,7 +13,9 @@ import { dirname } from "node:path";
 export async function hardenEnvFile(envFilePath: string, content?: string): Promise<void> {
   await fs.mkdir(dirname(envFilePath), { recursive: true });
   if (content !== undefined) {
-    await fs.writeFile(envFilePath, content, "utf8");
+    // Owner-only from creation (the mode applies to a new file); the chmod below covers an
+    // existing file.
+    await fs.writeFile(envFilePath, content, { encoding: "utf8", mode: 0o600 });
   } else {
     // Preserve existing content if file exists
     try {
@@ -21,7 +23,7 @@ export async function hardenEnvFile(envFilePath: string, content?: string): Prom
       // File exists, just chmod it
     } catch {
       // File doesn't exist, create empty
-      await fs.writeFile(envFilePath, "", "utf8");
+      await fs.writeFile(envFilePath, "", { encoding: "utf8", mode: 0o600 });
     }
   }
   // 0600 = owner read/write only
@@ -41,7 +43,7 @@ export async function reopenEnvFileForEdit(envFilePath: string): Promise<void> {
   try {
     await fs.access(envFilePath, fs.constants.F_OK);
   } catch {
-    await fs.writeFile(envFilePath, "", "utf8");
+    await fs.writeFile(envFilePath, "", { encoding: "utf8", mode: 0o600 });
   }
   // 0600 = owner read/write
   await fs.chmod(envFilePath, 0o600);

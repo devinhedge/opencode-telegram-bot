@@ -516,6 +516,10 @@ export const id: I18nDictionary = {
   "runtime.wizard.ask_server_version":
     "Select OpenCode server version:\n1 - OpenCode V1 (1.x, npm package opencode-ai)\n2 - OpenCode V2 (2.x, npm package @opencode/cli)\nPress Enter to use default: {defaultVersion}\n> ",
   "runtime.wizard.server_version_invalid": "Enter 1 or 2, or press Enter for default.\n",
+  "runtime.wizard.ask_log_location":
+    "Pilih lokasi penulisan log:\n1) default: direktori log sistem operasi\n2) app: folder log di direktori home aplikasi\nTekan Enter untuk {defaultLocation}\n> ",
+  "runtime.wizard.log_location_invalid":
+    "Masukkan 1, 2, default, atau app, atau tekan Enter untuk {defaultLocation}.\n",
   "runtime.wizard.ask_server_password_required":
     "Enter OpenCode V2 server password (required).\nShow it with: opencode service get password\n> ",
   "runtime.wizard.server_password_required":
@@ -527,6 +531,24 @@ export const id: I18nDictionary = {
   "runtime.wizard.start": "Menyiapkan OpenCode Telegram Bot.\n",
   "runtime.wizard.saved": "Konfigurasi disimpan:\n- {envPath}\n",
   "runtime.wizard.not_configured_starting": "Aplikasi belum dikonfigurasi. Membuka wizard...\n",
+  "runtime.logs.location_invalid":
+    'Nilai LOG_LOCATION tidak valid "{value}". Nilai yang diizinkan: default, app.\n',
+  "runtime.logs.ask_location":
+    "Pilih lokasi log:\n1) default: direktori log sistem operasi\n2) app: folder log di direktori home aplikasi\nJawaban disimpan ke {envPath}.\n> ",
+  "runtime.logs.location_choice_invalid": "Masukkan 1, 2, default, atau app.\n",
+  "runtime.logs.location_invalid_no_tty":
+    'Nilai LOG_LOCATION tidak valid "{value}" dan tidak ada terminal interaktif. Menggunakan default.\n',
+  "runtime.logs.location_invalid_gave_up":
+    'Nilai LOG_LOCATION tidak valid "{value}" dan tidak ada jawaban valid yang diberikan. Menggunakan default.\n',
+  "runtime.logs.location_invalid_env":
+    'Nilai LOG_LOCATION tidak valid "{value}" di lingkungan. Menggunakan default.\n',
+  "runtime.logs.container_overrides_default":
+    "Berjalan di dalam kontainer: LOG_LOCATION=default diganti dengan app, sehingga log ditulis ke folder log di direktori home aplikasi.\n",
+  "runtime.logs.container_invalid_value":
+    'Nilai LOG_LOCATION tidak valid "{value}"; di dalam kontainer log ditulis ke direktori home aplikasi.\n',
+  "runtime.logs.location_persist_failed":
+    "Tidak dapat menyimpan LOG_LOCATION ke {envPath}: {reason}\n",
+  "runtime.logs.env_read_failed": "Tidak dapat membaca {envPath}: {reason}\n",
   "runtime.wizard.tty_required":
     "Wizard interaktif memerlukan terminal TTY. Jalankan `opencode-telegram config` di shell interaktif.",
   "runtime.wizard.backend_selected":

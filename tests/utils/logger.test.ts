@@ -10,6 +10,8 @@ async function createTempHome(): Promise<string> {
 
 async function loadLoggerModule() {
   vi.resetModules();
+  const { __resetLogsDirForTests } = await import("../../src/runtime/log-location.js");
+  __resetLogsDirForTests();
   return import("../../src/utils/logger.js");
 }
 
@@ -39,6 +41,7 @@ describe("utils/logger", () => {
     vi.setSystemTime(new Date("2026-04-11T12:34:56.000Z"));
     vi.stubEnv("LOG_LEVEL", "info");
     vi.stubEnv("OPENCODE_TELEGRAM_HOME", tempHome);
+    vi.stubEnv("LOG_LOCATION", "app");
     setRuntimeMode("sources");
 
     const { initializeLogger, logger, flushLogger, __resetLoggerForTests } =
@@ -49,7 +52,11 @@ describe("utils/logger", () => {
     logger.warn("second line");
     await flushLogger();
 
-    const expectedPath = path.join(tempHome, "logs", `bot-2026-04-11_12-34-56_${process.pid}.log`);
+    const expectedPath = path.join(
+      tempHome,
+      "logs",
+      `opencode-telegram-bot-2026-04-11_12-34-56_${process.pid}.log`,
+    );
     const content = await fs.readFile(expectedPath, "utf-8");
     expect(content).toContain("[INFO] line before flush");
     expect(content).toContain("[WARN] second line");
@@ -67,6 +74,7 @@ describe("utils/logger", () => {
     vi.setSystemTime(new Date("2026-04-11T12:34:56.000Z"));
     vi.stubEnv("LOG_LEVEL", "info");
     vi.stubEnv("OPENCODE_TELEGRAM_HOME", tempHome);
+    vi.stubEnv("LOG_LOCATION", "app");
     setRuntimeMode("sources");
 
     const {
@@ -81,7 +89,11 @@ describe("utils/logger", () => {
     logger.info("sources log", { scope: "test" });
     await __flushLoggerForTests();
 
-    const expectedPath = path.join(tempHome, "logs", `bot-2026-04-11_12-34-56_${process.pid}.log`);
+    const expectedPath = path.join(
+      tempHome,
+      "logs",
+      `opencode-telegram-bot-2026-04-11_12-34-56_${process.pid}.log`,
+    );
     expect(getLogFilePath()).toBe(expectedPath);
 
     const content = await fs.readFile(expectedPath, "utf-8");
@@ -98,6 +110,7 @@ describe("utils/logger", () => {
     vi.setSystemTime(new Date("2026-04-11T12:34:56.000Z"));
     vi.stubEnv("LOG_LEVEL", "info");
     vi.stubEnv("OPENCODE_TELEGRAM_HOME", tempHome);
+    vi.stubEnv("LOG_LOCATION", "app");
     setRuntimeMode("sources");
 
     const {
@@ -120,7 +133,7 @@ describe("utils/logger", () => {
     const logFiles = (await fs.readdir(path.join(tempHome, "logs"))).sort();
 
     expect(secondPath).toBe(firstPath);
-    expect(logFiles).toEqual([`bot-2026-04-11_12-34-56_${process.pid}.log`]);
+    expect(logFiles).toEqual([`opencode-telegram-bot-2026-04-11_12-34-56_${process.pid}.log`]);
 
     __resetLoggerForTests();
   });
@@ -131,6 +144,7 @@ describe("utils/logger", () => {
     vi.setSystemTime(new Date("2026-04-11T12:34:56.000Z"));
     vi.stubEnv("LOG_LEVEL", "info");
     vi.stubEnv("OPENCODE_TELEGRAM_HOME", tempHome);
+    vi.stubEnv("LOG_LOCATION", "app");
     setRuntimeMode("installed");
 
     const {
@@ -146,7 +160,7 @@ describe("utils/logger", () => {
     logger.warn("second line");
     await __flushLoggerForTests();
 
-    const expectedPath = path.join(tempHome, "logs", "bot-2026-04-11.log");
+    const expectedPath = path.join(tempHome, "logs", "opencode-telegram-bot-2026-04-11.log");
     expect(getLogFilePath()).toBe(expectedPath);
 
     const content = await fs.readFile(expectedPath, "utf-8");
@@ -165,6 +179,7 @@ describe("utils/logger", () => {
     vi.stubEnv("LOG_LEVEL", "info");
     vi.stubEnv("LOG_RETENTION", "10");
     vi.stubEnv("OPENCODE_TELEGRAM_HOME", tempHome);
+    vi.stubEnv("LOG_LOCATION", "app");
     setRuntimeMode("installed");
 
     const {
@@ -179,7 +194,7 @@ describe("utils/logger", () => {
     logger.info("before midnight");
     await __flushLoggerForTests();
 
-    const firstPath = path.join(logsDirPath, "bot-2026-04-11.log");
+    const firstPath = path.join(logsDirPath, "opencode-telegram-bot-2026-04-11.log");
     expect(getLogFilePath()).toBe(firstPath);
 
     vi.setSystemTime(new Date("2026-04-12T00:00:01.000Z"));
@@ -187,7 +202,7 @@ describe("utils/logger", () => {
     logger.warn("same new day");
     await __flushLoggerForTests();
 
-    const secondPath = path.join(logsDirPath, "bot-2026-04-12.log");
+    const secondPath = path.join(logsDirPath, "opencode-telegram-bot-2026-04-12.log");
     expect(getLogFilePath()).toBe(secondPath);
 
     const firstContent = await fs.readFile(firstPath, "utf-8");
@@ -198,7 +213,10 @@ describe("utils/logger", () => {
     expect(firstContent).not.toContain("after midnight");
     expect(secondContent).toContain("[INFO] after midnight");
     expect(secondContent).toContain("[WARN] same new day");
-    expect(logFiles).toEqual(["bot-2026-04-11.log", "bot-2026-04-12.log"]);
+    expect(logFiles).toEqual([
+      "opencode-telegram-bot-2026-04-11.log",
+      "opencode-telegram-bot-2026-04-12.log",
+    ]);
 
     __resetLoggerForTests();
   });
@@ -209,8 +227,8 @@ describe("utils/logger", () => {
 
     await fs.mkdir(logsDirPath, { recursive: true });
     await Promise.all([
-      fs.writeFile(path.join(logsDirPath, "bot-2026-04-09.log"), "old\n"),
-      fs.writeFile(path.join(logsDirPath, "bot-2026-04-10.log"), "old\n"),
+      fs.writeFile(path.join(logsDirPath, "opencode-telegram-bot-2026-04-09.log"), "old\n"),
+      fs.writeFile(path.join(logsDirPath, "opencode-telegram-bot-2026-04-10.log"), "old\n"),
       fs.writeFile(path.join(logsDirPath, "notes.txt"), "keep\n"),
     ]);
 
@@ -219,6 +237,7 @@ describe("utils/logger", () => {
     vi.stubEnv("LOG_LEVEL", "info");
     vi.stubEnv("LOG_RETENTION", "2");
     vi.stubEnv("OPENCODE_TELEGRAM_HOME", tempHome);
+    vi.stubEnv("LOG_LOCATION", "app");
     setRuntimeMode("installed");
 
     const { initializeLogger, logger, __flushLoggerForTests, __resetLoggerForTests } =
@@ -233,7 +252,11 @@ describe("utils/logger", () => {
     await __flushLoggerForTests();
 
     const remainingFiles = (await fs.readdir(logsDirPath)).sort();
-    expect(remainingFiles).toEqual(["bot-2026-04-11.log", "bot-2026-04-12.log", "notes.txt"]);
+    expect(remainingFiles).toEqual([
+      "notes.txt",
+      "opencode-telegram-bot-2026-04-11.log",
+      "opencode-telegram-bot-2026-04-12.log",
+    ]);
 
     __resetLoggerForTests();
   });
@@ -244,9 +267,18 @@ describe("utils/logger", () => {
 
     await fs.mkdir(logsDirPath, { recursive: true });
     await Promise.all([
-      fs.writeFile(path.join(logsDirPath, "bot-2026-04-08_01-00-00_1.log"), "old\n"),
-      fs.writeFile(path.join(logsDirPath, "bot-2026-04-09_01-00-00_1.log"), "old\n"),
-      fs.writeFile(path.join(logsDirPath, "bot-2026-04-10_01-00-00_1.log"), "old\n"),
+      fs.writeFile(
+        path.join(logsDirPath, "opencode-telegram-bot-2026-04-08_01-00-00_1.log"),
+        "old\n",
+      ),
+      fs.writeFile(
+        path.join(logsDirPath, "opencode-telegram-bot-2026-04-09_01-00-00_1.log"),
+        "old\n",
+      ),
+      fs.writeFile(
+        path.join(logsDirPath, "opencode-telegram-bot-2026-04-10_01-00-00_1.log"),
+        "old\n",
+      ),
       fs.writeFile(path.join(logsDirPath, "custom.log"), "keep\n"),
     ]);
 
@@ -254,6 +286,7 @@ describe("utils/logger", () => {
     vi.setSystemTime(new Date("2026-04-11T12:34:56.000Z"));
     vi.stubEnv("LOG_RETENTION", "2");
     vi.stubEnv("OPENCODE_TELEGRAM_HOME", tempHome);
+    vi.stubEnv("LOG_LOCATION", "app");
     setRuntimeMode("sources");
 
     const { initializeLogger, __flushLoggerForTests, __resetLoggerForTests } =
@@ -264,9 +297,9 @@ describe("utils/logger", () => {
 
     const remainingFiles = (await fs.readdir(logsDirPath)).sort();
     expect(remainingFiles).toEqual([
-      `bot-2026-04-10_01-00-00_1.log`,
-      `bot-2026-04-11_12-34-56_${process.pid}.log`,
       "custom.log",
+      `opencode-telegram-bot-2026-04-10_01-00-00_1.log`,
+      `opencode-telegram-bot-2026-04-11_12-34-56_${process.pid}.log`,
     ]);
 
     __resetLoggerForTests();
@@ -278,9 +311,9 @@ describe("utils/logger", () => {
 
     await fs.mkdir(logsDirPath, { recursive: true });
     await Promise.all([
-      fs.writeFile(path.join(logsDirPath, "bot-2026-04-08.log"), "old\n"),
-      fs.writeFile(path.join(logsDirPath, "bot-2026-04-09.log"), "old\n"),
-      fs.writeFile(path.join(logsDirPath, "bot-2026-04-10.log"), "old\n"),
+      fs.writeFile(path.join(logsDirPath, "opencode-telegram-bot-2026-04-08.log"), "old\n"),
+      fs.writeFile(path.join(logsDirPath, "opencode-telegram-bot-2026-04-09.log"), "old\n"),
+      fs.writeFile(path.join(logsDirPath, "opencode-telegram-bot-2026-04-10.log"), "old\n"),
       fs.writeFile(path.join(logsDirPath, "notes.txt"), "keep\n"),
     ]);
 
@@ -288,6 +321,7 @@ describe("utils/logger", () => {
     vi.setSystemTime(new Date("2026-04-11T12:34:56.000Z"));
     vi.stubEnv("LOG_RETENTION", "2");
     vi.stubEnv("OPENCODE_TELEGRAM_HOME", tempHome);
+    vi.stubEnv("LOG_LOCATION", "app");
     setRuntimeMode("installed");
 
     const { initializeLogger, __flushLoggerForTests, __resetLoggerForTests } =
@@ -297,7 +331,11 @@ describe("utils/logger", () => {
     await __flushLoggerForTests();
 
     const remainingFiles = (await fs.readdir(logsDirPath)).sort();
-    expect(remainingFiles).toEqual(["bot-2026-04-10.log", "bot-2026-04-11.log", "notes.txt"]);
+    expect(remainingFiles).toEqual([
+      "notes.txt",
+      "opencode-telegram-bot-2026-04-10.log",
+      "opencode-telegram-bot-2026-04-11.log",
+    ]);
 
     __resetLoggerForTests();
   });
@@ -312,6 +350,7 @@ describe("utils/logger", () => {
     vi.setSystemTime(new Date("2026-04-11T12:34:56.000Z"));
     vi.stubEnv("LOG_LEVEL", "info");
     vi.stubEnv("OPENCODE_TELEGRAM_HOME", tempHome);
+    vi.stubEnv("LOG_LOCATION", "app");
     setRuntimeMode("sources");
 
     const { initializeLogger, logger, flushLogger, __resetLoggerForTests } =
@@ -324,7 +363,11 @@ describe("utils/logger", () => {
     logger.error("still logging to file");
     await flushLogger();
 
-    const expectedPath = path.join(tempHome, "logs", `bot-2026-04-11_12-34-56_${process.pid}.log`);
+    const expectedPath = path.join(
+      tempHome,
+      "logs",
+      `opencode-telegram-bot-2026-04-11_12-34-56_${process.pid}.log`,
+    );
     const content = await fs.readFile(expectedPath, "utf-8");
     expect(content).toContain("[INFO] before pipe break");
     expect(content).toContain("[WARN] after pipe break");
@@ -349,6 +392,7 @@ describe("utils/logger", () => {
     vi.setSystemTime(new Date("2026-04-11T12:34:56.000Z"));
     vi.stubEnv("LOG_LEVEL", "info");
     vi.stubEnv("OPENCODE_TELEGRAM_HOME", tempHome);
+    vi.stubEnv("LOG_LOCATION", "app");
     setRuntimeMode("sources");
 
     const { initializeLogger, logger, __resetLoggerForTests } =
@@ -387,6 +431,7 @@ describe("utils/logger", () => {
     vi.setSystemTime(new Date("2026-04-11T12:34:56.000Z"));
     vi.stubEnv("LOG_LEVEL", "info");
     vi.stubEnv("OPENCODE_TELEGRAM_HOME", tempHome);
+    vi.stubEnv("LOG_LOCATION", "app");
     setRuntimeMode("sources");
 
     const { initializeLogger, logger, flushLogger, __resetLoggerForTests } =
@@ -405,5 +450,320 @@ describe("utils/logger", () => {
 
     __resetLoggerForTests();
     consoleErrorMock.mockRestore();
+  });
+
+  it("writes to the handed-down service directory, creating it owner-only", async () => {
+    const tempHome = await createTempHome();
+    const handedDownDir = path.join(tempHome, "handed", "down");
+
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-11T12:34:56.000Z"));
+    vi.stubEnv("LOG_LEVEL", "info");
+    vi.stubEnv("LOG_LOCATION", "default");
+    vi.stubEnv("OPENCODE_TELEGRAM_SERVICE_CHILD", "1");
+    vi.stubEnv("OPENCODE_TELEGRAM_SERVICE_LOGS_DIR", handedDownDir);
+    setRuntimeMode("sources");
+
+    const {
+      initializeLogger,
+      logger,
+      getLogFilePath,
+      __flushLoggerForTests,
+      __resetLoggerForTests,
+    } = await loadLoggerModule();
+    vi.spyOn(console, "log").mockImplementation(() => undefined);
+
+    await initializeLogger();
+    logger.info("handed down");
+    await __flushLoggerForTests();
+
+    const expectedPath = path.join(
+      handedDownDir,
+      `opencode-telegram-bot-2026-04-11_12-34-56_${process.pid}.log`,
+    );
+    expect(getLogFilePath()).toBe(expectedPath);
+    expect(await fs.readFile(expectedPath, "utf-8")).toContain("[INFO] handed down");
+
+    if (process.platform !== "win32") {
+      expect((await fs.stat(handedDownDir)).mode & 0o777).toBe(0o700);
+      expect((await fs.stat(expectedPath)).mode & 0o777).toBe(0o600);
+    }
+
+    __resetLoggerForTests();
+  });
+
+  it.skipIf(process.platform === "win32").each([
+    ["installed", "opencode-telegram-bot-2026-04-11.log"],
+    ["sources", `opencode-telegram-bot-2026-04-11_12-34-56_${process.pid}.log`],
+  ] as const)(
+    "tightens a pre-existing 0755 directory and 0644 file on every start in %s mode",
+    async (mode, fileName) => {
+      const tempHome = await createTempHome();
+      const logsDirPath = path.join(tempHome, "logs");
+      const logFile = path.join(logsDirPath, fileName);
+
+      await fs.mkdir(logsDirPath, { recursive: true });
+      await fs.chmod(logsDirPath, 0o755);
+      await fs.writeFile(logFile, "old\n");
+      await fs.chmod(logFile, 0o644);
+
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-04-11T12:34:56.000Z"));
+      vi.stubEnv("LOG_LEVEL", "info");
+      vi.stubEnv("OPENCODE_TELEGRAM_HOME", tempHome);
+      vi.stubEnv("LOG_LOCATION", "app");
+      setRuntimeMode(mode);
+
+      const { initializeLogger, __resetLoggerForTests } = await loadLoggerModule();
+      const { __resetLogsDirForTests } = await import("../../src/runtime/log-location.js");
+
+      await initializeLogger();
+      expect((await fs.stat(logsDirPath)).mode & 0o777).toBe(0o700);
+      expect((await fs.stat(logFile)).mode & 0o777).toBe(0o600);
+
+      await fs.chmod(logsDirPath, 0o755);
+      await fs.chmod(logFile, 0o644);
+      __resetLoggerForTests();
+      __resetLogsDirForTests();
+
+      await initializeLogger();
+      expect((await fs.stat(logsDirPath)).mode & 0o777).toBe(0o700);
+      expect((await fs.stat(logFile)).mode & 0o777).toBe(0o600);
+
+      __resetLoggerForTests();
+    },
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "re-tightens a loosened directory when rotation runs",
+    async () => {
+      const tempHome = await createTempHome();
+      const logsDirPath = path.join(tempHome, "logs");
+
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-04-11T23:59:59.000Z"));
+      vi.stubEnv("LOG_LEVEL", "info");
+      vi.stubEnv("OPENCODE_TELEGRAM_HOME", tempHome);
+      vi.stubEnv("LOG_LOCATION", "app");
+      setRuntimeMode("installed");
+
+      const { initializeLogger, logger, __flushLoggerForTests, __resetLoggerForTests } =
+        await loadLoggerModule();
+      vi.spyOn(console, "log").mockImplementation(() => undefined);
+
+      await initializeLogger();
+      await fs.chmod(logsDirPath, 0o755);
+      vi.setSystemTime(new Date("2026-04-12T00:00:01.000Z"));
+      logger.info("after midnight");
+      await __flushLoggerForTests();
+
+      expect((await fs.stat(logsDirPath)).mode & 0o777).toBe(0o700);
+
+      __resetLoggerForTests();
+    },
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "tightens a pre-existing wider-mode next-day file when rotation runs",
+    async () => {
+      const tempHome = await createTempHome();
+      const logsDirPath = path.join(tempHome, "logs");
+      const nextDayFile = path.join(logsDirPath, "opencode-telegram-bot-2026-04-12.log");
+
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-04-11T23:59:59.000Z"));
+      vi.stubEnv("LOG_LEVEL", "info");
+      vi.stubEnv("OPENCODE_TELEGRAM_HOME", tempHome);
+      vi.stubEnv("LOG_LOCATION", "app");
+      setRuntimeMode("installed");
+
+      const { initializeLogger, logger, __flushLoggerForTests, __resetLoggerForTests } =
+        await loadLoggerModule();
+      vi.spyOn(console, "log").mockImplementation(() => undefined);
+
+      await initializeLogger();
+      await fs.writeFile(nextDayFile, "old\n");
+      await fs.chmod(nextDayFile, 0o644);
+      vi.setSystemTime(new Date("2026-04-12T00:00:01.000Z"));
+      logger.info("after midnight");
+      await __flushLoggerForTests();
+
+      expect((await fs.stat(nextDayFile)).mode & 0o777).toBe(0o600);
+
+      __resetLoggerForTests();
+    },
+  );
+
+  it("secures the new daily file created by rotation", async () => {
+    if (process.platform === "win32") {
+      return;
+    }
+
+    const tempHome = await createTempHome();
+    const logsDirPath = path.join(tempHome, "logs");
+
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-11T23:59:59.000Z"));
+    vi.stubEnv("LOG_LEVEL", "info");
+    vi.stubEnv("OPENCODE_TELEGRAM_HOME", tempHome);
+    vi.stubEnv("LOG_LOCATION", "app");
+    setRuntimeMode("installed");
+
+    const { initializeLogger, logger, __flushLoggerForTests, __resetLoggerForTests } =
+      await loadLoggerModule();
+    vi.spyOn(console, "log").mockImplementation(() => undefined);
+
+    await initializeLogger();
+    vi.setSystemTime(new Date("2026-04-12T00:00:01.000Z"));
+    logger.info("after midnight");
+    await __flushLoggerForTests();
+
+    const rotated = path.join(logsDirPath, "opencode-telegram-bot-2026-04-12.log");
+    expect((await fs.stat(rotated)).mode & 0o777).toBe(0o600);
+
+    __resetLoggerForTests();
+  });
+
+  it("reports one stderr warning naming the directory when it is unusable and keeps logging", async () => {
+    const tempHome = await createTempHome();
+    const blockedDir = path.join(tempHome, "blocked");
+    await fs.writeFile(blockedDir, "i am a file\n");
+
+    const stderrMock = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    const consoleLogMock = vi.spyOn(console, "log").mockImplementation(() => undefined);
+
+    vi.stubEnv("LOG_LEVEL", "info");
+    vi.stubEnv("LOG_LOCATION", "default");
+    vi.stubEnv("OPENCODE_TELEGRAM_SERVICE_CHILD", "1");
+    vi.stubEnv("OPENCODE_TELEGRAM_SERVICE_LOGS_DIR", blockedDir);
+    setRuntimeMode("sources");
+
+    const { initializeLogger, logger, getLogFilePath, __resetLoggerForTests } =
+      await loadLoggerModule();
+
+    await initializeLogger();
+    logger.info("still works");
+    logger.info("still works again");
+
+    expect(stderrMock).toHaveBeenCalledTimes(1);
+    expect(String(stderrMock.mock.calls[0]?.[0])).toContain(blockedDir);
+    expect(getLogFilePath()).toBeNull();
+    expect(consoleLogMock).toHaveBeenCalledTimes(2);
+
+    __resetLoggerForTests();
+  });
+
+  it("warns exactly once when initializeLogger is called twice with an unusable directory", async () => {
+    const tempHome = await createTempHome();
+    const blockedDir = path.join(tempHome, "blocked");
+    await fs.writeFile(blockedDir, "i am a file\n");
+
+    const stderrMock = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    vi.spyOn(console, "log").mockImplementation(() => undefined);
+
+    vi.stubEnv("LOG_LEVEL", "info");
+    vi.stubEnv("LOG_LOCATION", "default");
+    vi.stubEnv("OPENCODE_TELEGRAM_SERVICE_CHILD", "1");
+    vi.stubEnv("OPENCODE_TELEGRAM_SERVICE_LOGS_DIR", blockedDir);
+    setRuntimeMode("sources");
+
+    const { initializeLogger, __resetLoggerForTests } = await loadLoggerModule();
+
+    await initializeLogger();
+    await initializeLogger();
+
+    expect(stderrMock).toHaveBeenCalledTimes(1);
+
+    __resetLoggerForTests();
+  });
+
+  it("tells the resolver not to prompt when initializeLogger is given promptForLogLocation false", async () => {
+    const resolveLogsDirPathMock = vi.fn().mockRejectedValue(new Error("stop here"));
+    vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    vi.resetModules();
+    vi.doMock("../../src/runtime/log-location.js", () => ({
+      resolveLogsDirPath: resolveLogsDirPathMock,
+      resolveLogRetention: vi.fn().mockResolvedValue(10),
+    }));
+
+    try {
+      const { initializeLogger, __resetLoggerForTests } = await import("../../src/utils/logger.js");
+
+      await initializeLogger({ promptForLogLocation: false });
+      __resetLoggerForTests();
+      await initializeLogger();
+
+      expect(resolveLogsDirPathMock).toHaveBeenNthCalledWith(1, { prompt: false });
+      expect(resolveLogsDirPathMock).toHaveBeenNthCalledWith(2, {});
+      __resetLoggerForTests();
+    } finally {
+      vi.doUnmock("../../src/runtime/log-location.js");
+    }
+  });
+
+  it("prunes main logs to a LOG_RETENTION that exists only in the .env file", async () => {
+    const tempHome = await createTempHome();
+    const logsDirPath = path.join(tempHome, "logs");
+
+    await fs.mkdir(logsDirPath, { recursive: true });
+    await fs.writeFile(path.join(tempHome, ".env"), "LOG_RETENTION=1\n", "utf-8");
+    await Promise.all([
+      fs.writeFile(path.join(logsDirPath, "opencode-telegram-bot-2026-04-08.log"), "old\n"),
+      fs.writeFile(path.join(logsDirPath, "opencode-telegram-bot-2026-04-09.log"), "old\n"),
+      fs.writeFile(path.join(logsDirPath, "opencode-telegram-bot-2026-04-10.log"), "old\n"),
+    ]);
+
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-11T12:34:56.000Z"));
+    vi.stubEnv("LOG_RETENTION", "");
+    vi.stubEnv("OPENCODE_TELEGRAM_HOME", tempHome);
+    vi.stubEnv("LOG_LOCATION", "app");
+    setRuntimeMode("installed");
+
+    const { initializeLogger, __flushLoggerForTests, __resetLoggerForTests } =
+      await loadLoggerModule();
+
+    await initializeLogger();
+    await __flushLoggerForTests();
+
+    expect((await fs.readdir(logsDirPath)).sort()).toEqual([
+      "opencode-telegram-bot-2026-04-11.log",
+    ]);
+
+    __resetLoggerForTests();
+  });
+
+  it("lets a real LOG_RETENTION override the .env file when pruning", async () => {
+    const tempHome = await createTempHome();
+    const logsDirPath = path.join(tempHome, "logs");
+
+    await fs.mkdir(logsDirPath, { recursive: true });
+    await fs.writeFile(path.join(tempHome, ".env"), "LOG_RETENTION=1\n", "utf-8");
+    await Promise.all([
+      fs.writeFile(path.join(logsDirPath, "opencode-telegram-bot-2026-04-08.log"), "old\n"),
+      fs.writeFile(path.join(logsDirPath, "opencode-telegram-bot-2026-04-09.log"), "old\n"),
+      fs.writeFile(path.join(logsDirPath, "opencode-telegram-bot-2026-04-10.log"), "old\n"),
+    ]);
+
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-11T12:34:56.000Z"));
+    vi.stubEnv("LOG_RETENTION", "3");
+    vi.stubEnv("OPENCODE_TELEGRAM_HOME", tempHome);
+    vi.stubEnv("LOG_LOCATION", "app");
+    setRuntimeMode("installed");
+
+    const { initializeLogger, __flushLoggerForTests, __resetLoggerForTests } =
+      await loadLoggerModule();
+
+    await initializeLogger();
+    await __flushLoggerForTests();
+
+    expect((await fs.readdir(logsDirPath)).sort()).toEqual([
+      "opencode-telegram-bot-2026-04-09.log",
+      "opencode-telegram-bot-2026-04-10.log",
+      "opencode-telegram-bot-2026-04-11.log",
+    ]);
+
+    __resetLoggerForTests();
   });
 });

@@ -133,6 +133,7 @@ No public inbound ports are required for normal usage.
 - Optional TTS settings for global audio replies (`TTS_PROVIDER`, `TTS_API_URL`, `TTS_API_KEY`, `TTS_MODEL`, `TTS_VOICE`); supported providers: OpenAI-compatible, ElevenLabs, Google Cloud TTS, and Microsoft Edge TTS (no API key required)
 - Optional IPv4-only mode for Telegram connectivity (`TELEGRAM_FORCE_IPV4`)
 - Optional loopback health endpoint for Docker and orchestrators (`BOT_HEALTH_PORT`; off by default, `3100` in the Docker image)
+- Log files in the per-user log directory of the operating system in both runtime modes, or in `<appHome>/logs` with `LOG_LOCATION=app` (offered by the `config` wizard, set by the Docker image); owner-only permissions on Unix; `LOG_RETENTION` applies to main logs and daemon service logs separately
 
 ## Current Product Scope
 
@@ -252,6 +253,7 @@ Agent picker behavior:
 - [x] Incoming Telegram rich formatted messages (Bot API 10.1): converted to Markdown, accepted anywhere text is accepted, with photos attached and unsupported message types answered explicitly
 - [x] Startup either reaches Telegram polling or the process exits: transient Telegram failures are retried in-process; a bad token or other fatal startup error exits with code 1
 - [x] After a Telegram outage the bot answers again without restart; an undelivered assistant reply is not resent, and skipped stale messages are reported once
+- [x] Logs in the canonical per-user log directory of each operating system, `LOG_LOCATION` choice between it and `<appHome>/logs`, application-prefixed file names, per-type `LOG_RETENTION`, owner-only permissions on Unix, and a daemon that refuses to start when its service log cannot be opened
 - [x] OpenCode V2 session goal (`/goal`): separate text input and confirmed start, persistent short objective with Pause/Continue/Delete below waiting messages, no replacement, and normal Queue/Steer/Off routing; the server continues the same session after idle, `/abort` and `/start` pause it, and goal kickoff and continuation stay hidden
 
 ## Current Task List

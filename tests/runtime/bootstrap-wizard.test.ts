@@ -22,13 +22,14 @@ vi.mock("../../src/runtime/prompts.js", () => {
 // Mock secret-store-factory
 vi.mock("../../src/secrets/secret-store-factory.js");
 
-import { readFile, rm } from "node:fs/promises";
+import fsPromises, { chmod, readFile, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestHome } from "../helpers/test-environment.js";
 import { setRuntimeMode } from "../../src/runtime/mode.js";
 import { FakeSecretStore } from "../../src/secrets/fake-secret-store.js";
 import { EncryptedFileSecretStore } from "../../src/secrets/encrypted-file-secret-store.js";
+import { simulateWindowsReadOnlyRenameFailure } from "../helpers/windows-rename-guard.js";
 
 describe("runtime/bootstrap wizard with SecretStore", () => {
   let tempHome: string;
@@ -86,6 +87,7 @@ describe("runtime/bootstrap wizard with SecretStore", () => {
       "", // api url (default)
       "opencode", // username
       "", // password (empty for v1)
+      "", // log location (default)
     ]);
 
     await runWizardAndPersist(runtimePaths);
@@ -130,6 +132,7 @@ describe("runtime/bootstrap wizard with SecretStore", () => {
       "", // api url (default)
       "opencode", // username
       "", // password (empty for v1)
+      "", // log location (default)
     ]);
 
     const consoleSpy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
@@ -165,6 +168,7 @@ describe("runtime/bootstrap wizard with SecretStore", () => {
       "", // api url (default)
       "opencode", // username
       "", // password (empty for v1)
+      "", // log location (default)
       password, // keystore password prompt
     ]);
 
@@ -173,5 +177,220 @@ describe("runtime/bootstrap wizard with SecretStore", () => {
     // Verify secrets were written to store
     expect(await store.getSecret("telegram_bot_token")).toBe("123456:abcdef");
     expect(await store.getSecret("allowed_user_id")).toBe("123456789");
+  });
+});
+
+describe("runtime/bootstrap wizard LOG_LOCATION question", () => {
+  let tempHome: string;
+  let stdinTtyDescriptor: PropertyDescriptor | undefined;
+  let stdoutTtyDescriptor: PropertyDescriptor | undefined;
+
+  beforeEach(async () => {
+    tempHome = await createTestHome("opencode-telegram-wizard-logloc-");
+    stdinTtyDescriptor = Object.getOwnPropertyDescriptor(process.stdin, "isTTY");
+    stdoutTtyDescriptor = Object.getOwnPropertyDescriptor(process.stdout, "isTTY");
+    Object.defineProperty(process.stdin, "isTTY", { configurable: true, value: true });
+    Object.defineProperty(process.stdout, "isTTY", { configurable: true, value: true });
+    vi.stubEnv("OPENCODE_TELEGRAM_HOME", tempHome);
+    setRuntimeMode("installed");
+    vi.resetModules();
+  });
+
+  afterEach(async () => {
+    if (stdinTtyDescriptor) {
+      Object.defineProperty(process.stdin, "isTTY", stdinTtyDescriptor);
+    } else {
+      Reflect.deleteProperty(process.stdin, "isTTY");
+    }
+    if (stdoutTtyDescriptor) {
+      Object.defineProperty(process.stdout, "isTTY", stdoutTtyDescriptor);
+    } else {
+      Reflect.deleteProperty(process.stdout, "isTTY");
+    }
+    vi.unstubAllEnvs();
+    delete process.env.OPENCODE_TELEGRAM_RUNTIME_MODE;
+    await rm(tempHome, { recursive: true, force: true });
+  });
+
+  async function runWizard(
+    logLocationAnswers: string[],
+    existingEnv?: string,
+  ): Promise<{ envContent: string; output: string; prompts: string[] }> {
+    const prompts = await import("../../src/runtime/prompts.js");
+    const { __setMockInputs } = prompts as typeof prompts & {
+      __setMockInputs: (inputs: string[]) => void;
+    };
+    const { createSecretStore } = await import("../../src/secrets/secret-store-factory.js");
+    const { runWizardAndPersist } = await import("../../src/runtime/bootstrap.js");
+    const { getRuntimePaths } = await import("../../src/runtime/paths.js");
+
+    vi.mocked(createSecretStore).mockResolvedValue(new FakeSecretStore());
+    const runtimePaths = getRuntimePaths();
+    if (existingEnv !== undefined) {
+      await writeFile(runtimePaths.envFilePath, existingEnv, "utf-8");
+    }
+
+    __setMockInputs([
+      "en", // locale
+      "123456:abcdef", // token
+      "123456789", // allowed user id
+      "1", // server version (v1)
+      "", // api url (default)
+      "opencode", // username
+      "", // password (empty for v1)
+      ...logLocationAnswers,
+    ]);
+
+    const writeSpy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    try {
+      await runWizardAndPersist(runtimePaths);
+      const output = writeSpy.mock.calls.flat().join("");
+      const envContent = await readFile(runtimePaths.envFilePath, "utf-8");
+      const askedPrompts = vi.mocked(prompts.askVisible).mock.calls.map((call) => String(call[0]));
+      return { envContent, output, prompts: askedPrompts };
+    } finally {
+      writeSpy.mockRestore();
+    }
+  }
+
+  it.each([
+    ["1", "default"],
+    ["2", "app"],
+    ["default", "default"],
+    ["app", "app"],
+    ["APP", "app"],
+    ["Default", "default"],
+  ])("accepts %j and writes LOG_LOCATION=%s", async (answer, expected) => {
+    const { envContent } = await runWizard([answer]);
+
+    expect(envContent).toMatch(new RegExp(`^LOG_LOCATION=${expected}$`, "m"));
+  });
+
+  it("keeps the default on Enter when nothing is saved", async () => {
+    const { envContent } = await runWizard([""]);
+
+    expect(envContent).toMatch(/^LOG_LOCATION=default$/m);
+  });
+
+  it("offers the saved valid LOG_LOCATION as the default and keeps it on Enter", async () => {
+    const { envContent, prompts } = await runWizard([""], "LOG_LOCATION=app\n");
+
+    expect(envContent).toMatch(/^LOG_LOCATION=app$/m);
+    const { t } = await import("../../src/i18n/index.js");
+    expect(prompts).toContain(t("runtime.wizard.ask_log_location", { defaultLocation: "app" }));
+  });
+
+  it("falls back to default when the saved LOG_LOCATION is invalid", async () => {
+    const { envContent, prompts } = await runWizard([""], "LOG_LOCATION=bogus\n");
+
+    expect(envContent).toMatch(/^LOG_LOCATION=default$/m);
+    expect(envContent).not.toContain("bogus");
+    const { t } = await import("../../src/i18n/index.js");
+    expect(prompts).toContain(t("runtime.wizard.ask_log_location", { defaultLocation: "default" }));
+  });
+
+  it("rejects invalid answers with the invalid message, then accepts a valid one", async () => {
+    const { envContent, output } = await runWizard(["3", "nope", "2"]);
+
+    const { t } = await import("../../src/i18n/index.js");
+    const invalid = t("runtime.wizard.log_location_invalid", { defaultLocation: "default" });
+    expect(output.split(invalid).length - 1).toBe(2);
+    expect(envContent).toMatch(/^LOG_LOCATION=app$/m);
+  });
+
+  it("names the saved location as the Enter default in the invalid message", async () => {
+    const { output } = await runWizard(["3", ""], "LOG_LOCATION=app\n");
+
+    const { t } = await import("../../src/i18n/index.js");
+    expect(output).toContain(t("runtime.wizard.log_location_invalid", { defaultLocation: "app" }));
+  });
+
+  describe("re-running over a hardened .env", () => {
+    async function runWizardTwice(): Promise<string> {
+      const prompts = await import("../../src/runtime/prompts.js");
+      const { __setMockInputs } = prompts as typeof prompts & {
+        __setMockInputs: (inputs: string[]) => void;
+      };
+      const { createSecretStore } = await import("../../src/secrets/secret-store-factory.js");
+      const { runWizardAndPersist } = await import("../../src/runtime/bootstrap.js");
+      const { getRuntimePaths } = await import("../../src/runtime/paths.js");
+
+      vi.mocked(createSecretStore).mockResolvedValue(new FakeSecretStore());
+      const runtimePaths = getRuntimePaths();
+      const answers = (locale: string): string[] => [
+        locale,
+        "123456:abcdef",
+        "123456789",
+        "1",
+        "",
+        "opencode",
+        "",
+        "",
+      ];
+
+      __setMockInputs(answers("en"));
+      await runWizardAndPersist(runtimePaths);
+      expect((await stat(runtimePaths.envFilePath)).mode & 0o777).toBe(0o400);
+
+      __setMockInputs(answers("de"));
+      await runWizardAndPersist(runtimePaths);
+      return runtimePaths.envFilePath;
+    }
+
+    it.skipIf(process.platform === "win32")(
+      "replaces the read-only .env of a previous run and ends read-only",
+      async () => {
+        // The real failure (rename over a read-only file) is only provable on Windows.
+        const renameGuard = simulateWindowsReadOnlyRenameFailure();
+        vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+
+        try {
+          const envFilePath = await runWizardTwice();
+
+          expect(await readFile(envFilePath, "utf-8")).toMatch(/^BOT_LOCALE=de$/m);
+          expect((await stat(envFilePath)).mode & 0o777).toBe(0o400);
+        } finally {
+          renameGuard.mockRestore();
+        }
+      },
+    );
+
+    it.skipIf(process.platform === "win32")(
+      "restores the read-only mode when replacing the .env fails",
+      async () => {
+        const prompts = await import("../../src/runtime/prompts.js");
+        const { __setMockInputs } = prompts as typeof prompts & {
+          __setMockInputs: (inputs: string[]) => void;
+        };
+        const { createSecretStore } = await import("../../src/secrets/secret-store-factory.js");
+        const { runWizardAndPersist } = await import("../../src/runtime/bootstrap.js");
+        const { getRuntimePaths } = await import("../../src/runtime/paths.js");
+
+        vi.mocked(createSecretStore).mockResolvedValue(new FakeSecretStore());
+        const runtimePaths = getRuntimePaths();
+        await writeFile(runtimePaths.envFilePath, "KEEP=1\n", "utf-8");
+        await chmod(runtimePaths.envFilePath, 0o400);
+        __setMockInputs(["en", "123456:abcdef", "123456789", "1", "", "opencode", "", ""]);
+        vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+        const realEnvFilePath = await fsPromises.realpath(runtimePaths.envFilePath);
+        const renameSpy = vi.spyOn(fsPromises, "rename").mockRejectedValueOnce(new Error("boom"));
+        const chmodSpy = vi.spyOn(fsPromises, "chmod");
+
+        try {
+          await expect(runWizardAndPersist(runtimePaths)).rejects.toThrow("boom");
+          // Opened for the update (0600), then put back to read-only (0400) after the failure.
+          const envModes = chmodSpy.mock.calls
+            .filter(([target]) => target === realEnvFilePath)
+            .map(([, mode]) => mode);
+          expect(envModes).toEqual([0o600, 0o400]);
+        } finally {
+          renameSpy.mockRestore();
+          chmodSpy.mockRestore();
+        }
+
+        expect((await stat(runtimePaths.envFilePath)).mode & 0o777).toBe(0o400);
+        expect(await readFile(runtimePaths.envFilePath, "utf-8")).toBe("KEEP=1\n");
+      },
+    );
   });
 });

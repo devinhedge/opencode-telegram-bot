@@ -2,13 +2,18 @@ import { describe, expect, it } from "vitest";
 import { readLocalOpencodeVersion, getOpencodeApiVersion, parseOpencodeVersionOutput } from "../../src/opencode/process.js";
 import { detectOpencodeVersion } from "../../src/config.js";
 
+// Same lookup the bot uses; null means no readable `opencode` binary (e.g. CI runners).
+const installedOpencodeVersion = await readLocalOpencodeVersion();
+
 describe("OpenCode version sensing (real detection)", () => {
-  it("readLocalOpencodeVersion returns a real version string", async () => {
-    const version = await readLocalOpencodeVersion();
-    // On this machine, opencode should be installed
-    expect(version).not.toBeNull();
-    expect(version).toMatch(/^\d+\.\d+\.\d+$/);
-  });
+  it.skipIf(installedOpencodeVersion === null)(
+    "readLocalOpencodeVersion returns a real version string (skipped without an opencode binary)",
+    async () => {
+      const version = await readLocalOpencodeVersion();
+      expect(version).not.toBeNull();
+      expect(version).toMatch(/^\d+\.\d+\.\d+$/);
+    },
+  );
 
   it("getOpencodeApiVersion maps real version to v1 or v2", async () => {
     const version = await readLocalOpencodeVersion();

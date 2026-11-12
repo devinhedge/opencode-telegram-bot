@@ -99,7 +99,8 @@ fi
 
 stopped=0
 if [ -d "$logs_dir" ]; then
-  for log in "$logs_dir"/bot-*.log; do
+  # Main logs only: a digit must follow the prefix, so opencode-telegram-bot-service-* never matches.
+  for log in "$logs_dir"/opencode-telegram-bot-[0-9]*.log; do
     [ -e "$log" ] || continue
     bot_pid="$(basename "$log" | sed -n 's/.*_\([0-9][0-9]*\)\.log$/\1/p')"
     [ -n "$bot_pid" ] || continue

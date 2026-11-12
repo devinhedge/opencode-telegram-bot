@@ -3,12 +3,21 @@ import fsPromises from "node:fs/promises";
 import path from "node:path";
 import { inspect } from "node:util";
 import { getRuntimeMode, type RuntimeMode } from "../runtime/mode.js";
-import { getRuntimePaths } from "../runtime/paths.js";
+import { resolveLogRetention, resolveLogsDirPath } from "../runtime/log-location.js";
+import {
+  buildMainLogFileName,
+  ensureLogsDir,
+  ensureLogsDirSync,
+  FILE_MODE,
+  getMainLogFilePattern,
+  pruneLogFiles,
+  secureLogFile,
+  secureLogFileSync,
+} from "./log-files.js";
 
 type LogLevel = "debug" | "info" | "warn" | "error";
 
 const DEFAULT_LOG_LEVEL: LogLevel = "info";
-const DEFAULT_LOG_RETENTION = 10;
 const LOGGER_ERROR_PREFIX = "[LOGGER]";
 
 const LOG_LEVELS: Record<LogLevel, number> = {
@@ -20,9 +29,11 @@ const LOG_LEVELS: Record<LogLevel, number> = {
 
 let logStream: fs.WriteStream | null = null;
 let logFilePath: string | null = null;
+let logsDirPath: string | null = null;
 let initializePromise: Promise<void> | null = null;
 let cleanupPromise: Promise<void> | null = null;
 let streamErrorReported = false;
+let initializeFailed = false;
 const CONSOLE_BROKEN_KEY = "__opencodeTelegramBotConsoleOutputBroken";
 
 function normalizeLogLevel(value: string): LogLevel {
@@ -33,25 +44,8 @@ function normalizeLogLevel(value: string): LogLevel {
   return DEFAULT_LOG_LEVEL;
 }
 
-function parsePositiveInteger(value: string | undefined, defaultValue: number): number {
-  if (!value) {
-    return defaultValue;
-  }
-
-  const parsed = Number.parseInt(value, 10);
-  if (Number.isNaN(parsed) || parsed <= 0) {
-    return defaultValue;
-  }
-
-  return parsed;
-}
-
 function getConfiguredLogLevel(): LogLevel {
   return normalizeLogLevel(process.env.LOG_LEVEL ?? DEFAULT_LOG_LEVEL);
-}
-
-function getConfiguredLogRetention(): number {
-  return parsePositiveInteger(process.env.LOG_RETENTION, DEFAULT_LOG_RETENTION);
 }
 
 function formatPrefix(level: LogLevel): string {
@@ -112,33 +106,8 @@ function shouldLog(level: LogLevel): boolean {
   return LOG_LEVELS[level] >= LOG_LEVELS[configuredLevel];
 }
 
-function sanitizeTimestampForFile(timestamp: string): string {
-  return timestamp.replace(/:/g, "-").replace("T", "_");
-}
-
-function getSourcesLogFileName(): string {
-  const timestamp = sanitizeTimestampForFile(new Date().toISOString().slice(0, 19));
-  return `bot-${timestamp}_${process.pid}.log`;
-}
-
-function getInstalledLogFileName(): string {
-  return `bot-${new Date().toISOString().slice(0, 10)}.log`;
-}
-
-function getLogFileName(mode: RuntimeMode): string {
-  return mode === "installed" ? getInstalledLogFileName() : getSourcesLogFileName();
-}
-
-function getLogFilePathForMode(logsDirPath: string, mode: RuntimeMode): string {
-  return path.join(logsDirPath, getLogFileName(mode));
-}
-
-function getLogFilePattern(mode: RuntimeMode): RegExp {
-  if (mode === "installed") {
-    return /^bot-\d{4}-\d{2}-\d{2}\.log$/;
-  }
-
-  return /^bot-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}_\d+\.log$/;
+function getLogFilePathForMode(dirPath: string, mode: RuntimeMode): string {
+  return path.join(dirPath, buildMainLogFileName(mode, new Date(), process.pid));
 }
 
 function reportLoggerInternalError(message: string, error?: unknown): void {
@@ -225,41 +194,23 @@ function ensureLogStream(filePath: string): void {
   logFilePath = filePath;
 }
 
-async function cleanupOldLogs(logsDirPath: string, mode: RuntimeMode): Promise<void> {
-  const retention = getConfiguredLogRetention();
-  const filePattern = getLogFilePattern(mode);
-
-  let fileNames: string[];
-
-  try {
-    fileNames = await fsPromises.readdir(logsDirPath);
-  } catch (error) {
-    reportLoggerInternalError(`Failed to read log directory ${logsDirPath}.`, error);
-    return;
-  }
-
-  const matchingFiles = fileNames.filter((fileName) => filePattern.test(fileName)).sort();
-  const filesToDelete = matchingFiles.slice(0, Math.max(0, matchingFiles.length - retention));
-
-  await Promise.all(
-    filesToDelete.map(async (fileName) => {
-      try {
-        await fsPromises.unlink(path.join(logsDirPath, fileName));
-      } catch (error) {
-        reportLoggerInternalError(`Failed to delete old log file ${fileName}.`, error);
-      }
-    }),
+async function cleanupOldLogs(dirPath: string, mode: RuntimeMode): Promise<void> {
+  await pruneLogFiles(
+    dirPath,
+    getMainLogFilePattern(mode),
+    await resolveLogRetention(),
+    reportLoggerInternalError,
   );
 }
 
-function cleanupOldLogsInBackground(logsDirPath: string, mode: RuntimeMode): void {
+function cleanupOldLogsInBackground(dirPath: string, mode: RuntimeMode): void {
   if (cleanupPromise) {
     return;
   }
 
-  cleanupPromise = cleanupOldLogs(logsDirPath, mode)
+  cleanupPromise = cleanupOldLogs(dirPath, mode)
     .catch((error) => {
-      reportLoggerInternalError(`Failed to clean up old logs in ${logsDirPath}.`, error);
+      reportLoggerInternalError(`Failed to clean up old logs in ${dirPath}.`, error);
     })
     .finally(() => {
       cleanupPromise = null;
@@ -272,17 +223,24 @@ function rotateInstalledLogIfNeeded(): void {
     return;
   }
 
-  const runtimePaths = getRuntimePaths();
-  const nextLogFilePath = getLogFilePathForMode(runtimePaths.logsDirPath, mode);
+  if (!logsDirPath) {
+    return;
+  }
+
+  const nextLogFilePath = getLogFilePathForMode(logsDirPath, mode);
   if (logFilePath === nextLogFilePath) {
     return;
   }
 
   try {
-    fs.mkdirSync(runtimePaths.logsDirPath, { recursive: true });
-    fs.appendFileSync(nextLogFilePath, "");
+    // Rotation runs inside the synchronous write path, so it uses the
+    // synchronous helpers. New files are created owner-only; the chmod covers
+    // files that already existed with a wider mode.
+    ensureLogsDirSync(logsDirPath);
+    fs.appendFileSync(nextLogFilePath, "", { mode: FILE_MODE });
+    secureLogFileSync(nextLogFilePath);
     ensureLogStream(nextLogFilePath);
-    cleanupOldLogsInBackground(runtimePaths.logsDirPath, mode);
+    cleanupOldLogsInBackground(logsDirPath, mode);
   } catch (error) {
     reportLoggerInternalError(
       `Failed to rotate file logging to ${nextLogFilePath}.`,
@@ -310,37 +268,49 @@ function writeToFile(line: string): void {
   }
 }
 
-async function initializeLoggerInternal(): Promise<void> {
-  if (logStream && logFilePath) {
+export interface InitializeLoggerOptions {
+  // False makes an invalid LOG_LOCATION warn and use default instead of prompting; the config
+  // command sets it because its wizard asks the question itself. Defaults to true.
+  promptForLogLocation?: boolean;
+}
+
+async function initializeLoggerInternal(options: InitializeLoggerOptions): Promise<void> {
+  // A failed attempt is not retried: the entrypoints call initializeLogger twice, and the
+  // unusable-directory warning must appear once per process.
+  if ((logStream && logFilePath) || initializeFailed) {
     return;
   }
 
-  const runtimePaths = getRuntimePaths();
   const mode = getRuntimeMode();
+  let resolvedDirPath = "the logs directory";
 
   try {
-    await fsPromises.mkdir(runtimePaths.logsDirPath, { recursive: true });
-    const nextLogFilePath = getLogFilePathForMode(runtimePaths.logsDirPath, mode);
-    await fsPromises.appendFile(nextLogFilePath, "");
-    ensureLogStream(nextLogFilePath);
-    await cleanupOldLogs(runtimePaths.logsDirPath, mode);
-  } catch (error) {
-    reportLoggerInternalError(
-      `Failed to initialize file logging in ${runtimePaths.logsDirPath}.`,
-      error,
+    resolvedDirPath = await resolveLogsDirPath(
+      options.promptForLogLocation === false ? { prompt: false } : {},
     );
+    logsDirPath = resolvedDirPath;
+    await ensureLogsDir(resolvedDirPath);
+    const nextLogFilePath = getLogFilePathForMode(resolvedDirPath, mode);
+    await fsPromises.appendFile(nextLogFilePath, "", { mode: FILE_MODE });
+    await secureLogFile(nextLogFilePath);
+    ensureLogStream(nextLogFilePath);
+    await cleanupOldLogs(resolvedDirPath, mode);
+  } catch (error) {
+    initializeFailed = true;
+    reportLoggerInternalError(`Failed to initialize file logging in ${resolvedDirPath}.`, error);
     closeLogStream();
     logFilePath = null;
+    logsDirPath = null;
   }
 }
 
-export async function initializeLogger(): Promise<void> {
+export async function initializeLogger(options: InitializeLoggerOptions = {}): Promise<void> {
   if (initializePromise) {
     await initializePromise;
     return;
   }
 
-  initializePromise = initializeLoggerInternal();
+  initializePromise = initializeLoggerInternal(options);
 
   try {
     await initializePromise;
@@ -382,7 +352,9 @@ export function __resetLoggerForTests(): void {
   initializePromise = null;
   cleanupPromise = null;
   logFilePath = null;
+  logsDirPath = null;
   streamErrorReported = false;
+  initializeFailed = false;
   (globalThis as Record<string, unknown>)[CONSOLE_BROKEN_KEY] = false;
   closeLogStream();
 }
