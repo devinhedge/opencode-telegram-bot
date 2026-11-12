@@ -1,8 +1,17 @@
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, statSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { resolveCanonicalLogsDir } from "../../src/runtime/log-location.js";
 
 // Real-process check: the built entrypoint initializes the logger before it loads the
@@ -11,25 +20,47 @@ import { resolveCanonicalLogsDir } from "../../src/runtime/log-location.js";
 // the real user's canonical log directory.
 
 const PROJECT_ROOT = resolve(__dirname, "../..");
-const ENTRYPOINT = join(PROJECT_ROOT, "dist", "index.js");
 const LOG_FILE_NAME = /^opencode-telegram-bot-.+\.log$/;
 const isWindows = process.platform === "win32";
 const RUNTIME_MODES = ["installed", "sources"] as const;
 
 let root = "";
+let buildRoot = "";
+let entrypoint = "";
 
 beforeAll(() => {
-  // dist/ is gitignored and may be stale: always rebuild so the entrypoint matches the source.
-  const npm = isWindows ? "npm.cmd" : "npm";
-  const build = spawnSync(npm, ["run", "build"], {
-    cwd: PROJECT_ROOT,
-    encoding: "utf8",
-    shell: isWindows,
-  });
+  // The build goes to a temporary directory so the test never writes into the repository (the
+  // repo dist/ may also be stale). The temporary root mimics the package layout the compiled
+  // code expects: dist/ for the code, package.json and .env.example one level above it (read
+  // relative to the compiled files), and node_modules for dependency resolution. On Windows
+  // the node_modules link is a junction, which needs no elevated privileges.
+  buildRoot = mkdtempSync(join(tmpdir(), "log-location-e2e-build-"));
+  const outDir = join(buildRoot, "dist");
+  const tsc = join(PROJECT_ROOT, "node_modules", "typescript", "bin", "tsc");
+  const build = spawnSync(
+    process.execPath,
+    [tsc, "-p", join(PROJECT_ROOT, "tsconfig.json"), "--outDir", outDir],
+    { cwd: PROJECT_ROOT, encoding: "utf8" },
+  );
   if (build.status !== 0) {
-    throw new Error(`npm run build failed:\n${build.stdout}\n${build.stderr}`);
+    throw new Error(`tsc build failed:\n${build.stdout}\n${build.stderr}`);
   }
+
+  copyFileSync(join(PROJECT_ROOT, "package.json"), join(buildRoot, "package.json"));
+  copyFileSync(join(PROJECT_ROOT, ".env.example"), join(buildRoot, ".env.example"));
+  symlinkSync(
+    join(PROJECT_ROOT, "node_modules"),
+    join(buildRoot, "node_modules"),
+    isWindows ? "junction" : "dir",
+  );
+  entrypoint = join(outDir, "index.js");
 }, 180_000);
+
+afterAll(() => {
+  if (buildRoot) {
+    rmSync(buildRoot, { recursive: true, force: true });
+  }
+});
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "log-location-e2e-"));
@@ -69,7 +100,7 @@ function runBot(
   mode: string,
 ): Promise<{ code: number | null; output: string }> {
   return new Promise((resolveRun, rejectRun) => {
-    const child = spawn(process.execPath, [ENTRYPOINT, "--mode", mode], {
+    const child = spawn(process.execPath, [entrypoint, "--mode", mode], {
       cwd: root,
       env,
       stdio: ["ignore", "pipe", "pipe"],
