@@ -1,16 +1,16 @@
 ---
 title: Uninstaller Design
 status: draft
-version: 0.2.0
+version: 0.3.0
 last_updated: 2026-11-12
 review_date: 2027-05-12
 branch: feat/uninstaller
-depends_on: feat/logs-relocation (canonical per-OS log locations and LOG_LOCATION), implemented and awaiting integration
+depends_on: logs-relocation feature (canonical per-OS log locations and LOG_LOCATION), merged into feat/core-feature-expansion through pull request 4 and included in this branch
 ---
 
 # Uninstaller Design (DRAFT)
 
-Status: draft. Records decisions made with the owner. Not approved for planning. Builds on the logs-relocation feature (branch `feat/logs-relocation`, spec `docs/superpowers/specs/2026-11-11-logs-relocation-design.md` on that branch), which must be integrated first.
+Status: draft. Records decisions made with the owner. Not approved for planning. Builds on the logs-relocation feature (spec `docs/superpowers/specs/2026-11-11-logs-relocation-design.md`), which this branch includes.
 
 ## Intent
 
@@ -24,10 +24,11 @@ Status: draft. Records decisions made with the owner. Not approved for planning.
 - Secrets live in the OS keychain under service `opencode-telegram-bot` (`src/secrets/keychain-secret-store.ts`), with an encrypted-file fallback `secrets.enc`. Account names are enumerated in `src/secrets/migrate-secrets.ts` and `src/secrets/integrity.ts`; there is no enumerate API.
 - `.env.bak` retains pre-migration plaintext secrets.
 - After the config wizard, `.env` is owner read-only (mode 0400, the read-only attribute on Windows).
-- Atomic writes leave temporary sibling files (`<name>.<pid>.tmp`) only when a write is interrupted.
+- Atomic writes leave temporary sibling files only when a write is interrupted: `.env.<pid>.<uuid>.tmp`, `secrets.enc.<pid>.<uuid>.tmp`, and the temporary siblings of `settings.json` and the files under `run/`.
 - `<appHome>/local-commands/` holds user-authored JSON files that define custom Telegram slash commands.
 - The OpenCode server the bot starts is a detached process that outlives the bot.
 - Logs are written to the canonical per-user log directory (macOS `~/Library/Logs/opencode-telegram-bot/`, Linux `$XDG_STATE_HOME/opencode-telegram-bot/logs/` defaulting to `~/.local/state/opencode-telegram-bot/logs/`, Windows `%LOCALAPPDATA%\opencode-telegram-bot\Logs\`), or to `<appHome>/logs` when `LOG_LOCATION=app`. Main logs are `opencode-telegram-bot-<date or timestamp>.log` and daemon output is `opencode-telegram-bot-service-<timestamp>.log`; the state file records the service log path.
+- The runtime detects a container with `isContainerRuntime` (`src/runtime/container.ts`): true when `OPENCODE_TELEGRAM_CONTAINER` is truthy or `/.dockerenv` exists. The Docker image sets the variable.
 
 ## Goals
 
@@ -42,6 +43,7 @@ Status: draft. Records decisions made with the owner. Not approved for planning.
 
 - Stopping the OpenCode server by default.
 - Relocating or migrating logs.
+- Uninstalling from inside a container.
 - Localizing existing `stop` and `status` output (separate feature).
 - Fixing the unwired `RESTARTING` env var, the missing `--restart` usage text, or the systemd doc inconsistency (separate issues).
 
@@ -65,6 +67,7 @@ Status: draft. Records decisions made with the owner. Not approved for planning.
 10. The command is idempotent: rerunning after a partial failure completes the remaining steps.
 11. Logs live in the canonical per-OS log directory, or in `<appHome>/logs` with `LOG_LOCATION=app`. The uninstaller never removes either.
 12. `<appHome>/logs` is never removed, whatever `LOG_LOCATION` says, so logs left there by earlier runs stay in place. The app home directory is removed only when nothing is left in it.
+13. Inside a container the uninstaller refuses to run and removes nothing. It tells the user that the container should be rebuilt and redeployed, or destroyed.
 
 ## Agent calls (not yet confirmed by owner)
 
@@ -75,6 +78,7 @@ Status: draft. Records decisions made with the owner. Not approved for planning.
 - The removal plan shows where the logs stay. The uninstaller resolves that directory from `LOG_LOCATION` (real environment, then `.env`) without prompting, before `.env` is deleted; it does not need the value to decide what to remove, because logs are never removed.
 - A read-only `.env` is made writable before deletion where the platform needs it (the Windows read-only attribute), using the same reopen step the `.env` writer uses.
 - The uninstaller does not initialize the file logger, so it creates no log file of its own.
+- The container check (decision 13) uses `isContainerRuntime`, runs before any other step, and applies even with `--yes`. The refusal message is printed to the terminal in the user's locale, not written to a log file, and the command exits with a non-zero status.
 
 ## Test requirements (owner)
 
@@ -84,9 +88,9 @@ Status: draft. Records decisions made with the owner. Not approved for planning.
 - Integration tests.
 - End-to-end tests.
 
-Existing patterns: `tests/runtime/service/manager.test.ts` (mocked `spawn` and `exec`, temp dirs, resolver mock), `src/secrets/fake-secret-store.ts` (in-memory secret store), and `tests/cli/args.test.ts` (full-object `toEqual` expectations that must be updated when the parsed structure changes). Tests must write only inside temp directories and must never touch the real home, keychain, or canonical log directory.
+Existing patterns: `tests/runtime/service/manager.test.ts` (mocked `spawn` and `exec`, temp dirs, resolver mock), `src/secrets/fake-secret-store.ts` (in-memory secret store), and `tests/cli/args.test.ts` (full-object `toEqual` expectations that must be updated when the parsed structure changes). Tests must write only inside temp directories, must never touch the real home, keychain, or canonical log directory, and must pin container detection so the host cannot change the result (see `tests/runtime/log-location.test.ts`).
 
 ## Open questions
 
-- Exact removal rules for the Docker volume case.
+- Docker volumes on a host: decision 5 names them, and a container run refuses; what removing a volume means from the host is open.
 - Whether `--yes` also confirms the `OPENCODE_TELEGRAM_HOME` override removal.
