@@ -164,6 +164,23 @@ describe("runtime/env-file", () => {
     },
   );
 
+  it.skipIf(process.platform === "win32")(
+    "does not reuse the mode of a leftover temp file",
+    async () => {
+      await fs.mkdir(path.dirname(envFilePath), { recursive: true });
+      const leftoverPath = `${envFilePath}.${process.pid}.tmp`;
+      await fs.writeFile(leftoverPath, "stale\n", "utf-8");
+      await fs.chmod(leftoverPath, 0o644);
+
+      await persistEnvValue(envFilePath, "TELEGRAM_BOT_TOKEN", "secret");
+
+      expect((await fs.stat(envFilePath)).mode & 0o777).toBe(0o600);
+      expect(await fs.readFile(envFilePath, "utf-8")).toBe("TELEGRAM_BOT_TOKEN=secret\n");
+      const entries = await fs.readdir(path.dirname(envFilePath));
+      expect(entries.filter((name) => name.endsWith(".tmp"))).toEqual([]);
+    },
+  );
+
   it.skipIf(process.platform === "win32")("keeps the mode of an existing file", async () => {
     await fs.mkdir(path.dirname(envFilePath), { recursive: true });
     await fs.writeFile(envFilePath, "A=1\n", "utf-8");

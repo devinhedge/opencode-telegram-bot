@@ -7,6 +7,9 @@ export async function writeFileAtomically(filePath: string, content: string): Pr
 
   const tempFilePath = `${filePath}.${process.pid}.tmp`;
   try {
+    // A leftover temp file (crash, repeated pid) would keep its old mode, because the creation
+    // mode only applies to new files; start from a fresh file.
+    await fs.rm(tempFilePath, { force: true });
     // Owner-only from creation: the content may hold secrets and must never be group or
     // other readable, even briefly.
     await fs.writeFile(tempFilePath, content, { encoding: "utf-8", mode: 0o600 });

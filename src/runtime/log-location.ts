@@ -271,7 +271,8 @@ export function resolveLogsDirPath(options: ResolveLogsDirOptions = {}): Promise
   if (!resolvedLogsDir) {
     const pending = resolveLogsDir(options);
     resolvedLogsDir = pending;
-    // A rejected resolution must not stay memoized, so the next call retries.
+    // A rejected resolution must not stay memoized, so the next caller (the daemon manager, for
+    // example) retries. The logger does not retry after a failed initialization, by design.
     pending.catch(() => {
       if (resolvedLogsDir === pending) {
         resolvedLogsDir = undefined;
