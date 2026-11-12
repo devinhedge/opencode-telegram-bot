@@ -1,7 +1,7 @@
 ---
 title: Uninstaller Design
 status: draft
-version: 0.3.0
+version: 0.4.0
 last_updated: 2026-11-12
 review_date: 2027-05-12
 branch: feat/uninstaller
@@ -44,6 +44,7 @@ Status: draft. Records decisions made with the owner. Not approved for planning.
 - Stopping the OpenCode server by default.
 - Relocating or migrating logs.
 - Uninstalling from inside a container.
+- Removing Docker containers, volumes, or sidecars (for example a telemetry collector).
 - Localizing existing `stop` and `status` output (separate feature).
 - Fixing the unwired `RESTARTING` env var, the missing `--restart` usage text, or the systemd doc inconsistency (separate issues).
 
@@ -59,7 +60,7 @@ Status: draft. Records decisions made with the owner. Not approved for planning.
 2. Delete keychain secrets, `.env`, `.env.bak`, `settings.json`, and `local-commands/`.
 3. Show the full removal plan and ask one y/n confirmation before deleting.
 4. Remove the actual symlinks by path using `lstat`. The links may dangle, so they are never resolved.
-5. `OPENCODE_TELEGRAM_HOME` and Docker volumes: validate both first, then confirm y/n separately before touching them.
+5. `OPENCODE_TELEGRAM_HOME` override: validate it first, then confirm y/n separately before touching it.
 6. Linux systemd unit: remove it with `sudo`. The uninstaller never handles the password.
 7. All uninstaller output is localized in every supported locale.
 8. The OpenCode server keeps running by default. Stopping it is opt-in.
@@ -68,6 +69,7 @@ Status: draft. Records decisions made with the owner. Not approved for planning.
 11. Logs live in the canonical per-OS log directory, or in `<appHome>/logs` with `LOG_LOCATION=app`. The uninstaller never removes either.
 12. `<appHome>/logs` is never removed, whatever `LOG_LOCATION` says, so logs left there by earlier runs stay in place. The app home directory is removed only when nothing is left in it.
 13. Inside a container the uninstaller refuses to run and removes nothing. It tells the user that the container should be rebuilt and redeployed, or destroyed.
+14. The uninstaller never calls Docker and never removes a Docker container or volume, on a host or anywhere else.
 
 ## Agent calls (not yet confirmed by owner)
 
@@ -78,6 +80,7 @@ Status: draft. Records decisions made with the owner. Not approved for planning.
 - The removal plan shows where the logs stay. The uninstaller resolves that directory from `LOG_LOCATION` (real environment, then `.env`) without prompting, before `.env` is deleted; it does not need the value to decide what to remove, because logs are never removed.
 - A read-only `.env` is made writable before deletion where the platform needs it (the Windows read-only attribute), using the same reopen step the `.env` writer uses.
 - The uninstaller does not initialize the file logger, so it creates no log file of its own.
+- What the bot stores (app-home files and keychain accounts) is declared in one place that the uninstaller reads, so a feature that adds stored data registers it once and uninstall removes it. Keychain accounts need this because there is no enumerate API.
 - The container check (decision 13) uses `isContainerRuntime`, runs before any other step, and applies even with `--yes`. The refusal message is printed to the terminal in the user's locale, not written to a log file, and the command exits with a non-zero status.
 
 ## Test requirements (owner)
@@ -92,5 +95,4 @@ Existing patterns: `tests/runtime/service/manager.test.ts` (mocked `spawn` and `
 
 ## Open questions
 
-- Docker volumes on a host: decision 5 names them, and a container run refuses; what removing a volume means from the host is open.
 - Whether `--yes` also confirms the `OPENCODE_TELEGRAM_HOME` override removal.
