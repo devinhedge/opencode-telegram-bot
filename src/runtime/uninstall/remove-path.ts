@@ -86,12 +86,6 @@ export async function removePath(target: string): Promise<RemoveResult> {
   if (isSymlink) {
     try {
       linkTarget = await resolveSymlinkTarget(target);
-      // A loop resolves to a link that points on, not to a final target: report none. A missing
-      // final target (dangling link) is reported as is.
-      const finalStats = await fs.lstat(linkTarget).catch(() => undefined);
-      if (finalStats?.isSymbolicLink()) {
-        linkTarget = undefined;
-      }
     } catch {
       // An unresolvable link is still only unlinked, never followed.
       linkTarget = undefined;
@@ -128,7 +122,7 @@ async function removeHomeIfEmpty(
     return { homeRemoved: true };
   } catch (error) {
     const code = errorCode(error);
-    if (code === "ENOENT" || code === "ENOTEMPTY" || code === "EEXIST") {
+    if (code === "ENOENT" || code === "ENOTDIR" || code === "ENOTEMPTY" || code === "EEXIST") {
       return { homeRemoved: false };
     }
     return { homeRemoved: false, homeError: errorText(error) };

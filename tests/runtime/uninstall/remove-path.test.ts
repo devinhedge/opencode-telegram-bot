@@ -387,21 +387,38 @@ describe("runtime/uninstall/remove-path", () => {
       }
     });
 
-    it.skipIf(isWindows)("unlinks a symlink loop and reports no linkTarget", async () => {
-      const a = path.join(appHome, ".env");
-      const b = path.join(appHome, "settings.json");
-      await fs.symlink(b, a);
-      await fs.symlink(a, b);
+    it.skipIf(isWindows)(
+      "unlinks a symlink loop; the link that dangles after it reports it",
+      async () => {
+        const a = path.join(appHome, ".env");
+        const b = path.join(appHome, "settings.json");
+        await fs.symlink(b, a);
+        await fs.symlink(a, b);
 
-      // The first removal sees the intact loop; the second link then dangles, which is reported.
-      const first = await removePath(a);
-      const { results, homeRemoved } = await removeAppHomeData(appHome);
+        // The intact loop cannot be resolved, so no linkTarget. Once the first link is gone the
+        // second one dangles and reports the first link's path (order-dependent by design).
+        const first = await removePath(a);
+        const { results, homeRemoved } = await removeAppHomeData(appHome);
 
-      expect(first.status).toBe("removed");
-      expect(first.linkTarget).toBeUndefined();
-      expect(await exists(a)).toBe(false);
-      expect(results.map((r) => r.status)).toEqual(["removed"]);
-      expect(homeRemoved).toBe(true);
+        expect(first.status).toBe("removed");
+        expect(first.linkTarget).toBeUndefined();
+        expect(await exists(a)).toBe(false);
+        expect(results).toHaveLength(1);
+        expect(results[0]?.status).toBe("removed");
+        expect(results[0]?.linkTarget).toBe(a);
+        expect(homeRemoved).toBe(true);
+      },
+    );
+
+    it.skipIf(isWindows)("reports a home below a file as no error", async () => {
+      const file = path.join(tempRoot, "file");
+      await fs.writeFile(file, "x");
+
+      const { results, homeRemoved, homeError } = await removeAppHomeData(path.join(file, "home"));
+
+      expect(results).toEqual([]);
+      expect(homeRemoved).toBe(false);
+      expect(homeError).toBeUndefined();
     });
 
     it("reports homeRemoved false for a missing home", async () => {
