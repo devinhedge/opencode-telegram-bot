@@ -1,7 +1,7 @@
 ---
 title: Uninstaller Implementation Plan
 status: draft
-version: 0.1.3
+version: 0.1.4
 last_updated: 2026-11-12
 review_date: 2027-05-12
 spec: docs/superpowers/specs/2026-11-11-uninstaller-design.md
@@ -103,7 +103,7 @@ spec: docs/superpowers/specs/2026-11-11-uninstaller-design.md
 **Files:** Modify `src/secrets/keychain-secret-store.ts` (add `removeSecret`); Create `src/runtime/uninstall/keychain.ts`; Test `tests/secrets/keychain-secret-store.test.ts` (extend), `tests/runtime/uninstall/keychain.test.ts`.
 
 **Interfaces:**
-- Produces: `KeychainSecretStore.removeSecret(account: string): Promise<"removed" | "absent" | "failed">` (the existing `deleteSecret` swallows every error and cannot report); `type KeychainRemovalStore = Pick<KeychainSecretStore, "isAvailable" | "removeSecret">`; `interface KeychainRemoval { available: boolean; results: { account: string; status: "removed" | "absent" | "failed" }[] }`; `removeKeychainAccounts(store: KeychainRemovalStore, accounts?: readonly string[]): Promise<KeychainRemoval>` (default `STORED_KEYCHAIN_ACCOUNTS`; when the store is unavailable it returns `available: false` and empty results; never reads or prints a secret value).
+- Produces: `KeychainSecretStore.removeSecret(account: string): Promise<"removed" | "absent" | "failed">` (the existing `deleteSecret` swallows every error and cannot report; `failed` carries no reason by design, so no library error text reaches the output, and Task 10 prints a generic localized failure line with the account name); `type KeychainRemovalStore = Pick<KeychainSecretStore, "isAvailable" | "removeSecret">`; `interface KeychainRemoval { available: boolean; results: { account: string; status: "removed" | "absent" | "failed" }[] }`; `removeKeychainAccounts(store: KeychainRemovalStore, accounts?: readonly string[]): Promise<KeychainRemoval>` (default `STORED_KEYCHAIN_ACCOUNTS`; when the store is unavailable it returns `available: false` and empty results; never reads or prints a secret value).
 
 - [ ] **Step 1: Failing tests:** `removeSecret` against the mocked `@napi-rs/keyring` `AsyncEntry` returns `removed` when deletion succeeds, `absent` when the library reports no entry, `failed` on any other error (read the library's real return and error shapes first and mirror them in the mock); `removeKeychainAccounts` with a fake store (`isAvailable` and a recorded `removeSecret`) calls it once per inventory account in order, returns the statuses, returns `available: false` without calling `removeSecret` when unavailable, and a second run over an all-`absent` store reports all `absent`.
 - [ ] **Step 2:** Run. Expected: FAIL.
