@@ -1,7 +1,7 @@
 ---
 title: Uninstaller Implementation Plan
 status: draft
-version: 0.1.1
+version: 0.1.2
 last_updated: 2026-11-12
 review_date: 2027-05-12
 spec: docs/superpowers/specs/2026-11-11-uninstaller-design.md
@@ -92,7 +92,7 @@ spec: docs/superpowers/specs/2026-11-11-uninstaller-design.md
 
 `removePath` uses `lstat`, never `fs.access`: a symlink is unlinked and its final target reported in `linkTarget` and left in place; a regular file or directory is removed recursively; on EPERM or EACCES it chmods the entry to owner-writable once and retries (this covers the Windows read-only attribute); a missing path is `absent`. It never calls `reopenEnvFileForEdit` (that helper creates a missing `.env` and follows links).
 
-- [ ] **Step 1: Failing tests (temp dirs only):** removes a 0400 file; removes a directory tree; `absent` for a missing path; a dangling symlink is removed and `linkTarget` is the missing target; a symlink to a file outside the home removes the link and the target file still exists and `linkTarget` names it; a failing `fs.rm` (spy rejecting EPERM once) is retried after chmod and then `removed`; a persistent failure is `failed` with the error text and no throw; `removeAppHomeData` removes only inventory targets, keeps `logs/` and `notes.txt`, and `homeRemoved` is false while either exists and true when the home ends empty; a second call returns only `absent` and `homeRemoved` as before (idempotent).
+- [ ] **Step 1: Failing tests (temp dirs only):** removes a 0400 file; removes a directory tree; `absent` for a missing path; a dangling symlink is removed and `linkTarget` is the missing target; a symlink to a file outside the home removes the link and the target file still exists and `linkTarget` names it; a failing `fs.rm` (spy rejecting EPERM once) is retried after chmod and then `removed`; a persistent failure is `failed` with the error text and no throw; `removeAppHomeData` removes only inventory targets, keeps `logs/` and `notes.txt`, and `homeRemoved` is false while either exists and true when the home ends empty; a second call returns no results (absent entries are not listed) and the same `homeRemoved` as the first when the home still holds preserved entries (idempotent).
 - [ ] **Step 2:** Run. Expected: FAIL.
 - [ ] **Step 3: Implement** both functions.
 - [ ] **Step 4:** Run, lint, typecheck. Expected: PASS.

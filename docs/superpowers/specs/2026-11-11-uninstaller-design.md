@@ -1,7 +1,7 @@
 ---
 title: Uninstaller Design
 status: draft
-version: 0.13.0
+version: 0.13.1
 last_updated: 2026-11-12
 review_date: 2027-05-12
 branch: feat/uninstaller
@@ -88,7 +88,7 @@ Status: draft. Records decisions made with the owner. Not approved for planning.
 - Add `uninstall` and its `--yes` flag (decision 15) to `CliCommand` and `SUPPORTED_COMMANDS` in `src/cli/args.ts`; flag validation matches the existing start-only checks.
 - Delete from both secret-store backends, keychain and encrypted file.
 - The removal plan shows where the logs stay. The uninstaller resolves that directory from `LOG_LOCATION` (real environment, then `.env`) without prompting, before `.env` is deleted; it does not need the value to decide what to remove, because logs are never removed.
-- A read-only `.env` is made writable before deletion where the platform needs it (the Windows read-only attribute), using the same reopen step the `.env` writer uses.
+- A read-only `.env` is made writable before deletion where the platform needs it (the Windows read-only attribute), by clearing the read-only state on the entry itself. The `.env` writer's reopen step is not used: it creates a missing `.env` and follows symlinks.
 - The uninstaller does not initialize the file logger, so it creates no log file of its own. It prints step-by-step trace messages to stdout for tracing and debugging: each step, what was removed, skipped, or failed, with the paths and commands involved, in the user's locale (decision 7). The messages never include secrets.
 - What the bot stores (app-home files and keychain accounts) is declared in one place that the uninstaller reads, so a feature that adds stored data registers it once and uninstall removes it. Keychain accounts need this because there is no enumerate API.
 - The container check (decision 13) uses `isContainerRuntime`, runs before any other step, and applies even with `--yes`. The refusal message is printed to the terminal in the user's locale, not written to a log file, and the command exits with a non-zero status.
