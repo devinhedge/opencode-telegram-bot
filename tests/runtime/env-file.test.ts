@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { persistEnvValue, writeFileAtomically } from "../../src/runtime/env-file.js";
 
 describe("runtime/env-file", () => {
@@ -138,11 +138,75 @@ describe("runtime/env-file", () => {
     expect(entries.filter((name) => name.endsWith(".tmp"))).toEqual([]);
   });
 
-  it.skipIf(process.platform === "win32")("leaves the file owner-only", async () => {
+  it.skipIf(process.platform === "win32")("creates a new file as owner read/write", async () => {
     await persistEnvValue(envFilePath, "LOG_LOCATION", "app");
 
     const stats = await fs.stat(envFilePath);
-    // finalizeEnvFile exports no mode constant; it sets 0o400, so pin that exact value.
-    expect(stats.mode & 0o777).toBe(0o400);
+    expect(stats.mode & 0o777).toBe(0o600);
   });
+
+  it.skipIf(process.platform === "win32")(
+    "writes the temp file owner-only so the content is never group or other readable",
+    async () => {
+      const writeFileSpy = vi.spyOn(fs, "writeFile");
+
+      try {
+        await persistEnvValue(envFilePath, "TELEGRAM_BOT_TOKEN", "secret");
+
+        const tempWrites = writeFileSpy.mock.calls.filter(([target]) =>
+          String(target).endsWith(".tmp"),
+        );
+        expect(tempWrites).toHaveLength(1);
+        expect(tempWrites[0]?.[2]).toMatchObject({ mode: 0o600 });
+      } finally {
+        writeFileSpy.mockRestore();
+      }
+    },
+  );
+
+  it.skipIf(process.platform === "win32")("keeps the mode of an existing file", async () => {
+    await fs.mkdir(path.dirname(envFilePath), { recursive: true });
+    await fs.writeFile(envFilePath, "A=1\n", "utf-8");
+    await fs.chmod(envFilePath, 0o644);
+
+    await persistEnvValue(envFilePath, "LOG_LOCATION", "app");
+
+    expect((await fs.stat(envFilePath)).mode & 0o777).toBe(0o644);
+    expect(await fs.readFile(envFilePath, "utf-8")).toBe("A=1\nLOG_LOCATION=app\n");
+  });
+
+  it.skipIf(process.platform === "win32")(
+    "updates a read-only file and leaves it read-only",
+    async () => {
+      await fs.mkdir(path.dirname(envFilePath), { recursive: true });
+      await fs.writeFile(envFilePath, "A=1\n", "utf-8");
+      await fs.chmod(envFilePath, 0o400);
+
+      await persistEnvValue(envFilePath, "LOG_LOCATION", "app");
+
+      expect((await fs.stat(envFilePath)).mode & 0o777).toBe(0o400);
+      expect(await fs.readFile(envFilePath, "utf-8")).toBe("A=1\nLOG_LOCATION=app\n");
+    },
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "restores the mode of an existing file when the write fails",
+    async () => {
+      await fs.mkdir(path.dirname(envFilePath), { recursive: true });
+      await fs.writeFile(envFilePath, "A=1\n", "utf-8");
+      await fs.chmod(envFilePath, 0o400);
+      const renameSpy = vi.spyOn(fs, "rename").mockRejectedValueOnce(new Error("rename failed"));
+
+      try {
+        await expect(persistEnvValue(envFilePath, "LOG_LOCATION", "app")).rejects.toThrow(
+          "rename failed",
+        );
+      } finally {
+        renameSpy.mockRestore();
+      }
+
+      expect((await fs.stat(envFilePath)).mode & 0o777).toBe(0o400);
+      expect(await fs.readFile(envFilePath, "utf-8")).toBe("A=1\n");
+    },
+  );
 });
