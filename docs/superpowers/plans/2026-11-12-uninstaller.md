@@ -1,7 +1,7 @@
 ---
 title: Uninstaller Implementation Plan
 status: draft
-version: 0.1.0
+version: 0.1.1
 last_updated: 2026-11-12
 review_date: 2027-05-12
 spec: docs/superpowers/specs/2026-11-11-uninstaller-design.md
@@ -243,6 +243,7 @@ Order: (1) container refusal; (2) root refusal (`getUid() === 0`); (3) resolve t
 ## Calls this plan makes beyond the spec
 
 - The process matcher resolves launcher symlinks with `realpath` and reads the working directory with `lsof` because `ps` shows the launcher path or a relative path; a process whose checkout cannot be determined is listed as unverified and still asked about, never killed without confirmation.
+- Interrupted-write siblings written next to a symlinked `.env` or `secrets.enc` target (which can be outside the app home) are not listed because they are outside the home.
 - Removal uses a delete-specific helper instead of the `.env` writer's `reopenEnvFileForEdit` (that helper creates a missing `.env` and follows symlinks).
 - A new `KeychainSecretStore.removeSecret` reports removed, absent, or failed; `deleteSecret` stays as is.
 - Process-control code moves to a side-effect-free module because importing `src/opencode/process.ts` loads `.env` and can throw.

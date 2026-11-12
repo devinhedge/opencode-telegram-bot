@@ -1,7 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { INTEGRITY_CHECKSUM_ACCOUNT, INTEGRITY_USER_ID_ACCOUNT } from "../secrets/integrity.js";
-import { KEYCHAIN_SERVICE_NAME } from "../secrets/keychain-secret-store.js";
+import { KEYCHAIN_SERVICE_NAME } from "../secrets/keychain-service.js";
 import { SECRET_ENV_VARS } from "../secrets/migrate-secrets.js";
 
 /** Keychain service name under which the bot stores its secrets. */
@@ -32,10 +32,16 @@ export const STORED_APP_HOME_ENTRIES: readonly StoredEntry[] = [
   { name: "local-commands", kind: "dir" },
 ];
 
-/** Names of interrupted atomic writes (`<name>.<pid>.<uuid>.tmp`) left next to stored files. */
+const UUID_PATTERN = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
+
+/**
+ * Names of interrupted atomic writes (`<name>.<pid>.<uuid>.tmp`) left next to stored files.
+ * Siblings written next to a symlinked `.env` or `secrets.enc` target (which can be outside the
+ * app home) are not listed because they are outside the home.
+ */
 export const STORED_TEMP_SIBLING_PATTERNS: readonly RegExp[] = [
-  /^\.env\.[^.]+\.[^.]+\.tmp$/,
-  /^secrets\.enc\.[^.]+\.[^.]+\.tmp$/,
+  new RegExp(`^\\.env\\.\\d+\\.${UUID_PATTERN}\\.tmp$`),
+  new RegExp(`^secrets\\.enc\\.\\d+\\.${UUID_PATTERN}\\.tmp$`),
 ];
 
 /** App-home entries that an uninstall keeps. */
@@ -52,8 +58,13 @@ export async function listAppHomeTargets(appHome: string): Promise<string[]> {
   let children: string[] = [];
   try {
     children = await fs.readdir(appHome);
-  } catch {
-    // A missing or unreadable app home has no temp siblings to find.
+  } catch (error) {
+    // A missing or non-directory app home has no temp siblings; other errors (for example
+    // EACCES) propagate so the caller can report them instead of silently skipping.
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code !== "ENOENT" && code !== "ENOTDIR") {
+      throw error;
+    }
   }
   for (const child of children) {
     if (STORED_TEMP_SIBLING_PATTERNS.some((pattern) => pattern.test(child))) {

@@ -1,7 +1,7 @@
 import { AsyncEntry } from "@napi-rs/keyring";
+import { KEYCHAIN_SERVICE_NAME } from "./keychain-service.js";
 import type { SecretStore } from "./secret-store.js";
 
-export const KEYCHAIN_SERVICE_NAME = "opencode-telegram-bot";
 const PROBE_ACCOUNT = "__opencode_telegram_bot_availability_probe__";
 
 export class KeychainSecretStore implements SecretStore {
