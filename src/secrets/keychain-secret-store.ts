@@ -1,7 +1,7 @@
 import { AsyncEntry } from "@napi-rs/keyring";
 import type { SecretStore } from "./secret-store.js";
 
-const SERVICE_NAME = "opencode-telegram-bot";
+export const KEYCHAIN_SERVICE_NAME = "opencode-telegram-bot";
 const PROBE_ACCOUNT = "__opencode_telegram_bot_availability_probe__";
 
 export class KeychainSecretStore implements SecretStore {
@@ -9,7 +9,7 @@ export class KeychainSecretStore implements SecretStore {
 
   async isAvailable(): Promise<boolean> {
     try {
-      const entry = new AsyncEntry(SERVICE_NAME, PROBE_ACCOUNT);
+      const entry = new AsyncEntry(KEYCHAIN_SERVICE_NAME, PROBE_ACCOUNT);
       await entry.getPassword();
       return true;
     } catch {
@@ -18,17 +18,17 @@ export class KeychainSecretStore implements SecretStore {
   }
 
   async getSecret(account: string): Promise<string | null> {
-    const entry = new AsyncEntry(SERVICE_NAME, account);
+    const entry = new AsyncEntry(KEYCHAIN_SERVICE_NAME, account);
     return entry.getPassword();
   }
 
   async setSecret(account: string, value: string): Promise<void> {
-    const entry = new AsyncEntry(SERVICE_NAME, account);
+    const entry = new AsyncEntry(KEYCHAIN_SERVICE_NAME, account);
     await entry.setPassword(value);
   }
 
   async deleteSecret(account: string): Promise<void> {
-    const entry = new AsyncEntry(SERVICE_NAME, account);
+    const entry = new AsyncEntry(KEYCHAIN_SERVICE_NAME, account);
     try {
       await entry.deletePassword();
     } catch {
