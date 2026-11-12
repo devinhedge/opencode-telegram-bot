@@ -1,8 +1,7 @@
 import { promises as fs } from "node:fs";
-import { join, dirname } from "node:path";
-import { randomUUID } from "node:crypto";
 import type { SecretStore } from "./secret-store.js";
 import { hardenEnvFile } from "./file-permissions.js";
+import { replaceEnvFile } from "../runtime/env-file.js";
 import { storeIntegrityData } from "./integrity.js";
 
 /**
@@ -146,28 +145,19 @@ export async function migrateSecretsIfNeeded(
     }
   }
 
-  // Atomically rewrite .env without secrets
-  // Use a temporary file and atomic rename
-  const tempFilePath = join(dirname(envFilePath), `.env.${randomUUID()}.tmp`);
+  // Atomically rewrite .env without secrets. replaceEnvFile handles a read-only .env and
+  // writes its temp file owner-only.
   const bakFilePath = `${envFilePath}.bak`;
 
   try {
-    // Write cleaned .env to temp file
-    const cleanedContent = serializeEnv(nonSecrets);
-    await fs.writeFile(tempFilePath, cleanedContent, "utf8");
-
-    // Create .env.bak with original content (atomic write)
-    await fs.writeFile(bakFilePath, originalContent, "utf8");
+    // Create .env.bak with original content (owner-only: it holds the plaintext secrets).
+    // The creation mode only applies to new files, so start from a fresh file.
+    await fs.rm(bakFilePath, { force: true });
+    await fs.writeFile(bakFilePath, originalContent, { encoding: "utf8", mode: 0o600 });
 
     // Atomically replace .env with cleaned version
-    await fs.rename(tempFilePath, envFilePath);
+    await replaceEnvFile(envFilePath, serializeEnv(nonSecrets));
   } catch (err) {
-    // Clean up temp file on failure
-    try {
-      await fs.unlink(tempFilePath);
-    } catch {
-      // Ignore
-    }
     // Clean up .env.bak on failure
     try {
       await fs.unlink(bakFilePath);

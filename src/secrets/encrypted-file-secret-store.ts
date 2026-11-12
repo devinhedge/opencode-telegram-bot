@@ -96,7 +96,7 @@ export class EncryptedFileSecretStore implements SecretStore {
     };
 
     await fs.mkdir(dirname(this.filePath), { recursive: true });
-    await fs.writeFile(this.filePath, JSON.stringify(payload), "utf8");
+    await fs.writeFile(this.filePath, JSON.stringify(payload), { encoding: "utf8", mode: 0o600 });
   }
 
   async getSecret(account: string): Promise<string | null> {

@@ -89,3 +89,35 @@ describe("EncryptedFileSecretStore", () => {
     expect(await new EncryptedFileSecretStore(filePath).isAvailable()).toBe(true);
   });
 });
+
+describe("EncryptedFileSecretStore file mode", () => {
+  let dir: string;
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), "efs-mode-"));
+  });
+  afterEach(async () => {
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  it.skipIf(process.platform === "win32")("creates secrets.enc as 0600", async () => {
+    const filePath = join(dir, "secrets.enc");
+    const store = new EncryptedFileSecretStore(filePath);
+    await store.unlock("pw");
+    await store.setSecret("acct", "value");
+
+    const { stat } = await import("node:fs/promises");
+    expect((await stat(filePath)).mode & 0o777).toBe(0o600);
+  });
+
+  it("keeps working when secrets.enc already exists", async () => {
+    const filePath = join(dir, "secrets.enc");
+    const first = new EncryptedFileSecretStore(filePath);
+    await first.unlock("pw");
+    await first.setSecret("acct", "one");
+    await first.setSecret("acct", "two");
+
+    const second = new EncryptedFileSecretStore(filePath);
+    await second.unlock("pw");
+    expect(await second.getSecret("acct")).toBe("two");
+  });
+});
