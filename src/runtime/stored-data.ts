@@ -37,7 +37,8 @@ const UUID_PATTERN = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{1
 /**
  * Names of interrupted atomic writes (`<name>.<pid>.<uuid>.tmp`) left next to stored files.
  * Siblings written next to a symlinked `.env` or `secrets.enc` target (which can be outside the
- * app home) are not listed because they are outside the home.
+ * app home) are not listed because they are outside the home. The `<state>.<pid>.tmp` files the
+ * service manager writes under `run/` are covered because `run` is removed whole.
  */
 export const STORED_TEMP_SIBLING_PATTERNS: readonly RegExp[] = [
   new RegExp(`^\\.env\\.\\d+\\.${UUID_PATTERN}\\.tmp$`),

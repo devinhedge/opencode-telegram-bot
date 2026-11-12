@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { KEYCHAIN_SERVICE_NAME } from "../../src/secrets/keychain-service.js";
 import {
   KEYCHAIN_SERVICE,
@@ -13,24 +13,26 @@ import {
 } from "../../src/runtime/stored-data.js";
 
 const SRC_ROOT = path.resolve(__dirname, "../../src");
-const SECRETS_DIR = path.join(SRC_ROOT, "secrets");
 const INVENTORY_FILE = path.join(SRC_ROOT, "runtime", "stored-data.ts");
+
+const GUARD_TIMEOUT_MS = 60_000;
 
 /**
  * Files in src whose secret-store calls pass the account as a variable or constant instead of a
- * literal. A call with a non-literal account in any other file fails the guard test, which forces
- * a review of the inventory.
+ * literal, with the exact argument expressions each file may pass. A non-literal call in any
+ * other file, or a new or changed expression in a listed file, fails the guard test, which
+ * forces a review of the inventory.
  */
-const INDIRECT_CALL_SITES = new Set([
+const INDIRECT_CALL_SITES: Record<string, string[]> = {
   // Passes INTEGRITY_CHECKSUM_ACCOUNT and INTEGRITY_USER_ID_ACCOUNT (both in the inventory).
-  "secrets/integrity.ts",
+  "secrets/integrity.ts": ["INTEGRITY_CHECKSUM_ACCOUNT", "INTEGRITY_USER_ID_ACCOUNT"],
   // Passes accounts taken from SECRET_ENV_VARS values (all in the inventory).
-  "secrets/migrate-secrets.ts",
+  "secrets/migrate-secrets.ts": ["account", "acc"],
   // Passes accounts taken from SECRET_ENV_VARS in its migration helper.
-  "runtime/bootstrap.ts",
+  "runtime/bootstrap.ts": ["account"],
   // Passes accounts taken from its SECRET_ACCOUNTS map.
-  "config.ts",
-]);
+  "config.ts": ["account"],
+};
 
 /** Account constants that are read-only probes and never stored. */
 const NON_STORED_ACCOUNT_CONSTANTS = new Set(["PROBE_ACCOUNT"]);
@@ -60,8 +62,21 @@ interface SecretCall {
   argument: string;
 }
 
-async function collectSecretCalls(): Promise<SecretCall[]> {
+interface AccountConstant {
+  file: string;
+  name: string;
+  value: string;
+}
+
+interface SourceScan {
+  calls: SecretCall[];
+  accountConstants: AccountConstant[];
+}
+
+/** Reads every src file once (except the inventory) and collects secret-store calls and constants. */
+async function scanSource(): Promise<SourceScan> {
   const calls: SecretCall[] = [];
+  const accountConstants: AccountConstant[] = [];
   for (const file of await listTsFiles(SRC_ROOT)) {
     if (file === INVENTORY_FILE) {
       continue;
@@ -70,7 +85,10 @@ async function collectSecretCalls(): Promise<SecretCall[]> {
     const relative = path.relative(SRC_ROOT, file).split(path.sep).join("/");
     for (const match of content.matchAll(CALL_PATTERN)) {
       const rest = content.slice(match.index + match[0].length);
-      // A method definition or interface member, not a call: `getSecret(account: string)`.
+      // Skips only method definitions and interface signatures such as
+      // `getSecret(account: string)`: an identifier directly followed by a colon (a parameter
+      // with a type annotation). A call argument is an expression, and an expression cannot
+      // start with `identifier :` (a ternary has `?` first, an object literal starts with `{`).
       if (/^\s*\w+\s*:/.test(rest)) {
         continue;
       }
@@ -84,22 +102,14 @@ async function collectSecretCalls(): Promise<SecretCall[]> {
         argument: (rest.split(/[,)]/)[0] ?? "").trim(),
       });
     }
+    for (const match of content.matchAll(ACCOUNT_CONSTANT_PATTERN)) {
+      accountConstants.push({ file: relative, name: match[1] ?? "", value: match[3] ?? "" });
+    }
   }
-  return calls;
+  return { calls, accountConstants };
 }
 
-describe("runtime/stored-data", () => {
-  let appHome: string;
-  const tempSuffix = `${process.pid}.${randomUUID()}.tmp`;
-
-  beforeEach(async () => {
-    appHome = await fs.mkdtemp(path.join(os.tmpdir(), "stored-data-"));
-  });
-
-  afterEach(async () => {
-    await fs.rm(appHome, { recursive: true, force: true });
-  });
-
+describe("runtime/stored-data declarations", () => {
   it("re-exports the keychain service name", () => {
     expect(KEYCHAIN_SERVICE).toBe(KEYCHAIN_SERVICE_NAME);
     expect(KEYCHAIN_SERVICE).toBe("opencode-telegram-bot");
@@ -124,6 +134,19 @@ describe("runtime/stored-data", () => {
 
   it("preserves logs", () => {
     expect(PRESERVED_APP_HOME_ENTRIES).toEqual(["logs"]);
+  });
+});
+
+describe("runtime/stored-data listAppHomeTargets", () => {
+  let appHome: string;
+  const tempSuffix = `${process.pid}.${randomUUID()}.tmp`;
+
+  beforeEach(async () => {
+    appHome = await fs.mkdtemp(path.join(os.tmpdir(), "stored-data-"));
+  });
+
+  afterEach(async () => {
+    await fs.rm(appHome, { recursive: true, force: true });
   });
 
   it("lists stored entries and temp siblings but not logs or unrelated files", async () => {
@@ -215,13 +238,21 @@ describe("runtime/stored-data", () => {
 
     expect(await listAppHomeTargets(appHome)).toEqual([]);
   });
+});
 
-  describe("keychain account guard", () => {
-    it("covers every literal account passed to the secret store in src", async () => {
-      const calls = await collectSecretCalls();
-      const literals = calls.filter((call) => call.literal !== null);
+describe("keychain account guard", () => {
+  let scan: SourceScan;
 
-      expect(calls.length).toBeGreaterThan(0);
+  beforeAll(async () => {
+    scan = await scanSource();
+  }, GUARD_TIMEOUT_MS);
+
+  it(
+    "covers every literal account passed to the secret store in src",
+    () => {
+      const literals = scan.calls.filter((call) => call.literal !== null);
+
+      expect(scan.calls.length).toBeGreaterThan(0);
       expect(literals.length).toBeGreaterThan(0);
       for (const call of literals) {
         expect(
@@ -229,38 +260,69 @@ describe("runtime/stored-data", () => {
           `${call.file} passes the account "${call.literal}" which is not in the inventory`,
         ).toContain(call.literal);
       }
-    });
+    },
+    GUARD_TIMEOUT_MS,
+  );
 
-    it("limits non-literal account arguments to known indirect call sites", async () => {
-      const calls = await collectSecretCalls();
-      const indirect = calls.filter((call) => call.literal === null);
+  it(
+    "limits non-literal account arguments to the recorded call sites and expressions",
+    () => {
+      const found = new Map<string, Set<string>>();
+      for (const call of scan.calls.filter((entry) => entry.literal === null)) {
+        const expressions = found.get(call.file) ?? new Set<string>();
+        expressions.add(call.argument);
+        found.set(call.file, expressions);
+      }
 
-      expect(indirect.length).toBeGreaterThan(0);
-      for (const call of indirect) {
+      expect(found.size).toBeGreaterThan(0);
+      for (const [file, expressions] of found) {
+        const permitted = INDIRECT_CALL_SITES[file];
         expect(
-          INDIRECT_CALL_SITES.has(call.file),
-          `${call.file} passes "${call.argument}" as an account; review the inventory and list the file`,
+          permitted,
+          `${file} passes ${[...expressions].join(", ")} as an account; review the inventory and record the file`,
+        ).toBeDefined();
+        expect(
+          [...expressions].sort(),
+          `${file} changed its non-literal account arguments; review the inventory and update the record`,
+        ).toEqual([...(permitted ?? [])].sort());
+      }
+    },
+    GUARD_TIMEOUT_MS,
+  );
+
+  it(
+    "has no stale entry in the indirect call site record",
+    async () => {
+      const filesWithIndirectCalls = new Set(
+        scan.calls.filter((call) => call.literal === null).map((call) => call.file),
+      );
+
+      for (const file of Object.keys(INDIRECT_CALL_SITES)) {
+        await expect(fs.stat(path.join(SRC_ROOT, file))).resolves.toBeDefined();
+        expect(
+          filesWithIndirectCalls.has(file),
+          `${file} is recorded as an indirect call site but makes no non-literal call`,
         ).toBe(true);
       }
-    });
+    },
+    GUARD_TIMEOUT_MS,
+  );
 
-    it("covers every account constant defined in src/secrets", async () => {
-      let inspected = 0;
-      for (const file of await listTsFiles(SECRETS_DIR)) {
-        const content = await fs.readFile(file, "utf-8");
-        for (const match of content.matchAll(ACCOUNT_CONSTANT_PATTERN)) {
-          if (NON_STORED_ACCOUNT_CONSTANTS.has(match[1] ?? "")) {
-            continue;
-          }
-          inspected += 1;
-          expect(
-            STORED_KEYCHAIN_ACCOUNTS,
-            `${match[1]} = "${match[3]}" is not in the inventory`,
-          ).toContain(match[3]);
-        }
+  it(
+    "covers every account constant defined in src",
+    () => {
+      const constants = scan.accountConstants.filter(
+        (constant) => !NON_STORED_ACCOUNT_CONSTANTS.has(constant.name),
+      );
+
+      expect(constants.length).toBeGreaterThan(0);
+      for (const constant of constants) {
+        expect(
+          STORED_KEYCHAIN_ACCOUNTS,
+          `${constant.file}: ${constant.name} = "${constant.value}" is not in the inventory`,
+        ).toContain(constant.value);
       }
-
-      expect(inspected).toBeGreaterThan(0);
-    });
-  });
+    },
+    GUARD_TIMEOUT_MS,
+  );
 });
