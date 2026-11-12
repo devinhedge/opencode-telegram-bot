@@ -55,8 +55,9 @@ const MAX_LINK_DEPTH = 40;
 /**
  * Returns the path a write must go to so a symlink is kept and its target is updated: the real
  * path of an existing file, the final target of a dangling link (a chain of links is followed,
- * relative targets resolve against the link's directory), or the path itself when nothing is
- * there. Other errors, such as a link loop, propagate.
+ * relative targets resolve against the physical directory of the link, with the lexical directory
+ * as the fallback when that cannot be resolved), or the path itself when nothing is there. Other
+ * errors, such as a link loop, propagate.
  */
 export async function resolveSymlinkTarget(filePath: string): Promise<string> {
   let current = filePath;
