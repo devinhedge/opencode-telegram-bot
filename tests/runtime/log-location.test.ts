@@ -29,8 +29,8 @@ vi.mock("../../src/runtime/container.js", async (importOriginal) => {
 vi.mock("../../src/runtime/paths.js", () => ({
   getRuntimePaths: () => ({
     appHome: pathsState.appHome,
-    envFilePath: `${pathsState.appHome}/.env`,
-    logsDirPath: `${pathsState.appHome}/logs`,
+    envFilePath: path.join(pathsState.appHome, ".env"),
+    logsDirPath: path.join(pathsState.appHome, "logs"),
   }),
 }));
 

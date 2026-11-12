@@ -114,7 +114,8 @@ describe("runtime/env-file", () => {
 
     const after = await fs.stat(envFilePath);
     expect(after.ino).toBe(before.ino);
-    expect(after.mode & 0o777).toBe(0o400);
+    // Compare with the mode before the call: Windows reports 0o444 for a read-only file.
+    expect(after.mode).toBe(before.mode);
     expect(await fs.readFile(envFilePath, "utf-8")).toBe("A=1\nLOG_LOCATION=app\n");
   });
 
