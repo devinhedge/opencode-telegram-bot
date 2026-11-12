@@ -531,7 +531,7 @@ export const it: I18nDictionary = {
   "runtime.wizard.ask_log_location":
     "Scegli dove scrivere i log:\n1) default: la directory dei log del sistema operativo\n2) app: la cartella dei log nella home dell'applicazione\nPremi Invio per {defaultLocation}\n> ",
   "runtime.wizard.log_location_invalid":
-    "Inserisci 1 o 2, oppure premi Invio per il valore predefinito.\n",
+    "Inserisci 1, 2, default oppure app, oppure premi Invio per {defaultLocation}.\n",
   "runtime.wizard.ask_server_password_required":
     "Enter OpenCode V2 server password (required).\nShow it with: opencode service get password\n> ",
   "runtime.wizard.server_password_required":
@@ -546,10 +546,12 @@ export const it: I18nDictionary = {
   "runtime.logs.location_invalid":
     'Valore LOG_LOCATION non valido "{value}". Valori consentiti: default, app.\n',
   "runtime.logs.ask_location":
-    "Scegli la posizione dei log: default (directory dei log di sistema) oppure app (cartella dei log nella directory dell'applicazione). La risposta viene salvata in {envPath}.\n> ",
-  "runtime.logs.location_choice_invalid": "Inserisci default oppure app.\n",
+    "Scegli la posizione dei log:\n1) default: la directory dei log del sistema operativo\n2) app: la cartella dei log nella home dell'applicazione\nLa risposta viene salvata in {envPath}.\n> ",
+  "runtime.logs.location_choice_invalid": "Inserisci 1, 2, default oppure app.\n",
   "runtime.logs.location_invalid_no_tty":
     'Valore LOG_LOCATION non valido "{value}" e nessun terminale interattivo disponibile. Uso default.\n',
+  "runtime.logs.location_invalid_gave_up":
+    'Valore LOG_LOCATION non valido "{value}" e nessuna risposta valida fornita. Uso default.\n',
   "runtime.logs.location_invalid_env":
     'Valore LOG_LOCATION non valido "{value}" nell\'ambiente. Uso default.\n',
   "runtime.logs.location_persist_failed":

@@ -519,7 +519,7 @@ export const id: I18nDictionary = {
   "runtime.wizard.ask_log_location":
     "Pilih lokasi penulisan log:\n1) default: direktori log sistem operasi\n2) app: folder log di direktori home aplikasi\nTekan Enter untuk {defaultLocation}\n> ",
   "runtime.wizard.log_location_invalid":
-    "Masukkan 1 atau 2, atau tekan Enter untuk nilai default.\n",
+    "Masukkan 1, 2, default, atau app, atau tekan Enter untuk {defaultLocation}.\n",
   "runtime.wizard.ask_server_password_required":
     "Enter OpenCode V2 server password (required).\nShow it with: opencode service get password\n> ",
   "runtime.wizard.server_password_required":
@@ -534,10 +534,12 @@ export const id: I18nDictionary = {
   "runtime.logs.location_invalid":
     'Nilai LOG_LOCATION tidak valid "{value}". Nilai yang diizinkan: default, app.\n',
   "runtime.logs.ask_location":
-    "Pilih lokasi log: default (direktori log sistem) atau app (folder log di direktori aplikasi). Jawaban disimpan ke {envPath}.\n> ",
-  "runtime.logs.location_choice_invalid": "Masukkan default atau app.\n",
+    "Pilih lokasi log:\n1) default: direktori log sistem operasi\n2) app: folder log di direktori home aplikasi\nJawaban disimpan ke {envPath}.\n> ",
+  "runtime.logs.location_choice_invalid": "Masukkan 1, 2, default, atau app.\n",
   "runtime.logs.location_invalid_no_tty":
     'Nilai LOG_LOCATION tidak valid "{value}" dan tidak ada terminal interaktif. Menggunakan default.\n',
+  "runtime.logs.location_invalid_gave_up":
+    'Nilai LOG_LOCATION tidak valid "{value}" dan tidak ada jawaban valid yang diberikan. Menggunakan default.\n',
   "runtime.logs.location_invalid_env":
     'Nilai LOG_LOCATION tidak valid "{value}" di lingkungan. Menggunakan default.\n',
   "runtime.logs.location_persist_failed":

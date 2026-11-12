@@ -677,6 +677,30 @@ describe("utils/logger", () => {
     __resetLoggerForTests();
   });
 
+  it("tells the resolver not to prompt when initializeLogger is given promptForLogLocation false", async () => {
+    const resolveLogsDirPathMock = vi.fn().mockRejectedValue(new Error("stop here"));
+    vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    vi.resetModules();
+    vi.doMock("../../src/runtime/log-location.js", () => ({
+      resolveLogsDirPath: resolveLogsDirPathMock,
+      resolveLogRetention: vi.fn().mockResolvedValue(10),
+    }));
+
+    try {
+      const { initializeLogger, __resetLoggerForTests } = await import("../../src/utils/logger.js");
+
+      await initializeLogger({ promptForLogLocation: false });
+      __resetLoggerForTests();
+      await initializeLogger();
+
+      expect(resolveLogsDirPathMock).toHaveBeenNthCalledWith(1, { prompt: false });
+      expect(resolveLogsDirPathMock).toHaveBeenNthCalledWith(2, {});
+      __resetLoggerForTests();
+    } finally {
+      vi.doUnmock("../../src/runtime/log-location.js");
+    }
+  });
+
   it("prunes main logs to a LOG_RETENTION that exists only in the .env file", async () => {
     const tempHome = await createTempHome();
     const logsDirPath = path.join(tempHome, "logs");

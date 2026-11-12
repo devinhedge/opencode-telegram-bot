@@ -34,6 +34,20 @@ export function parseLogLocation(raw: string | undefined): LogLocationSetting {
   return { kind: "invalid", raw: raw ?? "" };
 }
 
+const LOG_LOCATION_CHOICES: ReadonlyArray<LogLocation> = ["default", "app"];
+
+// Maps a prompt answer to a location: 1, 2, default, or app (case-insensitive); null otherwise.
+// Shared by the runtime prompt and the config wizard so both accept the same answers.
+export function parseLogLocationChoice(answer: string): LogLocation | null {
+  const normalized = answer.trim().toLowerCase();
+
+  return (
+    LOG_LOCATION_CHOICES.find(
+      (location, index) => normalized === location || normalized === String(index + 1),
+    ) ?? null
+  );
+}
+
 export function resolveCanonicalLogsDir(
   platform: NodeJS.Platform,
   env: NodeJS.ProcessEnv,
@@ -60,6 +74,9 @@ export function resolveCanonicalLogsDir(
 export interface ResolveLogsDirOptions {
   env?: NodeJS.ProcessEnv;
   isInteractive?: boolean;
+  // Set false to warn and use default for an invalid .env value instead of prompting; the
+  // config command does this because its wizard asks the question itself. Defaults to true.
+  prompt?: boolean;
   // Resolves null when input ends before an answer.
   ask?: (prompt: string) => Promise<string | null>;
   warn?: (message: string) => void;
@@ -119,8 +136,8 @@ async function promptForLogLocation(
       return null;
     }
 
-    const answer = reply.trim().toLowerCase();
-    if (answer !== "default" && answer !== "app") {
+    const answer = parseLogLocationChoice(reply);
+    if (answer === null) {
       if (attempt < MAX_PROMPT_ATTEMPTS - 1) {
         warn(translate("runtime.logs.location_choice_invalid"));
       }
@@ -205,12 +222,22 @@ async function resolveLogsDir(options: ResolveLogsDirOptions): Promise<string> {
   } else if (fromRealEnv) {
     warn(translate("runtime.logs.location_invalid_env", { value: setting.raw }));
     location = "default";
+  } else if (options.prompt === false) {
+    warn(translate("runtime.logs.location_invalid", { value: setting.raw }));
+    location = "default";
   } else {
     const answered = isInteractive
       ? await promptForLogLocation(setting.raw, runtimePaths.envFilePath, ask, warn, translate)
       : null;
     if (answered === null) {
-      warn(translate("runtime.logs.location_invalid_no_tty", { value: setting.raw }));
+      warn(
+        translate(
+          isInteractive
+            ? "runtime.logs.location_invalid_gave_up"
+            : "runtime.logs.location_invalid_no_tty",
+          { value: setting.raw },
+        ),
+      );
     }
     location = answered ?? "default";
   }

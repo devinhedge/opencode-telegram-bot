@@ -480,7 +480,7 @@ export const zh: I18nDictionary = {
   "runtime.wizard.server_version_invalid": "Enter 1 or 2, or press Enter for default.\n",
   "runtime.wizard.ask_log_location":
     "选择日志的写入位置：\n1) default：操作系统日志目录\n2) app：应用主目录下的 logs 文件夹\n按 Enter 使用 {defaultLocation}\n> ",
-  "runtime.wizard.log_location_invalid": "请输入 1 或 2，或按 Enter 使用默认值。\n",
+  "runtime.wizard.log_location_invalid": "请输入 1、2、default 或 app，或按 Enter 使用 {defaultLocation}。\n",
   "runtime.wizard.ask_server_password_required":
     "Enter OpenCode V2 server password (required).\nShow it with: opencode service get password\n> ",
   "runtime.wizard.server_password_required":
@@ -493,10 +493,11 @@ export const zh: I18nDictionary = {
   "runtime.wizard.not_configured_starting": "应用尚未配置。正在启动向导...\n",
   "runtime.logs.location_invalid": '无效的 LOG_LOCATION 值 "{value}"。允许的值：default、app。\n',
   "runtime.logs.ask_location":
-    "请选择日志位置：default（系统日志目录）或 app（应用目录下的 logs 文件夹）。所选结果将保存到 {envPath}。\n> ",
-  "runtime.logs.location_choice_invalid": "请输入 default 或 app。\n",
+    "请选择日志位置：\n1) default：操作系统日志目录\n2) app：应用主目录下的 logs 文件夹\n所选结果将保存到 {envPath}。\n> ",
+  "runtime.logs.location_choice_invalid": "请输入 1、2、default 或 app。\n",
   "runtime.logs.location_invalid_no_tty":
     '无效的 LOG_LOCATION 值 "{value}"，且没有可用的交互式终端。将使用 default。\n',
+  "runtime.logs.location_invalid_gave_up": '无效的 LOG_LOCATION 值 "{value}"，且未给出有效回答。将使用 default。\n',
   "runtime.logs.location_invalid_env": '环境变量中的 LOG_LOCATION 值 "{value}" 无效。将使用 default。\n',
   "runtime.logs.location_persist_failed": "无法将 LOG_LOCATION 保存到 {envPath}：{reason}\n",
   "runtime.logs.env_read_failed": "无法读取 {envPath}：{reason}\n",

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   __resetLogsDirForTests,
   parseLogLocation,
+  parseLogLocationChoice,
   resolveCanonicalLogsDir,
   resolveLogRetention,
   resolveLogsDirPath,
@@ -83,6 +84,23 @@ describe("parseLogLocation", () => {
 
   it("keeps the original untrimmed input as raw", () => {
     expect(parseLogLocation(" apps ")).toEqual({ kind: "invalid", raw: " apps " });
+  });
+});
+
+describe("parseLogLocationChoice", () => {
+  it.each([
+    ["1", "default"],
+    ["2", "app"],
+    ["default", "default"],
+    ["app", "app"],
+    [" APP ", "app"],
+    ["Default", "default"],
+  ])("maps %j to %s", (answer, expected) => {
+    expect(parseLogLocationChoice(answer)).toBe(expected);
+  });
+
+  it.each(["", "3", "0", "apps", "nope"])("rejects %j", (answer) => {
+    expect(parseLogLocationChoice(answer)).toBeNull();
   });
 });
 
@@ -251,7 +269,7 @@ describe("resolveLogsDirPath", () => {
     expect(dir).toBe(canonicalDir);
     expect(ask).toHaveBeenCalledTimes(1);
     expect(warn).toHaveBeenLastCalledWith(
-      t("runtime.logs.location_invalid_no_tty", { value: "bogus" }),
+      t("runtime.logs.location_invalid_gave_up", { value: "bogus" }),
     );
     expect(persistEnvValue).not.toHaveBeenCalled();
     expect(await fs.readFile(envFilePath, "utf-8")).toBe("LOG_LOCATION=bogus\n");
@@ -269,7 +287,7 @@ describe("resolveLogsDirPath", () => {
       t("runtime.logs.location_invalid", { value: "bogus" }),
       t("runtime.logs.location_choice_invalid"),
       t("runtime.logs.location_choice_invalid"),
-      t("runtime.logs.location_invalid_no_tty", { value: "bogus" }),
+      t("runtime.logs.location_invalid_gave_up", { value: "bogus" }),
     ]);
     expect(persistEnvValue).not.toHaveBeenCalled();
   });
@@ -359,6 +377,53 @@ describe("resolveLogsDirPath", () => {
       expect(ask).toHaveBeenCalledTimes(2);
       expect(await fs.readFile(envFilePath, "utf-8")).toBe("A=1\nLOG_LOCATION=app\n");
       expect(warn.mock.calls.some(([message]) => String(message).includes("bogus"))).toBe(true);
+    });
+
+    it.each([
+      ["1", "default"],
+      ["2", "app"],
+      ["DEFAULT", "default"],
+      ["App", "app"],
+    ])("accepts the answer %j as %s", async (answer, expected) => {
+      const ask = vi.fn().mockResolvedValueOnce(answer);
+      const dir = await resolveLogsDirPath({
+        env: baseEnv(),
+        isInteractive: true,
+        ask,
+        warn: vi.fn(),
+      });
+
+      expect(dir).toBe(expected === "app" ? appLogsDir : canonicalDir);
+      expect(await fs.readFile(envFilePath, "utf-8")).toBe(`A=1\nLOG_LOCATION=${expected}\n`);
+    });
+
+    it("lists the numbered choices in the prompt", async () => {
+      const ask = vi.fn().mockResolvedValueOnce("app");
+      await resolveLogsDirPath({ env: baseEnv(), isInteractive: true, ask, warn: vi.fn() });
+
+      const prompt = String(ask.mock.calls[0]?.[0]);
+      expect(prompt).toContain("1) default");
+      expect(prompt).toContain("2) app");
+    });
+
+    it("warns once and does not prompt when prompting is disabled", async () => {
+      const warn = vi.fn();
+      const ask = vi.fn();
+      const dir = await resolveLogsDirPath({
+        env: baseEnv(),
+        isInteractive: true,
+        prompt: false,
+        ask,
+        warn,
+      });
+
+      expect(dir).toBe(canonicalDir);
+      expect(ask).not.toHaveBeenCalled();
+      expect(warn.mock.calls.map(([message]) => message)).toEqual([
+        t("runtime.logs.location_invalid", { value: "bogus" }),
+      ]);
+      expect(persistEnvValue).not.toHaveBeenCalled();
+      expect(await fs.readFile(envFilePath, "utf-8")).toBe("A=1\nLOG_LOCATION=bogus\n");
     });
 
     it("persists a default answer and returns the canonical directory", async () => {

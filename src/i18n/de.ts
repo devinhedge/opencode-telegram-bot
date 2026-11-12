@@ -538,7 +538,7 @@ export const de: I18nDictionary = {
   "runtime.wizard.ask_log_location":
     "Wählen Sie, wo Logs gespeichert werden:\n1) default: das Log-Verzeichnis des Betriebssystems\n2) app: der Logs-Ordner im App-Home\nEnter drücken für {defaultLocation}\n> ",
   "runtime.wizard.log_location_invalid":
-    "Geben Sie 1 oder 2 ein oder drücken Sie Enter für den Standardwert.\n",
+    "Geben Sie 1, 2, default oder app ein oder drücken Sie Enter für {defaultLocation}.\n",
   "runtime.wizard.ask_server_password_required":
     "Enter OpenCode V2 server password (required).\nShow it with: opencode service get password\n> ",
   "runtime.wizard.server_password_required":
@@ -554,10 +554,12 @@ export const de: I18nDictionary = {
   "runtime.logs.location_invalid":
     'Ungültiger LOG_LOCATION-Wert "{value}". Erlaubte Werte: default, app.\n',
   "runtime.logs.ask_location":
-    "Wähle den Speicherort der Logs: default (System-Log-Verzeichnis) oder app (Logs-Ordner im App-Verzeichnis). Die Antwort wird in {envPath} gespeichert.\n> ",
-  "runtime.logs.location_choice_invalid": "Gib default oder app ein.\n",
+    "Wähle den Speicherort der Logs:\n1) default: das Log-Verzeichnis des Betriebssystems\n2) app: der Logs-Ordner im App-Home\nDie Antwort wird in {envPath} gespeichert.\n> ",
+  "runtime.logs.location_choice_invalid": "Gib 1, 2, default oder app ein.\n",
   "runtime.logs.location_invalid_no_tty":
     'Ungültiger LOG_LOCATION-Wert "{value}" und kein interaktives Terminal verfügbar. Verwende default.\n',
+  "runtime.logs.location_invalid_gave_up":
+    'Ungültiger LOG_LOCATION-Wert "{value}" und keine gültige Antwort erhalten. Verwende default.\n',
   "runtime.logs.location_invalid_env":
     'Ungültiger LOG_LOCATION-Wert "{value}" in der Umgebung. Verwende default.\n',
   "runtime.logs.location_persist_failed":

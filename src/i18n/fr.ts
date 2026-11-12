@@ -541,7 +541,7 @@ export const fr: I18nDictionary = {
   "runtime.wizard.ask_log_location":
     "Choisissez où les journaux sont écrits :\n1) default : le répertoire de journaux du système d'exploitation\n2) app : le dossier des journaux du répertoire de l'application\nAppuyez sur Entrée pour {defaultLocation}\n> ",
   "runtime.wizard.log_location_invalid":
-    "Saisissez 1 ou 2, ou appuyez sur Entrée pour la valeur par défaut.\n",
+    "Saisissez 1, 2, default ou app, ou appuyez sur Entrée pour {defaultLocation}.\n",
   "runtime.wizard.ask_server_password_required":
     "Enter OpenCode V2 server password (required).\nShow it with: opencode service get password\n> ",
   "runtime.wizard.server_password_required":
@@ -557,10 +557,12 @@ export const fr: I18nDictionary = {
   "runtime.logs.location_invalid":
     'Valeur LOG_LOCATION invalide "{value}". Valeurs autorisées : default, app.\n',
   "runtime.logs.ask_location":
-    "Choisissez l'emplacement des logs : default (répertoire de logs du système) ou app (dossier de logs dans le répertoire de l'application). La réponse est enregistrée dans {envPath}.\n> ",
-  "runtime.logs.location_choice_invalid": "Saisissez default ou app.\n",
+    "Choisissez l'emplacement des logs :\n1) default : le répertoire de journaux du système d'exploitation\n2) app : le dossier des journaux du répertoire de l'application\nLa réponse est enregistrée dans {envPath}.\n> ",
+  "runtime.logs.location_choice_invalid": "Saisissez 1, 2, default ou app.\n",
   "runtime.logs.location_invalid_no_tty":
     'Valeur LOG_LOCATION invalide "{value}" et aucun terminal interactif disponible. Utilisation de default.\n',
+  "runtime.logs.location_invalid_gave_up":
+    'Valeur LOG_LOCATION invalide "{value}" et aucune réponse valide fournie. Utilisation de default.\n',
   "runtime.logs.location_invalid_env":
     'Valeur LOG_LOCATION invalide "{value}" dans l\'environnement. Utilisation de default.\n',
   "runtime.logs.location_persist_failed":

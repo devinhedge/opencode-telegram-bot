@@ -518,7 +518,8 @@ export const tr: I18nDictionary = {
   "runtime.wizard.server_version_invalid": "Enter 1 or 2, or press Enter for default.\n",
   "runtime.wizard.ask_log_location":
     "Günlüklerin nereye yazılacağını seçin:\n1) default: işletim sisteminin günlük dizini\n2) app: uygulama ana dizinindeki logs klasörü\n{defaultLocation} için Enter'a basın\n> ",
-  "runtime.wizard.log_location_invalid": "1 veya 2 girin ya da varsayılan için Enter'a basın.\n",
+  "runtime.wizard.log_location_invalid":
+    "1, 2, default veya app girin ya da {defaultLocation} için Enter'a basın.\n",
   "runtime.wizard.ask_server_password_required":
     "Enter OpenCode V2 server password (required).\nShow it with: opencode service get password\n> ",
   "runtime.wizard.server_password_required":
@@ -534,10 +535,12 @@ export const tr: I18nDictionary = {
   "runtime.logs.location_invalid":
     'Geçersiz LOG_LOCATION değeri "{value}". İzin verilen değerler: default, app.\n',
   "runtime.logs.ask_location":
-    "Günlük konumunu seçin: default (sistem günlük dizini) veya app (uygulama dizinindeki logs klasörü). Yanıt {envPath} dosyasına kaydedilir.\n> ",
-  "runtime.logs.location_choice_invalid": "default veya app yazın.\n",
+    "Günlük konumunu seçin:\n1) default: işletim sisteminin günlük dizini\n2) app: uygulama ana dizinindeki logs klasörü\nYanıt {envPath} dosyasına kaydedilir.\n> ",
+  "runtime.logs.location_choice_invalid": "1, 2, default veya app yazın.\n",
   "runtime.logs.location_invalid_no_tty":
     'Geçersiz LOG_LOCATION değeri "{value}" ve etkileşimli terminal yok. default kullanılıyor.\n',
+  "runtime.logs.location_invalid_gave_up":
+    'Geçersiz LOG_LOCATION değeri "{value}" ve geçerli bir yanıt verilmedi. default kullanılıyor.\n',
   "runtime.logs.location_invalid_env":
     'Ortamda geçersiz LOG_LOCATION değeri "{value}". default kullanılıyor.\n',
   "runtime.logs.location_persist_failed":

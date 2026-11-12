@@ -182,8 +182,9 @@ async function runStartCommand(mode: RuntimeMode | undefined, daemon: boolean, r
 async function runConfigCommand(): Promise<number> {
   setRuntimeMode("installed");
 
+  // The wizard asks for the log location itself, so the resolver must not ask first.
   const { initializeLogger } = await import("./utils/logger.js");
-  await initializeLogger();
+  await initializeLogger({ promptForLogLocation: false });
 
   const { runConfigWizardCommand } = await import("./runtime/bootstrap.js");
   await runConfigWizardCommand();

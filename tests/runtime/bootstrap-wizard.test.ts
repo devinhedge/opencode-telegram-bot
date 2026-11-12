@@ -292,8 +292,15 @@ describe("runtime/bootstrap wizard LOG_LOCATION question", () => {
     const { envContent, output } = await runWizard(["3", "nope", "2"]);
 
     const { t } = await import("../../src/i18n/index.js");
-    const invalid = t("runtime.wizard.log_location_invalid");
+    const invalid = t("runtime.wizard.log_location_invalid", { defaultLocation: "default" });
     expect(output.split(invalid).length - 1).toBe(2);
     expect(envContent).toMatch(/^LOG_LOCATION=app$/m);
+  });
+
+  it("names the saved location as the Enter default in the invalid message", async () => {
+    const { output } = await runWizard(["3", ""], "LOG_LOCATION=app\n");
+
+    const { t } = await import("../../src/i18n/index.js");
+    expect(output).toContain(t("runtime.wizard.log_location_invalid", { defaultLocation: "app" }));
   });
 });

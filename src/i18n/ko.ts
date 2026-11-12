@@ -525,7 +525,8 @@ export const ko: I18nDictionary = {
   "runtime.wizard.server_version_invalid": "Enter 1 or 2, or press Enter for default.\n",
   "runtime.wizard.ask_log_location":
     "로그를 기록할 위치를 선택하세요:\n1) default: 운영 체제 로그 디렉터리\n2) app: 앱 홈의 logs 폴더\n{defaultLocation}을(를) 사용하려면 Enter를 누르세요\n> ",
-  "runtime.wizard.log_location_invalid": "1 또는 2를 입력하거나 기본값을 사용하려면 Enter를 누르세요.\n",
+  "runtime.wizard.log_location_invalid":
+    "1, 2, default 또는 app을 입력하거나 {defaultLocation}을(를) 사용하려면 Enter를 누르세요.\n",
   "runtime.wizard.ask_server_password_required":
     "Enter OpenCode V2 server password (required).\nShow it with: opencode service get password\n> ",
   "runtime.wizard.server_password_required":
@@ -541,10 +542,12 @@ export const ko: I18nDictionary = {
   "runtime.logs.location_invalid":
     '잘못된 LOG_LOCATION 값 "{value}". 허용되는 값: default, app.\n',
   "runtime.logs.ask_location":
-    "로그 위치를 선택하세요: default(시스템 로그 디렉터리) 또는 app(앱 홈의 logs 폴더). 선택한 값은 {envPath}에 저장됩니다.\n> ",
-  "runtime.logs.location_choice_invalid": "default 또는 app을 입력하세요.\n",
+    "로그 위치를 선택하세요:\n1) default: 운영 체제 로그 디렉터리\n2) app: 앱 홈의 logs 폴더\n선택한 값은 {envPath}에 저장됩니다.\n> ",
+  "runtime.logs.location_choice_invalid": "1, 2, default 또는 app을 입력하세요.\n",
   "runtime.logs.location_invalid_no_tty":
     '잘못된 LOG_LOCATION 값 "{value}"이며 대화형 터미널을 사용할 수 없습니다. default를 사용합니다.\n',
+  "runtime.logs.location_invalid_gave_up":
+    '잘못된 LOG_LOCATION 값 "{value}"이며 유효한 답변이 입력되지 않았습니다. default를 사용합니다.\n',
   "runtime.logs.location_invalid_env":
     '환경 변수의 LOG_LOCATION 값 "{value}"이(가) 잘못되었습니다. default를 사용합니다.\n',
   "runtime.logs.location_persist_failed":

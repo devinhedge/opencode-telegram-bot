@@ -15,8 +15,18 @@ export async function askVisible(question: string): Promise<string> {
   }
 }
 
+function raiseSigint(): void {
+  process.kill(process.pid, "SIGINT");
+}
+
 // Like askVisible, but resolves null when input ends (readline closes) before an answer.
-export async function askVisibleOrEof(question: string): Promise<string | null> {
+// Ctrl+C is not end of input: readline would close on it, so it is intercepted and handed to
+// onInterrupt, which by default re-raises SIGINT so the process stops the way Ctrl+C normally
+// does. The promise still resolves null afterwards so an injected handler cannot hang callers.
+export async function askVisibleOrEof(
+  question: string,
+  onInterrupt: () => void = raiseSigint,
+): Promise<string | null> {
   const rl = createInterface({
     input: process.stdin,
     output: process.stdout,
@@ -24,6 +34,11 @@ export async function askVisibleOrEof(question: string): Promise<string | null> 
 
   try {
     return await new Promise<string | null>((resolve) => {
+      rl.once("SIGINT", () => {
+        rl.close();
+        onInterrupt();
+        resolve(null);
+      });
       rl.once("close", () => resolve(null));
       rl.question(question).then(
         (answer) => resolve(answer.trim()),

@@ -533,7 +533,7 @@ export const ru: I18nDictionary = {
   "runtime.wizard.ask_log_location":
     "Выберите, куда записывать логи:\n1) default: каталог логов операционной системы\n2) app: папка logs в домашнем каталоге приложения\nНажмите Enter для {defaultLocation}\n> ",
   "runtime.wizard.log_location_invalid":
-    "Введите 1 или 2 либо нажмите Enter для значения по умолчанию.\n",
+    "Введите 1, 2, default или app либо нажмите Enter для {defaultLocation}.\n",
   "runtime.wizard.ask_server_password_required":
     "Введите пароль сервера OpenCode V2 (обязательно).\nПоказать его: opencode service get password\n> ",
   "runtime.wizard.server_password_required":
@@ -549,10 +549,12 @@ export const ru: I18nDictionary = {
   "runtime.logs.location_invalid":
     'Недопустимое значение LOG_LOCATION "{value}". Допустимые значения: default, app.\n',
   "runtime.logs.ask_location":
-    "Выберите расположение логов: default (системный каталог логов) или app (папка logs в каталоге приложения). Ответ будет сохранён в {envPath}.\n> ",
-  "runtime.logs.location_choice_invalid": "Введите default или app.\n",
+    "Выберите расположение логов:\n1) default: каталог логов операционной системы\n2) app: папка logs в домашнем каталоге приложения\nОтвет будет сохранён в {envPath}.\n> ",
+  "runtime.logs.location_choice_invalid": "Введите 1, 2, default или app.\n",
   "runtime.logs.location_invalid_no_tty":
     'Недопустимое значение LOG_LOCATION "{value}", интерактивный терминал недоступен. Используется default.\n',
+  "runtime.logs.location_invalid_gave_up":
+    'Недопустимое значение LOG_LOCATION "{value}", корректный ответ не получен. Используется default.\n',
   "runtime.logs.location_invalid_env":
     'Недопустимое значение LOG_LOCATION "{value}" в окружении. Используется default.\n',
   "runtime.logs.location_persist_failed":

@@ -47,6 +47,46 @@ describe("runtime/prompts", () => {
     await expect(askVisibleOrEof("q> ")).resolves.toBeNull();
   });
 
+  it("askVisibleOrEof calls the interrupt handler on Ctrl+C and closes the interface", async () => {
+    rl.question.mockImplementation(() => {
+      queueMicrotask(() => rl.emit("SIGINT"));
+      return new Promise<string>(() => {});
+    });
+    const onInterrupt = vi.fn();
+
+    await expect(askVisibleOrEof("q> ", onInterrupt)).resolves.toBeNull();
+
+    expect(onInterrupt).toHaveBeenCalledTimes(1);
+    expect(rl.close).toHaveBeenCalled();
+  });
+
+  it("askVisibleOrEof does not call the interrupt handler on plain end of input", async () => {
+    rl.question.mockImplementation(() => {
+      queueMicrotask(() => rl.emit("close"));
+      return new Promise<string>(() => {});
+    });
+    const onInterrupt = vi.fn();
+
+    await expect(askVisibleOrEof("q> ", onInterrupt)).resolves.toBeNull();
+
+    expect(onInterrupt).not.toHaveBeenCalled();
+  });
+
+  it("askVisibleOrEof re-raises SIGINT on the process by default", async () => {
+    const killSpy = vi.spyOn(process, "kill").mockImplementation(() => true);
+    rl.question.mockImplementation(() => {
+      queueMicrotask(() => rl.emit("SIGINT"));
+      return new Promise<string>(() => {});
+    });
+
+    try {
+      await askVisibleOrEof("q> ");
+      expect(killSpy).toHaveBeenCalledWith(process.pid, "SIGINT");
+    } finally {
+      killSpy.mockRestore();
+    }
+  });
+
   it("askVisibleOrEof returns null when the question rejects", async () => {
     rl.question.mockRejectedValue(new Error("closed"));
 

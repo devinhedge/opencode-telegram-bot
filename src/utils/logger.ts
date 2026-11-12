@@ -268,7 +268,13 @@ function writeToFile(line: string): void {
   }
 }
 
-async function initializeLoggerInternal(): Promise<void> {
+export interface InitializeLoggerOptions {
+  // False makes an invalid LOG_LOCATION warn and use default instead of prompting; the config
+  // command sets it because its wizard asks the question itself. Defaults to true.
+  promptForLogLocation?: boolean;
+}
+
+async function initializeLoggerInternal(options: InitializeLoggerOptions): Promise<void> {
   // A failed attempt is not retried: the entrypoints call initializeLogger twice, and the
   // unusable-directory warning must appear once per process.
   if ((logStream && logFilePath) || initializeFailed) {
@@ -279,7 +285,9 @@ async function initializeLoggerInternal(): Promise<void> {
   let resolvedDirPath = "the logs directory";
 
   try {
-    resolvedDirPath = await resolveLogsDirPath();
+    resolvedDirPath = await resolveLogsDirPath(
+      options.promptForLogLocation === false ? { prompt: false } : {},
+    );
     logsDirPath = resolvedDirPath;
     await ensureLogsDir(resolvedDirPath);
     const nextLogFilePath = getLogFilePathForMode(resolvedDirPath, mode);
@@ -296,13 +304,13 @@ async function initializeLoggerInternal(): Promise<void> {
   }
 }
 
-export async function initializeLogger(): Promise<void> {
+export async function initializeLogger(options: InitializeLoggerOptions = {}): Promise<void> {
   if (initializePromise) {
     await initializePromise;
     return;
   }
 
-  initializePromise = initializeLoggerInternal();
+  initializePromise = initializeLoggerInternal(options);
 
   try {
     await initializePromise;

@@ -505,7 +505,8 @@ export const ar: I18nDictionary = {
   "runtime.wizard.server_version_invalid": "Enter 1 or 2, or press Enter for default.\n",
   "runtime.wizard.ask_log_location":
     "اختر مكان كتابة السجلات:\n1) default: دليل سجلات نظام التشغيل\n2) app: مجلد logs داخل المجلد الرئيسي للتطبيق\nاضغط Enter لاستخدام {defaultLocation}\n> ",
-  "runtime.wizard.log_location_invalid": "أدخل 1 أو 2، أو اضغط Enter لاستخدام القيمة الافتراضية.\n",
+  "runtime.wizard.log_location_invalid":
+    "أدخل 1 أو 2 أو default أو app، أو اضغط Enter لاستخدام {defaultLocation}.\n",
   "runtime.wizard.ask_server_password_required":
     "Enter OpenCode V2 server password (required).\nShow it with: opencode service get password\n> ",
   "runtime.wizard.server_password_required":
@@ -521,10 +522,12 @@ export const ar: I18nDictionary = {
   "runtime.logs.location_invalid":
     'قيمة LOG_LOCATION غير صالحة "{value}". القيم المسموح بها: default، app.\n',
   "runtime.logs.ask_location":
-    "اختر موقع السجلات: default (مجلد سجلات النظام) أو app (مجلد logs داخل مجلد التطبيق). سيتم حفظ الإجابة في {envPath}.\n> ",
-  "runtime.logs.location_choice_invalid": "أدخل default أو app.\n",
+    "اختر موقع السجلات:\n1) default: دليل سجلات نظام التشغيل\n2) app: مجلد logs داخل المجلد الرئيسي للتطبيق\nسيتم حفظ الإجابة في {envPath}.\n> ",
+  "runtime.logs.location_choice_invalid": "أدخل 1 أو 2 أو default أو app.\n",
   "runtime.logs.location_invalid_no_tty":
     'قيمة LOG_LOCATION غير صالحة "{value}" ولا يتوفر طرفية تفاعلية. سيتم استخدام default.\n',
+  "runtime.logs.location_invalid_gave_up":
+    'قيمة LOG_LOCATION غير صالحة "{value}" ولم تُقدَّم إجابة صالحة. سيتم استخدام default.\n',
   "runtime.logs.location_invalid_env":
     'قيمة LOG_LOCATION غير صالحة "{value}" في البيئة. سيتم استخدام default.\n',
   "runtime.logs.location_persist_failed": "تعذر حفظ LOG_LOCATION في {envPath}: {reason}\n",

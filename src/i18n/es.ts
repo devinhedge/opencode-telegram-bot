@@ -534,7 +534,7 @@ export const es: I18nDictionary = {
   "runtime.wizard.ask_log_location":
     "Elija dónde se escriben los registros:\n1) default: el directorio de registros del sistema operativo\n2) app: la carpeta de registros del directorio de la aplicación\nPulse Enter para {defaultLocation}\n> ",
   "runtime.wizard.log_location_invalid":
-    "Escriba 1 o 2, o pulse Enter para el valor predeterminado.\n",
+    "Escriba 1, 2, default o app, o pulse Enter para {defaultLocation}.\n",
   "runtime.wizard.ask_server_password_required":
     "Enter OpenCode V2 server password (required).\nShow it with: opencode service get password\n> ",
   "runtime.wizard.server_password_required":
@@ -550,10 +550,12 @@ export const es: I18nDictionary = {
   "runtime.logs.location_invalid":
     'Valor de LOG_LOCATION no válido "{value}". Valores permitidos: default, app.\n',
   "runtime.logs.ask_location":
-    "Elige la ubicación de los logs: default (directorio de logs del sistema) o app (carpeta de logs en el directorio de la aplicación). La respuesta se guarda en {envPath}.\n> ",
-  "runtime.logs.location_choice_invalid": "Escribe default o app.\n",
+    "Elige la ubicación de los logs:\n1) default: el directorio de registros del sistema operativo\n2) app: la carpeta de registros del directorio de la aplicación\nLa respuesta se guarda en {envPath}.\n> ",
+  "runtime.logs.location_choice_invalid": "Escribe 1, 2, default o app.\n",
   "runtime.logs.location_invalid_no_tty":
     'Valor de LOG_LOCATION no válido "{value}" y no hay un terminal interactivo disponible. Se usa default.\n',
+  "runtime.logs.location_invalid_gave_up":
+    'Valor de LOG_LOCATION no válido "{value}" y no se dio una respuesta válida. Se usa default.\n',
   "runtime.logs.location_invalid_env":
     'Valor de LOG_LOCATION no válido "{value}" en el entorno. Se usa default.\n',
   "runtime.logs.location_persist_failed":

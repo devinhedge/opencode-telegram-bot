@@ -17,7 +17,7 @@ import {
   type Locale,
 } from "../i18n/index.js";
 import type { OpencodeServerVersion } from "../config.js";
-import { parseLogLocation, type LogLocation } from "./log-location.js";
+import { parseLogLocation, parseLogLocationChoice, type LogLocation } from "./log-location.js";
 
 const DEFAULT_API_URLS: Record<OpencodeServerVersion, string> = {
   v1: "http://localhost:4096",
@@ -81,8 +81,6 @@ const WIZARD_ENV_KEYS: ReadonlyArray<keyof WizardEnvValues> = [
   "OPENCODE_MODEL_ID",
   "LOG_LOCATION",
 ];
-
-const LOG_LOCATION_OPTIONS: ReadonlyArray<LogLocation> = ["default", "app"];
 
 function isPositiveInteger(value: string): boolean {
   return /^[1-9]\d*$/.test(value);
@@ -498,20 +496,18 @@ async function askLogLocation(defaultLocation: LogLocation): Promise<LogLocation
   const prompt = t("runtime.wizard.ask_log_location", { defaultLocation });
 
   for (;;) {
-    const answer = (await askVisible(prompt)).trim().toLowerCase();
+    const answer = (await askVisible(prompt)).trim();
 
     if (!answer) {
       return defaultLocation;
     }
 
-    const selectedLocation = LOG_LOCATION_OPTIONS.find(
-      (location, index) => answer === location || answer === String(index + 1),
-    );
+    const selectedLocation = parseLogLocationChoice(answer);
     if (selectedLocation) {
       return selectedLocation;
     }
 
-    process.stdout.write(t("runtime.wizard.log_location_invalid"));
+    process.stdout.write(t("runtime.wizard.log_location_invalid", { defaultLocation }));
   }
 }
 
