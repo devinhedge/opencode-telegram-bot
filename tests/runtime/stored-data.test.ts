@@ -39,21 +39,25 @@ const NON_STORED_ACCOUNT_CONSTANTS = new Set(["PROBE_ACCOUNT"]);
 
 const CALL_PATTERN = /\b(?:set|get|delete|remove)Secret\(/g;
 const LITERAL_PATTERN = /^(["'`])((?:\\.|(?!\1)[^\\])*)\1$/;
-// Covers constants whose name contains "account" (any case) and whose initializer is a plain
-// string literal. Constants built from templates or expressions are not matched here; their
-// values reach the store only through a non-literal call, which the indirect call site record
-// pins per file.
+// Covers constants whose name contains "account" (any case) and whose initializer starts with a
+// quote, single quote, or backtick literal. A template with `${}` is recorded as raw text, so it
+// fails the inventory check and forces a review. Initializers that are not literals (calls,
+// concatenations, identifiers) are not matched; their values reach the store only through a
+// non-literal call, which the indirect call site record pins per file.
 const ACCOUNT_CONSTANT_PATTERN =
   /\b(?:export\s+)?const\s+(\w*account\w*)\s*(?::[^=]+)?=\s*(["'`])((?:\\.|(?!\2)[^\\])*)\2/gi;
 
 /**
  * Returns the trimmed text of the first call argument, given the source right after the opening
  * parenthesis: reads up to the top-level comma or the closing parenthesis of the call, balancing
- * (), [] and {} and skipping string literals.
+ * (), [] and {}, skipping string literals, comments and regex literals. Throws when no
+ * terminator is found, naming `context`, so a mis-scan never passes silently.
  */
-function readFirstArgument(rest: string): string {
+function readFirstArgument(rest: string, context: string): string {
+  const regexStarters = "(,=:[!&|?{};";
   let depth = 0;
   let quote: string | null = null;
+  let previous = "(";
   for (let index = 0; index < rest.length; index += 1) {
     const char = rest.charAt(index);
     if (quote !== null) {
@@ -62,7 +66,50 @@ function readFirstArgument(rest: string): string {
       } else if (char === quote) {
         quote = null;
       }
-    } else if (char === '"' || char === "'" || char === "`") {
+      continue;
+    }
+    if (char === "/" && rest.charAt(index + 1) === "/") {
+      const end = rest.indexOf("\n", index);
+      if (end === -1) {
+        break;
+      }
+      index = end;
+      continue;
+    }
+    if (char === "/" && rest.charAt(index + 1) === "*") {
+      const end = rest.indexOf("*/", index + 2);
+      if (end === -1) {
+        break;
+      }
+      index = end + 1;
+      continue;
+    }
+    if (char === "/" && regexStarters.includes(previous)) {
+      let inClass = false;
+      index += 1;
+      while (index < rest.length) {
+        const current = rest.charAt(index);
+        if (current === "\n") {
+          throw new Error(`Unterminated regex literal in secret-store call argument: ${context}`);
+        }
+        if (current === "\\") {
+          index += 1;
+        } else if (current === "[") {
+          inClass = true;
+        } else if (current === "]") {
+          inClass = false;
+        } else if (current === "/" && !inClass) {
+          break;
+        }
+        index += 1;
+      }
+      previous = "/";
+      continue;
+    }
+    if (!/\s/.test(char)) {
+      previous = char;
+    }
+    if (char === '"' || char === "'" || char === "`") {
       quote = char;
     } else if (char === "(" || char === "[" || char === "{") {
       depth += 1;
@@ -75,7 +122,7 @@ function readFirstArgument(rest: string): string {
       return rest.slice(0, index).trim();
     }
   }
-  return rest.trim();
+  throw new Error(`Unterminated secret-store call argument: ${context}`);
 }
 
 async function listTsFiles(dir: string): Promise<string[]> {
@@ -128,7 +175,7 @@ async function scanSource(): Promise<SourceScan> {
       if (/^\s*\w+\s*:/.test(rest)) {
         continue;
       }
-      const argument = readFirstArgument(rest);
+      const argument = readFirstArgument(rest, `${relative} offset ${match.index}`);
       const literal = LITERAL_PATTERN.exec(argument);
       const interpolated = literal?.[1] === "`" && (literal[2] ?? "").includes("${");
       calls.push({
@@ -279,12 +326,27 @@ describe("keychain account guard helpers", () => {
   it.each([
     ["account, value);", "account"],
     ["map.get(key), value);", "map.get(key)"],
-    ["fn(a, b)", "fn(a, b)"],
+    ["fn(a, b))", "fn(a, b)"],
     ["cond ? list[0] : { a: 1, b: 2 }.a, v)", "cond ? list[0] : { a: 1, b: 2 }.a"],
     ['"a,)b", v)', '"a,)b"'],
+    ['"a\\"b,c", v)', '"a\\"b,c"'],
     ["`x${fn(1, 2)}`)", "`x${fn(1, 2)}`"],
+    ["account // it's a comment (\n, value)", "account // it's a comment ("],
+    ["account /* don't ) */, value)", "account /* don't ) */"],
+    ["name.replace(/['\"(]/g, ''), v)", "name.replace(/['\"(]/g, '')"],
   ])("reads the first argument of %s whole", (rest, expected) => {
-    expect(readFirstArgument(rest)).toBe(expected);
+    expect(readFirstArgument(rest, "test")).toBe(expected);
+  });
+
+  it.each([["account"], ["fn(a, b)"], ['"unterminated, v)'], ["account // no newline )"]])(
+    "throws when the argument %s has no terminator",
+    (rest) => {
+      expect(() => readFirstArgument(rest, "test")).toThrow(/Unterminated.*test/);
+    },
+  );
+
+  it("throws on an unterminated regex literal", () => {
+    expect(() => readFirstArgument("/abc\n, v)", "test")).toThrow(/Unterminated regex.*test/);
   });
 
   it("matches account constants by name in any case", () => {
