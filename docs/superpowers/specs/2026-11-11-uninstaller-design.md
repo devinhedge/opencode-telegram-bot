@@ -1,7 +1,7 @@
 ---
 title: Uninstaller Design
 status: draft
-version: 0.4.0
+version: 0.5.0
 last_updated: 2026-11-12
 review_date: 2027-05-12
 branch: feat/uninstaller
@@ -70,12 +70,13 @@ Status: draft. Records decisions made with the owner. Not approved for planning.
 12. `<appHome>/logs` is never removed, whatever `LOG_LOCATION` says, so logs left there by earlier runs stay in place. The app home directory is removed only when nothing is left in it.
 13. Inside a container the uninstaller refuses to run and removes nothing. It tells the user that the container should be rebuilt and redeployed, or destroyed.
 14. The uninstaller never calls Docker and never removes a Docker container or volume, on a host or anywhere else.
+15. `--yes` skips only the main confirmation (decision 3). The `OPENCODE_TELEGRAM_HOME` override removal (decision 5) still asks; with no terminal available that step is skipped with a message.
 
 ## Agent calls (not yet confirmed by owner)
 
 - Sudo handling: run `sudo systemctl ...` with inherited stdio so sudo prompts on the TTY itself. The owner asked for the password to be passed as a string to the command; this design avoids that because a command-line string is visible in process listings.
 - Add an explicit `uninstall` branch in `src/cli.ts`; `stop` is currently the fall-through default.
-- Add `uninstall` to `CliCommand` and `SUPPORTED_COMMANDS` in `src/cli/args.ts`. A `--yes` flag skips the confirmation prompt, and flag validation matches the existing start-only checks.
+- Add `uninstall` and its `--yes` flag (decision 15) to `CliCommand` and `SUPPORTED_COMMANDS` in `src/cli/args.ts`; flag validation matches the existing start-only checks.
 - Delete from both secret-store backends, keychain and encrypted file.
 - The removal plan shows where the logs stay. The uninstaller resolves that directory from `LOG_LOCATION` (real environment, then `.env`) without prompting, before `.env` is deleted; it does not need the value to decide what to remove, because logs are never removed.
 - A read-only `.env` is made writable before deletion where the platform needs it (the Windows read-only attribute), using the same reopen step the `.env` writer uses.
@@ -95,4 +96,4 @@ Existing patterns: `tests/runtime/service/manager.test.ts` (mocked `spawn` and `
 
 ## Open questions
 
-- Whether `--yes` also confirms the `OPENCODE_TELEGRAM_HOME` override removal.
+None.
