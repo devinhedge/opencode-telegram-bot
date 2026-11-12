@@ -10,7 +10,18 @@ export interface UninstallHomes {
 }
 
 export type OverrideInvalidReason =
-  "missing" | "unreadable" | "not-a-directory" | "root" | "user-home" | "no-bot-files";
+  // The path does not exist (also a path below a file).
+  | "missing"
+  // The path exists but cannot be inspected (permissions or another filesystem error).
+  | "unreadable"
+  // The path exists and is not a directory.
+  | "not-a-directory"
+  // The path is, or links to, a filesystem root.
+  | "root"
+  // The path is, or links to, the user's home directory.
+  | "user-home"
+  // The directory holds none of .env, settings.json, run/bot-service.json as a regular file.
+  | "no-bot-files";
 
 export type OverrideValidation = { ok: true } | { ok: false; reason: OverrideInvalidReason };
 

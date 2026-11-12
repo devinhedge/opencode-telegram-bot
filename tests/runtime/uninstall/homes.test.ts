@@ -246,19 +246,18 @@ describe("runtime/uninstall/homes", () => {
       },
     );
 
-    it("accepts a symlinked override directory that holds a bot file", async () => {
-      const dir = path.join(tempRoot, "real-bot-home");
-      await fs.mkdir(dir);
-      await fs.writeFile(path.join(dir, ".env"), "x");
-      const link = path.join(tempRoot, "link-to-bot-home");
-      try {
+    it.skipIf(isWindows)(
+      "accepts a symlinked override directory that holds a bot file",
+      async () => {
+        const dir = path.join(tempRoot, "real-bot-home");
+        await fs.mkdir(dir);
+        await fs.writeFile(path.join(dir, ".env"), "x");
+        const link = path.join(tempRoot, "link-to-bot-home");
         await fs.symlink(dir, link, "dir");
-      } catch {
-        return;
-      }
 
-      expect(await validateOverrideHome(link, fakeHome)).toEqual({ ok: true });
-    });
+        expect(await validateOverrideHome(link, fakeHome)).toEqual({ ok: true });
+      },
+    );
 
     it("rejects a run directory without bot-service.json", async () => {
       const dir = path.join(tempRoot, "run-only");
