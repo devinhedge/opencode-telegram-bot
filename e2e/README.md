@@ -68,8 +68,9 @@ It builds first and refuses to start on a compile error. Add `-SkipBuild` /
 does, since it is called right after the code changed.
 
 Everything stays inside `.tmp/e2e/home`, so your real `.env`, `settings.json`
-and `logs/` are untouched. Logs land in `.tmp/e2e/home/logs/`, one file per
-launch.
+and the canonical log directory are untouched. The launcher sets `LOG_LOCATION=app`
+for the bot, so logs land in `.tmp/e2e/home/logs/` as
+`opencode-telegram-bot-<timestamp>_<pid>.log`, one file per launch.
 
 OpenCode runs on the port from `OPENCODE_API_URL` in `e2e/.env` (4097 by
 default) so test runs never collide with your own OpenCode (V1 on 4096, the V2

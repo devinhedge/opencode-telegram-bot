@@ -75,7 +75,7 @@ if ($recordedPid -eq 0) {
 
 $loggedPids = @()
 if (Test-Path $logsDir) {
-    $loggedPids = Get-ChildItem $logsDir -Filter "bot-*.log" -ErrorAction SilentlyContinue |
+    $loggedPids = Get-ChildItem $logsDir -Filter "opencode-telegram-bot-*.log" -ErrorAction SilentlyContinue |
         ForEach-Object { if ($_.Name -match '_(\d+)\.log$') { [int]$Matches[1] } } |
         Select-Object -Unique
 }

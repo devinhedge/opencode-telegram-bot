@@ -1,5 +1,13 @@
 import { spawn } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -145,3 +153,26 @@ for (const launcher of LAUNCHERS) {
     );
   });
 }
+
+describe("harness scripts keep the bot's logs in the isolated home", () => {
+  const read = (name: string) => readFileSync(join(E2E_DIR, name), "utf8");
+
+  it("the shell launcher sets LOG_LOCATION=app for the bot", () => {
+    expect(read("run-test-bot.sh")).toMatch(/^export LOG_LOCATION="app"$/m);
+  });
+
+  it("the PowerShell launcher sets LOG_LOCATION=app for the bot and restores it", () => {
+    const script = read("run-test-bot.ps1");
+    expect(script).toContain('$env:LOG_LOCATION = "app"');
+    expect(script).toContain('Restore-EnvValue "LOG_LOCATION" $previousLogLocation');
+  });
+
+  it.each(["stop-test-bot.sh", "stop-test-bot.ps1"])(
+    "%s matches the current main log file name",
+    (name) => {
+      const script = read(name);
+      expect(script).toContain("opencode-telegram-bot-*.log");
+      expect(script).not.toMatch(/[^-]bot-\*\.log/);
+    },
+  );
+});
