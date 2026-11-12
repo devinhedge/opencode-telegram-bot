@@ -1,9 +1,9 @@
 ---
 title: Logs Relocation Design
 status: approved
-version: 0.3.1
-last_updated: 2026-11-11
-review_date: 2027-05-11
+version: 0.4.0
+last_updated: 2026-11-12
+review_date: 2027-05-12
 branch: feat/logs-relocation
 blocks: uninstaller feature (docs/superpowers/specs/2026-11-11-uninstaller-design.md)
 ---
@@ -53,7 +53,7 @@ Logs are written to the canonical per-user log directory of each operating syste
 2. The `.env` variable `LOG_LOCATION` takes the values `default` and `app`.
    - `default` is the canonical OS location and is used when the variable is unset.
    - `app` is `<appHome>/logs`.
-3. The `opencode-telegram config` wizard offers `LOG_LOCATION`, and the Docker image sets it to `app` with `ENV LOG_LOCATION=app` in the Dockerfile and `LOG_LOCATION=app` in the Compose `environment` lists (see the agent call pending owner confirmation below).
+3. The `opencode-telegram config` wizard offers `LOG_LOCATION`, and the Docker image sets it to `app` with `ENV LOG_LOCATION=app` in the Dockerfile and `LOG_LOCATION=app` in the Compose `environment` lists (see "Agent calls (confirmed by owner)").
 4. `OPENCODE_TELEGRAM_HOME` alone does not move logs; only `LOG_LOCATION=app` does.
 5. The daemon output log moves into the log directory and falls under `LOG_RETENTION`.
 6. Log file names are renamed to identify the application:
@@ -83,19 +83,13 @@ Logs are written to the canonical per-user log directory of each operating syste
 - Files left in old locations under the old `bot-*` names are never pruned. This follows decision 8. With `LOG_LOCATION=app` they remain in `<appHome>/logs`.
 - Builder-found files to change are left to the builder: `config.ts`, `.env.example`, the `config` wizard prompt text and its localized strings, the Dockerfile and compose files.
 
-## Agent calls pending owner confirmation
-
-- The Docker image sets `LOG_LOCATION=app` as `ENV LOG_LOCATION=app` in the Dockerfile plus `LOG_LOCATION=app` in the `environment` list of `docker-compose.yml`, instead of an inserted `.env`. A real environment variable beats `.env` and beats Compose `env_file` values, and a data volume mounted at the app home can shadow an `.env` baked into the image. The owner has not yet answered this call.
-- Decision 12 is broadened to `LOG_LOCATION=app`: on Windows the logger relies on the default ACLs inherited from the parent directory, which is the app home under `%APPDATA%` (or `OPENCODE_TELEGRAM_HOME`) for `app` and `%LOCALAPPDATA%` for `default`, and applies no extra permission handling. The owner has not yet answered this call.
-- `LOG_RETENTION` is looked up in the real environment first, then in the app-home `.env` file, by one helper (`resolveLogRetention`) shared by the logger prunes and the daemon service-log prune. Without it, a `LOG_RETENTION` set only in `.env` never applied, because the logger prunes before the config loads `.env` into the environment and the daemon parent never loads it. The owner has not yet answered this call.
+- The Docker image sets `LOG_LOCATION=app` as `ENV LOG_LOCATION=app` in the Dockerfile plus `LOG_LOCATION=app` in the `environment` list of `docker-compose.yml`, instead of an inserted `.env`. A real environment variable beats `.env` and beats Compose `env_file` values, and a data volume mounted at the app home can shadow an `.env` baked into the image.
+- Decision 12 is broadened to `LOG_LOCATION=app`: on Windows the logger relies on the default ACLs inherited from the parent directory, which is the app home under `%APPDATA%` (or `OPENCODE_TELEGRAM_HOME`) for `app` and `%LOCALAPPDATA%` for `default`, and applies no extra permission handling.
+- `LOG_RETENTION` is looked up in the real environment first, then in the app-home `.env` file, by one helper (`resolveLogRetention`) shared by the logger prunes and the daemon service-log prune. Without it, a `LOG_RETENTION` set only in `.env` never applied, because the logger prunes before the config loads `.env` into the environment and the daemon parent never loads it.
 
 ## Open questions
 
-Pending owner confirmation (see "Agent calls pending owner confirmation"):
-
-- The Docker `ENV LOG_LOCATION=app` plus Compose `environment` design instead of an inserted `.env`.
-- The Windows ACL statement of decision 12 applied to `LOG_LOCATION=app`.
-- The `LOG_RETENTION` lookup from the real environment, then `.env`.
+None.
 
 ## Test requirements
 
