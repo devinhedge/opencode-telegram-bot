@@ -1,7 +1,7 @@
 ---
 title: Uninstaller Design
 status: draft
-version: 0.11.0
+version: 0.12.0
 last_updated: 2026-11-12
 review_date: 2027-05-12
 branch: feat/uninstaller
@@ -80,6 +80,7 @@ Status: draft. Records decisions made with the owner. Not approved for planning.
 18. The `uninstall` command does not remove its own CLI install. Where the Makefile is not used (Windows), the command finishes by printing the exact `npm uninstall -g @grinev/opencode-telegram-bot` command to run.
 19. Stopping the OpenCode server (decision 8) is opt-in through `--stop-opencode`. The command shows the PID and command line found on the configured port and asks y/n separately; `--yes` does not skip that question, and with no terminal available the step is skipped with a message.
 20. No `sudo` is required up front. The Makefile and the `uninstall` command run as the invoking user, refuse to run as root (except `make help`), and use `sudo` only for the steps that need it, which are the systemd unit steps.
+21. The `uninstall` command looks for bots that are running outside the detached daemon, such as a bot started in a terminal or in a detached session on macOS and Linux, shows each one it finds, and asks before stopping it.
 
 ## Agent calls (confirmed by owner)
 
@@ -96,11 +97,13 @@ Status: draft. Records decisions made with the owner. Not approved for planning.
 - A symlinked `.env` or `secrets.enc`: the link is removed; a target outside the app home is left in place and reported in the summary.
 - Sudo handling (decision 20): the systemd steps run `sudo systemctl ...` with inherited stdio so sudo prompts on the terminal itself. The owner asked for the password to be passed as a string to the command; this design avoids that because a command-line string is visible in process listings. Running as root is refused because under `sudo` the home directory, the keychain, and the npm prefix can resolve to root's instead of the user's.
 - systemd: only the documented unit path is handled, with `systemctl stop`, `disable`, removal of the unit file, and `daemon-reload`, each through `sudo`. With no terminal or no `sudo`, the plan prints the exact commands instead of running them.
+- `OPENCODE_TELEGRAM_HOME` validation: the path is a directory, is absolute after resolution, is not a filesystem root or the user's home directory, and contains a bot file (`.env`, `settings.json`, or `run/bot-service.json`). A path that does not exist is skipped with a message and is never created. A skipped or failed override step does not stop the other steps, and the final summary lists what was left.
 
 ## Agent calls (not yet confirmed by owner)
 
-- `OPENCODE_TELEGRAM_HOME` validation: the path is a directory, is absolute after resolution, is not a filesystem root or the user's home directory, and contains a bot file (`.env`, `settings.json`, or `run/bot-service.json`). A path that does not exist is skipped with a message and is never created. A skipped or failed override step does not stop the other steps, and the final summary lists what was left.
-- Other running bots: a bot started in a terminal (`opencode-telegram start`, `npm start`) has no state file, and the uninstaller does not look for it. A bot run by systemd is stopped through the documented unit. The plan reminds the user to stop any bot running in a terminal first.
+- Finding a bot started outside the daemon (decision 21): the command lists processes on macOS and Linux and, on Windows, skips the step with a message. It matches only `node` processes that run the bot's entry point (the installed package's `dist/cli.js` with `start`, or `dist/index.js`, and the running checkout's built `dist/cli.js` and `dist/index.js`). It never matches its own process or its parents, and it does not touch a bot run from another checkout. A bot run by systemd is stopped through the documented unit, and the detached daemon through its state file, so neither is asked about twice.
+- For each bot found, the command shows the PID, the user, the start time, and the command line, and asks y/n separately. `--yes` does not skip these questions. With no terminal available the step is skipped with a message and the summary lists the PIDs left running.
+- A bot confirmed for stopping gets `SIGTERM`, then `SIGKILL` after 5 seconds if it is still running, the same as the daemon stop. Only the bot process stops; the terminal, tmux, or screen session around it stays.
 
 ## Test requirements (owner)
 
