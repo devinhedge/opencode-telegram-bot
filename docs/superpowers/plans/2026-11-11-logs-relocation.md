@@ -1,7 +1,7 @@
 ---
 title: Logs Relocation Implementation Plan
 status: approved
-version: 0.2.0
+version: 0.3.0
 last_updated: 2026-11-11
 review_date: 2027-05-11
 spec: docs/superpowers/specs/2026-11-11-logs-relocation-design.md
@@ -61,7 +61,7 @@ Branch: create `feat/logs-relocation` from `main` before Task 1. Commit steps ru
 **Files:** Create `src/runtime/log-location.ts`; Test `tests/runtime/log-location.test.ts`.
 
 **Interfaces:**
-- Produces: `type LogLocation = "default" | "app"`; `type LogLocationSetting = { kind: "unset" } | { kind: "valid"; value: LogLocation } | { kind: "invalid"; raw: string }`; `parseLogLocation(raw: string | undefined): LogLocationSetting` (trim and lowercase; empty or undefined is `unset`); `resolveCanonicalLogsDir(platform: NodeJS.Platform, env: NodeJS.ProcessEnv, homedir: string): string`.
+- Produces: `type LogLocation = "default" | "app"`; `type LogLocationSetting = { kind: "unset" } | { kind: "valid"; value: LogLocation } | { kind: "invalid"; raw: string }`; `parseLogLocation(raw: string | undefined): LogLocationSetting` (trim and lowercase; empty or undefined is `unset`); `parseLogLocationChoice(answer: string): LogLocation | null` (accepts `1`, `2`, `default`, `app`, case-insensitive and trimmed; shared by the runtime prompt and the config wizard); `resolveCanonicalLogsDir(platform: NodeJS.Platform, env: NodeJS.ProcessEnv, homedir: string): string`.
 
 - [ ] **Step 1: Write failing tests** in `tests/runtime/log-location.test.ts`:
   - `resolveCanonicalLogsDir("darwin", {}, "/Users/a")` equals `/Users/a/Library/Logs/opencode-telegram-bot`.
@@ -78,7 +78,7 @@ Branch: create `feat/logs-relocation` from `main` before Task 1. Commit steps ru
 **Files:** Create `src/runtime/env-file.ts`; Modify `src/runtime/bootstrap.ts` (import `writeFileAtomically` from `env-file.ts`, delete the local copy at `bootstrap.ts:311-317`); Test `tests/runtime/env-file.test.ts`.
 
 **Interfaces:**
-- Produces: `writeFileAtomically(filePath: string, content: string): Promise<void>` (same behavior as today); `persistEnvValue(envFilePath: string, key: string, value: string): Promise<void>`.
+- Produces: `writeFileAtomically(filePath: string, content: string): Promise<void>` (same behavior as today); `persistEnvValue(envFilePath: string, key: string, value: string): Promise<void>`. `writeFileAtomically` removes any leftover temp file first and creates the temp file 0600, so a leftover never lends its mode.
 
 - [ ] **Step 1: Write failing tests** using a temp directory: creates the file when missing with `LOG_LOCATION=app\n`; replaces an existing active `LOG_LOCATION=bad` line and keeps every other line; appends when the key is absent; leaves no `.tmp` sibling; on non-Windows the resulting mode is `0o600` (skip on `win32`).
 - [ ] **Step 2: Run** `npx vitest run tests/runtime/env-file.test.ts`. Expected: FAIL.
@@ -91,7 +91,7 @@ Branch: create `feat/logs-relocation` from `main` before Task 1. Commit steps ru
 **Files:** Create `src/utils/log-files.ts`; Test `tests/utils/log-files.test.ts`.
 
 **Interfaces:**
-- Produces: `LOG_FILE_PREFIX = "opencode-telegram-bot"`; `buildMainLogFileName(mode: RuntimeMode, now: Date, pid: number): string` (installed `opencode-telegram-bot-YYYY-MM-DD.log`; sources `opencode-telegram-bot-YYYY-MM-DD_HH-MM-SS_<pid>.log`); `getMainLogFilePattern(mode: RuntimeMode): RegExp`; `buildServiceLogFileName(now: Date): string` (`opencode-telegram-bot-service-YYYY-MM-DD_HH-MM-SS.log`); `SERVICE_LOG_FILE_PATTERN: RegExp`; `ensureLogsDir(dirPath: string): Promise<void>`; `secureLogFile(filePath: string): Promise<void>`; `pruneLogFiles(dirPath: string, pattern: RegExp, retention: number, onError: (message: string, error: unknown) => void): Promise<void>`.
+- Produces: `getLogRetention(env?: NodeJS.ProcessEnv): number` (default 10; a missing, non-numeric, zero, or negative value gives the default); `buildMainLogFileName(mode: RuntimeMode, now: Date, pid: number): string` (installed `opencode-telegram-bot-YYYY-MM-DD.log`; sources `opencode-telegram-bot-YYYY-MM-DD_HH-MM-SS_<pid>.log`); `getMainLogFilePattern(mode: RuntimeMode): RegExp`; `buildServiceLogFileName(now: Date): string` (`opencode-telegram-bot-service-YYYY-MM-DD_HH-MM-SS.log`); `SERVICE_LOG_FILE_PATTERN: RegExp`; `ensureLogsDir(dirPath: string): Promise<void>`; `secureLogFile(filePath: string): Promise<void>`; `pruneLogFiles(dirPath: string, pattern: RegExp, retention: number, onError: (message: string, error: unknown) => void): Promise<void>`.
 
 - [ ] **Step 1: Write failing tests:**
   - The main patterns match only their own mode's names; neither main pattern matches a service name; `SERVICE_LOG_FILE_PATTERN` matches only service names.
@@ -109,8 +109,8 @@ Branch: create `feat/logs-relocation` from `main` before Task 1. Commit steps ru
 
 **Interfaces:**
 - Consumes: `parseLogLocation`, `resolveCanonicalLogsDir` (Task 1); `persistEnvValue` (Task 2); `getRuntimePaths` (`src/runtime/paths.ts`); `askVisible` (`src/runtime/prompts.ts`); `t` (`src/i18n/index.ts`).
-- Produces: `resolveLogsDirPath(options?: ResolveLogsDirOptions): Promise<string>` memoized per process; `__resetLogsDirForTests(): void`; `ResolveLogsDirOptions { env?: NodeJS.ProcessEnv; isInteractive?: boolean; ask?: (prompt: string) => Promise<string>; warn?: (message: string) => void }`.
-- New i18n keys, with placeholders identical in every locale: `runtime.logs.location_invalid` (`{value}`), `runtime.logs.ask_location` (`{envPath}`), `runtime.logs.location_choice_invalid`, `runtime.logs.location_invalid_no_tty` (`{value}`), `runtime.logs.location_invalid_env` (`{value}`).
+- Produces: `resolveLogsDirPath(options?: ResolveLogsDirOptions): Promise<string>` memoized per process; `__resetLogsDirForTests(): void`; `ResolveLogsDirOptions { env?: NodeJS.ProcessEnv; isInteractive?: boolean; prompt?: boolean; ask?: (prompt: string) => Promise<string | null>; warn?: (message: string) => void }` (`ask` resolves null at end of input; `prompt: false` warns and uses `default` without asking, for the config command); `resolveLogRetention(options?: { env?: NodeJS.ProcessEnv }): Promise<number>` (real environment first, then the app-home `.env`; shared by the logger prunes and the daemon service-log prune). The default `ask` is `askVisibleOrEof(question, onInterrupt?)` in `src/runtime/prompts.ts`, which re-raises SIGINT on Ctrl+C.
+- New i18n keys, with placeholders identical in every locale: `runtime.logs.location_invalid` (`{value}`), `runtime.logs.ask_location` (`{envPath}`), `runtime.logs.location_choice_invalid`, `runtime.logs.location_invalid_no_tty` (`{value}`; no terminal available), `runtime.logs.location_invalid_gave_up` (`{value}`; a terminal existed but input ended or three answers were invalid), `runtime.logs.location_invalid_env` (`{value}`), `runtime.logs.location_persist_failed` (`{envPath}`, `{reason}`), `runtime.logs.env_read_failed` (`{envPath}`, `{reason}`).
 
 Resolution order: (1) when `OPENCODE_TELEGRAM_SERVICE_CHILD=1` and `OPENCODE_TELEGRAM_SERVICE_LOGS_DIR` is set, return it; (2) setting from `env.LOG_LOCATION`, else from `dotenv.parse` of `getRuntimePaths().envFilePath` (ENOENT ignored); (3) `valid app` returns `getRuntimePaths().logsDirPath`, `valid default` or `unset` returns the canonical directory; (4) `invalid` follows the TTY rules in Global Constraints. When the invalid value came from the real environment, warn with `location_invalid_env`, do not persist, and use `default`.
 
@@ -127,7 +127,7 @@ Resolution order: (1) when `OPENCODE_TELEGRAM_SERVICE_CHILD=1` and `OPENCODE_TEL
 
 **Interfaces:**
 - Consumes: `resolveLogsDirPath` (Task 4); `buildMainLogFileName`, `getMainLogFilePattern`, `ensureLogsDir`, `secureLogFile`, `pruneLogFiles` (Task 3).
-- Produces: `getLogFilePath()` and `initializeLogger()` keep their signatures. The module holds the resolved directory in a module variable so `rotateInstalledLogIfNeeded` no longer calls `getRuntimePaths().logsDirPath` (`logger.ts:275-285`).
+- Produces: `getLogFilePath()` keeps its signature; `initializeLogger(options?: { promptForLogLocation?: boolean }): Promise<void>` (false is passed by the `config` command so the wizard asks the location question once; no-argument calls are unchanged). A failed initialization is remembered for the process, so the unusable-directory warning appears once even though both entrypoints call it twice. Pruning uses `resolveLogRetention` (Task 4). The module holds the resolved directory in a module variable so `rotateInstalledLogIfNeeded` no longer calls `getRuntimePaths().logsDirPath` (`logger.ts:275-285`).
 
 - [ ] **Step 1: Update tests.** Rename the expected files in `tests/utils/logger.test.ts` (`bot-2026-04-11.log` and the sources pattern names near lines 182-299) to the `opencode-telegram-bot-` prefix, and set `LOG_LOCATION=app` in those tests so `tempHome/logs` stays the directory under test. Add: initialization with `LOG_LOCATION=default` writes under the resolved canonical directory (inject through `OPENCODE_TELEGRAM_SERVICE_LOGS_DIR` with `OPENCODE_TELEGRAM_SERVICE_CHILD=1` to avoid touching the real home); the new file is `0o600` and its directory `0o700` (skip on `win32`); an unwritable directory (a regular file occupying the path) produces exactly one stderr warning and `logger.info` still works.
 - [ ] **Step 2: Run** `npx vitest run tests/utils/logger.test.ts`. Expected: FAIL.
@@ -140,7 +140,7 @@ Resolution order: (1) when `OPENCODE_TELEGRAM_SERVICE_CHILD=1` and `OPENCODE_TEL
 **Files:** Modify `src/runtime/service/manager.ts`, `src/runtime/service/env.ts`; Modify `tests/runtime/service/manager.test.ts`.
 
 **Interfaces:**
-- Consumes: `resolveLogsDirPath` (Task 4); `buildServiceLogFileName`, `SERVICE_LOG_FILE_PATTERN`, `ensureLogsDir`, `secureLogFile`, `pruneLogFiles` (Task 3).
+- Consumes: `resolveLogsDirPath`, `resolveLogRetention` (Task 4); `buildServiceLogFileName`, `SERVICE_LOG_FILE_PATTERN`, `ensureLogsDir`, `secureLogFile`, `pruneLogFiles` (Task 3).
 - Produces: `buildServiceChildEnv(baseEnv: NodeJS.ProcessEnv, stateFilePath: string, logsDirPath: string): NodeJS.ProcessEnv` adds `OPENCODE_TELEGRAM_SERVICE_LOGS_DIR`; `startBotDaemon` returns `{ success: false, service: null, error }` when the service log cannot be opened, before spawning and without leaving a state file.
 
 - [ ] **Step 1: Update tests** (`manager.test.ts` stubs `logsDirPath` near lines 38 and 97): the service log name matches `SERVICE_LOG_FILE_PATTERN`; the child env contains the resolved directory; the file descriptor is opened with mode `0o600`; with a regular file occupying the logs directory path, `startBotDaemon` returns `success: false`, `spawn` is not called, and no `bot-service.json` exists; service logs beyond `LOG_RETENTION` are pruned while main logs are untouched; a child-side call to `resolveLogsDirPath` with the handed-down directory deleted recreates it (covered in Task 4 plus `ensureLogsDir`).
@@ -154,11 +154,11 @@ Resolution order: (1) when `OPENCODE_TELEGRAM_SERVICE_CHILD=1` and `OPENCODE_TEL
 **Files:** Modify `src/runtime/bootstrap.ts`, `.env.example`, `Dockerfile`, `src/i18n/*.ts`; Test `tests/runtime/bootstrap-wizard.test.ts`.
 
 **Interfaces:**
-- Produces: `WizardEnvValues.LOG_LOCATION?: "default" | "app"`, added to `WIZARD_ENV_KEYS` and `buildFlatEnvFileContent`'s `orderedUpdates`; new keys `runtime.wizard.ask_log_location` (`{defaultLocation}`) and `runtime.wizard.log_location_invalid`, in every locale.
+- Produces: `WizardEnvValues.LOG_LOCATION?: "default" | "app"`, added to `WIZARD_ENV_KEYS` and `buildFlatEnvFileContent`'s `orderedUpdates`; new keys `runtime.wizard.ask_log_location` (`{defaultLocation}`) and `runtime.wizard.log_location_invalid` (`{defaultLocation}`), in every locale. The wizard answer is parsed with `parseLogLocationChoice` (Task 1).
 
 - [ ] **Step 1: Write failing tests:** `buildEnvFileContent` writes `LOG_LOCATION=app` over the commented template line; an existing `LOG_LOCATION=app` is the wizard default; the prompt accepts `1`, `2`, `default`, `app`, and Enter (keeps default), and rejects anything else with `log_location_invalid`.
 - [ ] **Step 2: Run** `npx vitest run tests/runtime/bootstrap-wizard.test.ts`. Expected: FAIL.
-- [ ] **Step 3: Implement** an `askLogLocation` modeled on `askServerVersion` (`bootstrap.ts:462`); add the commented `# LOG_LOCATION=default` entry with an explanation to `.env.example` next to `LOG_RETENTION`; add `ENV LOG_LOCATION=app` to the runtime stage of the `Dockerfile` (a real environment variable beats `.env`, and the data volume can shadow an image-baked `.env`); add i18n keys to every locale.
+- [ ] **Step 3: Implement** an `askLogLocation` modeled on `askServerVersion` (`bootstrap.ts:462`); add the commented `# LOG_LOCATION=default` entry with an explanation to `.env.example` next to `LOG_RETENTION`; add `ENV LOG_LOCATION=app` to the runtime stage of the `Dockerfile` and `LOG_LOCATION=app` to the `environment` list of `docker-compose.yml` (Compose `env_file` values override the image ENV; a real environment variable beats `.env`, and the data volume can shadow an image-baked `.env`); add i18n keys to every locale.
 - [ ] **Step 4: Run** `npx vitest run tests/runtime tests/i18n`. Expected: PASS.
 - [ ] **Step 5: Commit** `feat(logs): config wizard and Docker support for LOG_LOCATION`.
 
