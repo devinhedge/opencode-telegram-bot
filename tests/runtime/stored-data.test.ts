@@ -38,9 +38,45 @@ const INDIRECT_CALL_SITES: Record<string, string[]> = {
 const NON_STORED_ACCOUNT_CONSTANTS = new Set(["PROBE_ACCOUNT"]);
 
 const CALL_PATTERN = /\b(?:set|get|delete|remove)Secret\(/g;
-const LITERAL_PATTERN = /^\s*(["'`])((?:\\.|(?!\1)[^\\])*)\1/;
+const LITERAL_PATTERN = /^(["'`])((?:\\.|(?!\1)[^\\])*)\1$/;
+// Covers constants whose name contains "account" (any case) and whose initializer is a plain
+// string literal. Constants built from templates or expressions are not matched here; their
+// values reach the store only through a non-literal call, which the indirect call site record
+// pins per file.
 const ACCOUNT_CONSTANT_PATTERN =
-  /\b(?:export\s+)?const\s+(\w*ACCOUNT\w*)\s*(?::[^=]+)?=\s*(["'`])((?:\\.|(?!\2)[^\\])*)\2/g;
+  /\b(?:export\s+)?const\s+(\w*account\w*)\s*(?::[^=]+)?=\s*(["'`])((?:\\.|(?!\2)[^\\])*)\2/gi;
+
+/**
+ * Returns the trimmed text of the first call argument, given the source right after the opening
+ * parenthesis: reads up to the top-level comma or the closing parenthesis of the call, balancing
+ * (), [] and {} and skipping string literals.
+ */
+function readFirstArgument(rest: string): string {
+  let depth = 0;
+  let quote: string | null = null;
+  for (let index = 0; index < rest.length; index += 1) {
+    const char = rest.charAt(index);
+    if (quote !== null) {
+      if (char === "\\") {
+        index += 1;
+      } else if (char === quote) {
+        quote = null;
+      }
+    } else if (char === '"' || char === "'" || char === "`") {
+      quote = char;
+    } else if (char === "(" || char === "[" || char === "{") {
+      depth += 1;
+    } else if (char === ")" || char === "]" || char === "}") {
+      if (depth === 0) {
+        return rest.slice(0, index).trim();
+      }
+      depth -= 1;
+    } else if (char === "," && depth === 0) {
+      return rest.slice(0, index).trim();
+    }
+  }
+  return rest.trim();
+}
 
 async function listTsFiles(dir: string): Promise<string[]> {
   const entries = await fs.readdir(dir, { withFileTypes: true });
@@ -92,14 +128,13 @@ async function scanSource(): Promise<SourceScan> {
       if (/^\s*\w+\s*:/.test(rest)) {
         continue;
       }
-      const literal = LITERAL_PATTERN.exec(rest);
-      const quote = literal?.[1];
-      const text = literal?.[2] ?? "";
-      const interpolated = quote === "`" && text.includes("${");
+      const argument = readFirstArgument(rest);
+      const literal = LITERAL_PATTERN.exec(argument);
+      const interpolated = literal?.[1] === "`" && (literal[2] ?? "").includes("${");
       calls.push({
         file: relative,
-        literal: literal !== null && !interpolated ? text : null,
-        argument: (rest.split(/[,)]/)[0] ?? "").trim(),
+        literal: literal !== null && !interpolated ? (literal[2] ?? "") : null,
+        argument,
       });
     }
     for (const match of content.matchAll(ACCOUNT_CONSTANT_PATTERN)) {
@@ -237,6 +272,29 @@ describe("runtime/stored-data listAppHomeTargets", () => {
     await fs.symlink(path.join(appHome, "nowhere"), path.join(appHome, "logs"));
 
     expect(await listAppHomeTargets(appHome)).toEqual([]);
+  });
+});
+
+describe("keychain account guard helpers", () => {
+  it.each([
+    ["account, value);", "account"],
+    ["map.get(key), value);", "map.get(key)"],
+    ["fn(a, b)", "fn(a, b)"],
+    ["cond ? list[0] : { a: 1, b: 2 }.a, v)", "cond ? list[0] : { a: 1, b: 2 }.a"],
+    ['"a,)b", v)', '"a,)b"'],
+    ["`x${fn(1, 2)}`)", "`x${fn(1, 2)}`"],
+  ])("reads the first argument of %s whole", (rest, expected) => {
+    expect(readFirstArgument(rest)).toBe(expected);
+  });
+
+  it("matches account constants by name in any case", () => {
+    const names = [
+      ..."const secretAccount = 'x'; export const OTHER_ACCOUNT = `y`;".matchAll(
+        ACCOUNT_CONSTANT_PATTERN,
+      ),
+    ].map((match) => match[1]);
+
+    expect(names).toEqual(["secretAccount", "OTHER_ACCOUNT"]);
   });
 });
 
