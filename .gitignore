@@ -8,6 +8,10 @@ yarn-error.log*
 
 # Environment
 .env
+# Leftover temp files of an interrupted atomic write (may hold plaintext secrets)
+.env.*.tmp
+secrets.enc.*.tmp
+bot-service.json.*.tmp
 
 # OS
 .DS_Store

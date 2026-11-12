@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
-import { chmod, mkdtemp, readdir, rm, stat } from "node:fs/promises";
+import { chmod, lstat, mkdir, mkdtemp, readdir, rm, stat, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { EncryptedFileSecretStore } from "../../src/secrets/encrypted-file-secret-store.js";
@@ -122,6 +122,45 @@ describe("EncryptedFileSecretStore file mode", () => {
       expect((await stat(filePath)).mode & 0o777).toBe(0o600);
     }
   });
+
+  it.skipIf(process.platform === "win32")(
+    "updates the target of a symlinked secrets.enc, keeping the link",
+    async () => {
+      const targetPath = join(dir, "real", "target.enc");
+      const linkPath = join(dir, "secrets.enc");
+      await mkdir(join(dir, "real"));
+      const first = new EncryptedFileSecretStore(targetPath);
+      await first.unlock("pw");
+      await first.setSecret("acct", "one");
+      await chmod(targetPath, 0o644);
+      await symlink(targetPath, linkPath);
+
+      const second = new EncryptedFileSecretStore(linkPath);
+      await second.unlock("pw");
+      await second.setSecret("acct", "two");
+
+      expect((await lstat(linkPath)).isSymbolicLink()).toBe(true);
+      expect((await stat(targetPath)).mode & 0o777).toBe(0o600);
+      const third = new EncryptedFileSecretStore(targetPath);
+      await third.unlock("pw");
+      expect(await third.getSecret("acct")).toBe("two");
+    },
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "tightens a wider secrets.enc to 0600 on unlock",
+    async () => {
+      const filePath = join(dir, "secrets.enc");
+      const first = new EncryptedFileSecretStore(filePath);
+      await first.unlock("pw");
+      await first.setSecret("acct", "one");
+      await chmod(filePath, 0o644);
+
+      await new EncryptedFileSecretStore(filePath).unlock("pw");
+
+      expect((await stat(filePath)).mode & 0o777).toBe(0o600);
+    },
+  );
 
   it.skipIf(process.platform === "win32")(
     "tightens an existing wider secrets.enc to 0600 and keeps its content valid",

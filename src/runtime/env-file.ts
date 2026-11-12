@@ -50,17 +50,44 @@ async function readExistingMode(filePath: string): Promise<number | undefined> {
   }
 }
 
-// Follows a symlink so the target is updated and the link is kept; a missing path is used as is.
-async function resolveRealPath(filePath: string): Promise<string> {
-  try {
-    return await fs.realpath(filePath);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      return filePath;
+const MAX_LINK_DEPTH = 40;
+
+/**
+ * Returns the path a write must go to so a symlink is kept and its target is updated: the real
+ * path of an existing file, the final target of a dangling link (a chain of links is followed,
+ * relative targets resolve against the link's directory), or the path itself when nothing is
+ * there. Other errors, such as a link loop, propagate.
+ */
+export async function resolveSymlinkTarget(filePath: string): Promise<string> {
+  let current = filePath;
+
+  for (let depth = 0; depth < MAX_LINK_DEPTH; depth += 1) {
+    try {
+      return await fs.realpath(current);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+        throw error;
+      }
     }
 
-    throw error;
+    let stats;
+    try {
+      stats = await fs.lstat(current);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        return current;
+      }
+      throw error;
+    }
+
+    if (!stats.isSymbolicLink()) {
+      return current;
+    }
+
+    current = path.resolve(path.dirname(current), await fs.readlink(current));
   }
+
+  throw new Error(`Too many levels of symbolic links: ${filePath}`);
 }
 
 async function restoreMode(filePath: string, mode: number | undefined): Promise<void> {
@@ -75,7 +102,7 @@ async function restoreMode(filePath: string, mode: number | undefined): Promise<
  * is followed: the target is replaced and the link stays.
  */
 export async function replaceEnvFile(filePath: string, content: string): Promise<void> {
-  const targetPath = await resolveRealPath(filePath);
+  const targetPath = await resolveSymlinkTarget(filePath);
   const previousMode = await readExistingMode(targetPath);
   if (previousMode !== undefined && (previousMode & 0o200) === 0) {
     // Renaming over a read-only file fails on Windows, so open it for the update first.
@@ -96,8 +123,8 @@ export async function replaceEnvFile(filePath: string, content: string): Promise
 }
 
 /**
- * Sets `key=value` in the .env file. The first active assignment of the key is replaced in place,
- * later duplicate active assignments are dropped, and the key is appended when absent. Every
+ * Sets `key=value` in the .env file. The first active assignment of the key is replaced in place
+ * (its indentation and `export` prefix are kept), later duplicate active assignments are dropped, and the key is appended when absent. Every
  * other line and the line-ending style are kept. The file is not touched when the result equals
  * its content. Creates the file (0600) when missing; the mode of an existing file is preserved,
  * including a read-only one.
@@ -123,7 +150,10 @@ export async function persistEnvValue(
       if (!isActiveAssignmentOf(line, key)) {
         nextLines.push(line);
       } else if (!replaced) {
-        nextLines.push(assignment);
+        // Keep the indentation and the export prefix, so a shell sourcing the file still
+        // exports the key.
+        const prefix = line.match(/^\s*(?:export\s+)?/)?.[0] ?? "";
+        nextLines.push(`${prefix}${assignment}`);
         replaced = true;
       }
     }

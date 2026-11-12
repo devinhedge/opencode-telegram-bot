@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   persistEnvValue,
   replaceEnvFile,
+  resolveSymlinkTarget,
   writeFileAtomically,
 } from "../../src/runtime/env-file.js";
 import { simulateWindowsReadOnlyRenameFailure } from "../helpers/windows-rename-guard.js";
@@ -80,7 +81,17 @@ describe("runtime/env-file", () => {
 
     await persistEnvValue(envFilePath, "LOG_LOCATION", "app");
 
-    expect(await fs.readFile(envFilePath, "utf-8")).toBe("LOG_LOCATION=app\nA=1\n");
+    expect(await fs.readFile(envFilePath, "utf-8")).toBe("export LOG_LOCATION=app\nA=1\n");
+  });
+
+  it("keeps the indentation of the replaced assignment", async () => {
+    await fs.mkdir(path.dirname(envFilePath), { recursive: true });
+    await fs.writeFile(envFilePath, "  export LOG_LOCATION=bad\n\tB=2\n", "utf-8");
+
+    await persistEnvValue(envFilePath, "LOG_LOCATION", "app");
+    await persistEnvValue(envFilePath, "B", "3");
+
+    expect(await fs.readFile(envFilePath, "utf-8")).toBe("  export LOG_LOCATION=app\n\tB=3\n");
   });
 
   it("performs no write when the value is unchanged", async () => {
@@ -353,8 +364,38 @@ describe("runtime/env-file replaceEnvFile", () => {
     await replaceEnvFile(envFilePath, "A=1\n");
 
     expect(await fs.readFile(envFilePath, "utf-8")).toBe("A=1\n");
+    expect((await fs.stat(envFilePath)).mode & 0o200).toBe(0);
     expect(await tempSiblings()).toEqual([]);
   });
+
+  it.skipIf(process.platform === "win32")(
+    "creates the target of a dangling symlink and keeps the link",
+    async () => {
+      const targetPath = path.join(tempDir, "real", "target.env");
+      await fs.mkdir(path.dirname(targetPath));
+      await fs.symlink(targetPath, envFilePath);
+
+      await replaceEnvFile(envFilePath, "A=1\n");
+
+      expect((await fs.lstat(envFilePath)).isSymbolicLink()).toBe(true);
+      expect(await fs.readFile(targetPath, "utf-8")).toBe("A=1\n");
+      expect(await modeOf(targetPath)).toBe(0o600);
+    },
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "follows a relative chain of links ending in a missing target",
+    async () => {
+      await fs.mkdir(path.join(tempDir, "sub"));
+      await fs.symlink("sub/second", envFilePath);
+      await fs.symlink("final.env", path.join(tempDir, "sub", "second"));
+
+      await replaceEnvFile(envFilePath, "A=1\n");
+
+      expect((await fs.lstat(envFilePath)).isSymbolicLink()).toBe(true);
+      expect(await fs.readFile(path.join(tempDir, "sub", "final.env"), "utf-8")).toBe("A=1\n");
+    },
+  );
 
   it.skipIf(process.platform === "win32")(
     "updates the target of a symlinked file in place and keeps the link and the target mode",
@@ -438,4 +479,54 @@ describe("runtime/env-file replaceEnvFile", () => {
       await expect(replaceEnvFile(envFilePath, "A=1\n")).rejects.toThrow("rename failed");
     },
   );
+});
+
+describe("runtime/env-file resolveSymlinkTarget", () => {
+  let tempDir: string;
+
+  beforeEach(async () => {
+    tempDir = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), "env-file-resolve-")));
+  });
+
+  afterEach(async () => {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  });
+
+  it("returns a missing path unchanged", async () => {
+    const missing = path.join(tempDir, "missing");
+
+    expect(await resolveSymlinkTarget(missing)).toBe(missing);
+  });
+
+  it("returns an existing regular file", async () => {
+    const file = path.join(tempDir, "file");
+    await fs.writeFile(file, "x", "utf-8");
+
+    expect(await resolveSymlinkTarget(file)).toBe(file);
+  });
+
+  it.skipIf(process.platform === "win32")("resolves a link to an existing file", async () => {
+    const file = path.join(tempDir, "file");
+    const link = path.join(tempDir, "link");
+    await fs.writeFile(file, "x", "utf-8");
+    await fs.symlink(file, link);
+
+    expect(await resolveSymlinkTarget(link)).toBe(file);
+  });
+
+  it.skipIf(process.platform === "win32")("resolves a dangling link to its target", async () => {
+    const link = path.join(tempDir, "link");
+    await fs.symlink("gone", link);
+
+    expect(await resolveSymlinkTarget(link)).toBe(path.join(tempDir, "gone"));
+  });
+
+  it.skipIf(process.platform === "win32")("rejects a link loop", async () => {
+    const first = path.join(tempDir, "first");
+    const second = path.join(tempDir, "second");
+    await fs.symlink(second, first);
+    await fs.symlink(first, second);
+
+    await expect(resolveSymlinkTarget(first)).rejects.toThrow();
+  });
 });
