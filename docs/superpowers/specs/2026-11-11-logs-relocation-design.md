@@ -1,16 +1,16 @@
 ---
 title: Logs Relocation Design
-status: draft
-version: 0.2.1
+status: approved
+version: 0.3.0
 last_updated: 2026-11-11
 review_date: 2027-05-11
-branch: not yet created
+branch: feat/logs-relocation
 blocks: uninstaller feature (docs/superpowers/specs/2026-11-11-uninstaller-design.md)
 ---
 
-# Logs Relocation Design (DRAFT)
+# Logs Relocation Design
 
-Status: draft. Records decisions made with the owner. Not approved for planning.
+Status: approved. Records decisions made with the owner.
 
 ## Intent
 
@@ -53,7 +53,7 @@ Logs are written to the canonical per-user log directory of each operating syste
 2. The `.env` variable `LOG_LOCATION` takes the values `default` and `app`.
    - `default` is the canonical OS location and is used when the variable is unset.
    - `app` is `<appHome>/logs`.
-3. The `opencode-telegram config` wizard offers `LOG_LOCATION`, and the Docker image sets it to `app` through an inserted `.env`.
+3. The `opencode-telegram config` wizard offers `LOG_LOCATION`, and the Docker image sets it to `app` with `ENV LOG_LOCATION=app` in the Dockerfile and `LOG_LOCATION=app` in the Compose `environment` lists (see the agent call pending owner confirmation below).
 4. `OPENCODE_TELEGRAM_HOME` alone does not move logs; only `LOG_LOCATION=app` does.
 5. The daemon output log moves into the log directory and falls under `LOG_RETENTION`.
 6. Log file names are renamed to identify the application:
@@ -64,7 +64,7 @@ Logs are written to the canonical per-user log directory of each operating syste
 9. On Unix the log directory is mode 0700 and log files are mode 0600.
 10. Per-user directories are used because the daemon runs as the invoking user, not as an OS service.
 11. `LOG_RETENTION` counts main log files and service log files separately, so each type keeps up to the configured number.
-12. On Windows the logger relies on the default ACLs of `%LOCALAPPDATA%` and applies no extra permission handling.
+12. On Windows the logger relies on the default ACLs inherited from the parent directory (`%LOCALAPPDATA%` for `default`, the app home for `app`) and applies no extra permission handling.
 13. If `LOG_LOCATION` holds a value other than `default` or `app`, the logger warns and prompts the user to choose `default` or `app`.
 14. When no TTY is available (daemon, Docker, systemd), the logger warns once to stderr and uses `default` instead of prompting.
 15. The answer to the invalid-`LOG_LOCATION` prompt is saved to `.env` through the existing config writer, so the CLI and the daemon agree. Any process with a TTY may prompt.
@@ -82,6 +82,10 @@ Logs are written to the canonical per-user log directory of each operating syste
 - Fallbacks: on Windows, an unset or empty `%LOCALAPPDATA%` falls back to `<homedir>\AppData\Local`. On Linux, a relative `$XDG_STATE_HOME` is ignored, per the XDG specification.
 - Files left in old locations under the old `bot-*` names are never pruned. This follows decision 8. With `LOG_LOCATION=app` they remain in `<appHome>/logs`.
 - Builder-found files to change are left to the builder: `config.ts`, `.env.example`, the `config` wizard prompt text and its localized strings, the Dockerfile and compose files.
+
+## Agent calls pending owner confirmation
+
+- The Docker image sets `LOG_LOCATION=app` as `ENV LOG_LOCATION=app` in the Dockerfile plus `LOG_LOCATION=app` in the `environment` list of `docker-compose.yml`, instead of an inserted `.env`. A real environment variable beats `.env` and beats Compose `env_file` values, and a data volume mounted at the app home can shadow an `.env` baked into the image. The owner has not yet answered this call.
 
 ## Open questions
 

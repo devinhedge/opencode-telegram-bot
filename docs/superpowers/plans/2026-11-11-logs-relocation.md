@@ -1,7 +1,7 @@
 ---
 title: Logs Relocation Implementation Plan
-status: draft
-version: 0.1.0
+status: approved
+version: 0.2.0
 last_updated: 2026-11-11
 review_date: 2027-05-11
 spec: docs/superpowers/specs/2026-11-11-logs-relocation-design.md
@@ -82,7 +82,7 @@ Branch: create `feat/logs-relocation` from `main` before Task 1. Commit steps ru
 
 - [ ] **Step 1: Write failing tests** using a temp directory: creates the file when missing with `LOG_LOCATION=app\n`; replaces an existing active `LOG_LOCATION=bad` line and keeps every other line; appends when the key is absent; leaves no `.tmp` sibling; on non-Windows the resulting mode is `0o600` (skip on `win32`).
 - [ ] **Step 2: Run** `npx vitest run tests/runtime/env-file.test.ts`. Expected: FAIL.
-- [ ] **Step 3: Implement** `persistEnvValue`: read (ENOENT is empty), drop active assignment lines for `key`, append `key=value`, write with `writeFileAtomically`, then call `finalizeEnvFile` from `src/secrets/file-permissions.ts`. `persistOpencodeVersion` in `config.ts` is left unchanged because importing `config.ts` runs its load-time side effects.
+- [ ] **Step 3: Implement** `persistEnvValue`: read (ENOENT is empty), drop active assignment lines for `key`, append `key=value`, write with `writeFileAtomically` (temp file created 0600). An existing file keeps its mode (a read-only file is reopened with `reopenEnvFileForEdit` from `src/secrets/file-permissions.ts` first, and the mode is restored after the write); a missing file is created 0600. It never calls `finalizeEnvFile`. `persistOpencodeVersion` in `config.ts` is left unchanged because importing `config.ts` runs its load-time side effects.
 - [ ] **Step 4: Run** `npx vitest run tests/runtime/env-file.test.ts tests/runtime/bootstrap.test.ts tests/runtime/bootstrap-wizard.test.ts`. Expected: PASS.
 - [ ] **Step 5: Commit** `refactor(runtime): extract env file writer and add persistEnvValue`.
 

@@ -338,7 +338,7 @@ The migration is idempotent and safe to re-run. After migration, your `.env` fil
 | `TTS_VOICE`                                | TTS voice name or ElevenLabs voice ID. Defaults to `alloy`, `21m00Tcm4TlvDq8ikWAM`, or `en-US-Studio-O` by provider   |    No    | provider-specific        |        |
 | `GOOGLE_APPLICATION_CREDENTIALS`           | Path to a Google Cloud service account JSON key file for `TTS_PROVIDER=google`                                        |    No    | —                        |        |
 | `LOG_LEVEL`                                | Log level (`debug`, `info`, `warn`, `error`)                                                                          |    No    | `info`                   |        |
-| `LOG_RETENTION`                            | Number of log files to keep; main log files and daemon service log files are counted separately                       |    No    | `10`                     |        |
+| `LOG_RETENTION`                            | Number of log files to keep per kind: installed-mode daily logs, sources-mode per-launch logs, and daemon service logs are each pruned separately |    No    | `10`                     |        |
 | `LOG_LOCATION`                             | Where log files are written: `default` (operating system log directory) or `app` (`<appHome>/logs`)                  |    No    | `default`                |        |
 | `BOT_HEALTH_PORT`                          | Port of the internal health endpoint (`/health`, `/health/live`, `/health/ready`) on `127.0.0.1`; `0` disables it      |    No    | off; `3100` in Docker    |        |
 | `BOT_HEALTH_PORT_AUTO`                     | Automatically scan for a free port when the configured health port is in use (`1`=on, `0`=off); scans up to 10 ports upward |    No    | `1` (enabled)            |        |
@@ -351,16 +351,16 @@ Logs are written to the per-user log directory of the operating system, in both 
 - Linux: `$XDG_STATE_HOME/opencode-telegram-bot/logs/`, defaulting to `~/.local/state/opencode-telegram-bot/logs/` (a relative `$XDG_STATE_HOME` is ignored)
 - Windows: `%LOCALAPPDATA%\opencode-telegram-bot\Logs\`, defaulting to `<home>\AppData\Local\opencode-telegram-bot\Logs\` when `%LOCALAPPDATA%` is unset or empty
 
-Set `LOG_LOCATION=app` in `.env` to write to `<appHome>/logs` instead; unset means `default`. A `LOG_LOCATION` environment variable overrides the value in `.env`, the `opencode-telegram config` wizard offers the setting, and the Docker image sets `app`. `OPENCODE_TELEGRAM_HOME` alone does not move logs. If `LOG_LOCATION` in `.env` holds another value, the bot warns and, when a terminal is available, asks for `default` or `app` and saves the answer to `.env`; without a terminal it warns once and uses `default`. An invalid `LOG_LOCATION` environment variable warns and uses `default`.
+Set `LOG_LOCATION=app` in `.env` to write to `<appHome>/logs` instead; unset means `default`. A `LOG_LOCATION` environment variable overrides the value in `.env`, the `opencode-telegram config` wizard offers the setting, and the Docker image sets `app`. `OPENCODE_TELEGRAM_HOME` alone does not move logs. If `LOG_LOCATION` in `.env` holds another value, the bot warns and, when a terminal is available, asks you to choose `1) default` or `2) app` (the words `default` and `app` are accepted too) and saves the answer to `.env`; the `opencode-telegram config` wizard asks the same question with the same answers and does not ask twice; without a terminal it warns once and uses `default`. An invalid `LOG_LOCATION` environment variable warns and uses `default`.
 
 File names:
 
 - Main logs: `opencode-telegram-bot-YYYY-MM-DD.log` (one file per day) in `installed` mode and `opencode-telegram-bot-YYYY-MM-DD_HH-MM-SS_<pid>.log` (one file per bot launch) in `sources` mode.
 - Daemon output (`opencode-telegram start --daemon`): `opencode-telegram-bot-service-YYYY-MM-DD_HH-MM-SS.log`.
 
-Old log files are removed according to `LOG_RETENTION`; main logs and service logs are counted separately, so each type keeps up to the configured number.
+Old log files are removed according to `LOG_RETENTION`, read from the environment first and then from `.env` (the bot applies it before the rest of the configuration loads). Each kind of file is pruned separately and keeps up to the configured number: installed-mode daily logs, sources-mode per-launch logs, and daemon service logs. Main logs are pruned at startup (installed mode also after each daily rotation); service logs are pruned when the daemon starts. Sources and installed runs that use the same log directory share it, and each run prunes only its own kind of file.
 
-On Unix the log directory has mode `0700` and log files have mode `0600`; on Windows the default ACLs of `%LOCALAPPDATA%` apply. If the log directory cannot be used, the bot warns on stderr, stops file logging, and keeps running. The daemon refuses to start with an error if it cannot open its service log.
+On Unix the log directory has mode `0700` and log files have mode `0600`; on Windows the log directory keeps the default ACLs inherited from its parent: `%LOCALAPPDATA%` (or `<home>\AppData\Local`) for `LOG_LOCATION=default`, and the app home under `%APPDATA%` (or `<home>\AppData\Roaming`), or `OPENCODE_TELEGRAM_HOME` when set, for `LOG_LOCATION=app`. If the log directory cannot be used, the bot warns on stderr, stops file logging, and keeps running. The daemon refuses to start with an error if it cannot open its service log.
 
 ### Runtime Settings
 

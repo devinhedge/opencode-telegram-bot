@@ -205,8 +205,8 @@ Log files:
 - `LOG_LOCATION=app` (in `.env` or the environment; the environment wins) writes to `<appHome>/logs` instead; the Docker image sets it. `OPENCODE_TELEGRAM_HOME` alone does not move logs.
 - Source mode writes one file per run named `opencode-telegram-bot-YYYY-MM-DD_HH-MM-SS_<pid>.log`; installed mode writes daily files named `opencode-telegram-bot-YYYY-MM-DD.log`; the daemon output is `opencode-telegram-bot-service-YYYY-MM-DD_HH-MM-SS.log`.
 - To find logs, search the absolute path of the directory above (or `<appHome>/logs` when `LOG_LOCATION=app`) with `pattern: "opencode-telegram-bot-*.log"`. In source mode the logs are not inside the repository, so `path: "logs"` finds nothing.
-- `<appHome>` is `OPENCODE_TELEGRAM_HOME` when set; otherwise the current working directory in source mode, and in installed mode `~/Library/Application Support/opencode-telegram-bot` (macOS), `$XDG_CONFIG_HOME` or `~/.config` plus `/opencode-telegram-bot` (Linux), `%APPDATA%\opencode-telegram-bot` (Windows).
-- Main logs and service logs are pruned separately by `LOG_RETENTION`.
+- `<appHome>` is `OPENCODE_TELEGRAM_HOME` when set; otherwise the current working directory in source mode, and in installed mode `~/Library/Application Support/opencode-telegram-bot` (macOS), `$XDG_CONFIG_HOME` or `~/.config` plus `/opencode-telegram-bot` (Linux), `%APPDATA%\opencode-telegram-bot` (Windows; `%USERPROFILE%\AppData\Roaming\opencode-telegram-bot` when `APPDATA` is unset).
+- Installed-mode daily logs, sources-mode per-launch logs, and daemon service logs are each pruned separately by `LOG_RETENTION` (environment first, then `.env`, resolved by `resolveLogRetention` in `src/runtime/log-location.ts`).
 - If the log directory cannot be used, the bot warns on stderr, stops file logging, and keeps running; the daemon refuses to start if it cannot open its service log.
 
 Levels:
