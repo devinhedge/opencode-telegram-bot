@@ -1,7 +1,7 @@
 ---
 title: Uninstaller Design
 status: draft
-version: 0.7.0
+version: 0.8.0
 last_updated: 2026-11-12
 review_date: 2027-05-12
 branch: feat/uninstaller
@@ -14,7 +14,7 @@ Status: draft. Records decisions made with the owner. Not approved for planning.
 
 ## Intent
 
-`opencode-telegram uninstall` stops the bot daemon, unlinks the global CLI, and removes all bot data so the repository can be deleted safely. Only logs remain.
+`opencode-telegram uninstall` stops the bot daemon and removes all bot data, and `make uninstall` also removes the CLI install, so the repository can be deleted safely. Only logs remain.
 
 ## Facts about the current system
 
@@ -36,7 +36,7 @@ Status: draft. Records decisions made with the owner. Not approved for planning.
 ## Goals
 
 - Stop the bot daemon.
-- Remove the global CLI install.
+- Print the command that removes the CLI install, for runs outside the Makefile.
 - Remove keychain items, `secrets.enc`, and the `keystore_password` file.
 - Remove from app home: `.env`, `.env.bak`, `settings.json` and its backups, `run/`, `local-commands/`, and interrupted-write temporary siblings.
 - Preserve logs: never remove the canonical log directory or `<appHome>/logs`.
@@ -60,10 +60,10 @@ Status: draft. Records decisions made with the owner. Not approved for planning.
 
 ## Decisions (owner)
 
-1. Scope is the detached daemon process, the npm links, app-home data, keychain secrets, and the optional systemd unit.
+1. Scope of the `uninstall` command is the detached daemon process, app-home data, keychain secrets, and the optional systemd unit. The CLI install is removed by the Makefile (decision 17).
 2. Delete keychain secrets, `.env`, `.env.bak`, `settings.json`, and `local-commands/`.
 3. Show the full removal plan and ask one y/n confirmation before deleting.
-4. Remove the actual symlinks by path using `lstat`. The links may dangle, so they are never resolved.
+4. Removing the symlinks that `npm link` leaves uses `lstat` by path and never resolves the links, because they may dangle. This is done by the Makefile's `uninstall` (decision 17), not by the `uninstall` command.
 5. `OPENCODE_TELEGRAM_HOME` override: validate it first, then confirm y/n separately before touching it.
 6. Linux systemd unit: remove it with `sudo`. The uninstaller never handles the password.
 7. All uninstaller output is localized in every supported locale.
@@ -76,6 +76,8 @@ Status: draft. Records decisions made with the owner. Not approved for planning.
 14. The uninstaller never calls Docker and never removes a Docker container or volume, on a host or anywhere else.
 15. `--yes` skips only the main confirmation (decision 3). The `OPENCODE_TELEGRAM_HOME` override removal (decision 5) still asks; with no terminal available that step is skipped with a message.
 16. A Makefile for macOS and Linux provides `install`, `config`, `start`, `stop`, `restart`, `uninstall`, and `help`. The Makefile does not cover Windows.
+17. The Makefile is a separate feature with its own spec, written after this one. `make uninstall` stops the daemon, runs `opencode-telegram uninstall` from the checkout's built `dist/cli.js` (so it works when the global install is broken), and removes the CLI install that `make install` made. This spec covers the `uninstall` command only.
+18. The `uninstall` command does not remove its own CLI install. Where the Makefile is not used (Windows), the command finishes by printing the exact `npm uninstall -g @grinev/opencode-telegram-bot` command to run.
 
 ## Agent calls (not yet confirmed by owner)
 
@@ -94,8 +96,6 @@ Status: draft. Records decisions made with the owner. Not approved for planning.
 - systemd: only the documented unit path is handled, with `systemctl stop`, `disable`, removal of the unit file, and `daemon-reload`, each through `sudo`. With no terminal or no `sudo`, the plan prints the exact commands instead of running them.
 - A symlinked `.env` or `secrets.enc`: the link is removed; a target outside the app home is left in place and reported in the summary.
 - A bot running in a terminal or under systemd has no state file. The uninstaller stops only the detached daemon and the documented unit, and does not look for other running bot processes.
-- The Makefile (decision 16) is its own feature with its own spec. `make uninstall` stops the daemon, runs `opencode-telegram uninstall` from the checkout's built `dist/cli.js` (so it works when the global install is broken), and removes the CLI install that `make install` made. This spec covers the `uninstall` command only.
-
 ## Test requirements (owner)
 
 - Unit tests.
@@ -108,5 +108,4 @@ Existing patterns: `tests/runtime/service/manager.test.ts` (mocked `spawn` and `
 
 ## Open questions
 
-- How a global npm install is removed: decision 4 covers the symlinks `npm link` leaves, but the documented install (`npm install -g`) is a real package directory with launchers, and Windows launchers are not symlinks.
 - How the opt-in OpenCode server stop (decision 8) is triggered and targeted: the bot keeps no record of the server it starts, so finding it means a port lookup that can reach a server the user started.
