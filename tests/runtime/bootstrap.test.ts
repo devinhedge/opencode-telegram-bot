@@ -280,13 +280,13 @@ describe("runtime/bootstrap", () => {
   });
 
   it("documents LOG_LOCATION as a commented entry in .env.example", () => {
-    expect(ENV_EXAMPLE_CONTENT).toMatch(/^# LOG_LOCATION=default$/m);
+    expect(ENV_EXAMPLE_CONTENT).toMatch(/^# LOG_LOCATION=default\r?$/m);
   });
 
   it("sets LOG_LOCATION=app in the Docker image", () => {
     const dockerfile = fs.readFileSync(path.resolve(process.cwd(), "Dockerfile"), "utf-8");
 
-    expect(dockerfile).toMatch(/^ENV LOG_LOCATION=app$/m);
+    expect(dockerfile).toMatch(/^ENV LOG_LOCATION=app\r?$/m);
   });
 });
 

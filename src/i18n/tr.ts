@@ -518,8 +518,7 @@ export const tr: I18nDictionary = {
   "runtime.wizard.server_version_invalid": "Enter 1 or 2, or press Enter for default.\n",
   "runtime.wizard.ask_log_location":
     "Günlüklerin nereye yazılacağını seçin:\n1) default: işletim sisteminin günlük dizini\n2) app: uygulama ana dizinindeki logs klasörü\n{defaultLocation} için Enter'a basın\n> ",
-  "runtime.wizard.log_location_invalid":
-    "1 veya 2 girin ya da varsayılan için Enter'a basın.\n",
+  "runtime.wizard.log_location_invalid": "1 veya 2 girin ya da varsayılan için Enter'a basın.\n",
   "runtime.wizard.ask_server_password_required":
     "Enter OpenCode V2 server password (required).\nShow it with: opencode service get password\n> ",
   "runtime.wizard.server_password_required":

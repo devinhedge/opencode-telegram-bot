@@ -275,9 +275,8 @@ describe("runtime/bootstrap wizard LOG_LOCATION question", () => {
     const { envContent, prompts } = await runWizard([""], "LOG_LOCATION=app\n");
 
     expect(envContent).toMatch(/^LOG_LOCATION=app$/m);
-    const logPrompt = prompts.find((prompt) => prompt.includes("1)") && prompt.includes("2)"));
-    expect(logPrompt).toBeDefined();
-    expect(logPrompt).toContain("Enter for app");
+    const { t } = await import("../../src/i18n/index.js");
+    expect(prompts).toContain(t("runtime.wizard.ask_log_location", { defaultLocation: "app" }));
   });
 
   it("falls back to default when the saved LOG_LOCATION is invalid", async () => {
@@ -285,8 +284,8 @@ describe("runtime/bootstrap wizard LOG_LOCATION question", () => {
 
     expect(envContent).toMatch(/^LOG_LOCATION=default$/m);
     expect(envContent).not.toContain("bogus");
-    const logPrompt = prompts.find((prompt) => prompt.includes("1)") && prompt.includes("2)"));
-    expect(logPrompt).toContain("Enter for default");
+    const { t } = await import("../../src/i18n/index.js");
+    expect(prompts).toContain(t("runtime.wizard.ask_log_location", { defaultLocation: "default" }));
   });
 
   it("rejects invalid answers with the invalid message, then accepts a valid one", async () => {
