@@ -1,7 +1,7 @@
 ---
 title: Uninstaller Design
 status: draft
-version: 0.10.0
+version: 0.11.0
 last_updated: 2026-11-12
 review_date: 2027-05-12
 branch: feat/uninstaller
@@ -79,6 +79,7 @@ Status: draft. Records decisions made with the owner. Not approved for planning.
 17. The Makefile is a separate feature with its own spec, written after this one. `make uninstall` stops the daemon, runs `opencode-telegram uninstall` from the checkout's built `dist/cli.js` (so it works when the global install is broken), and removes the CLI install that `make install` made. This spec covers the `uninstall` command only.
 18. The `uninstall` command does not remove its own CLI install. Where the Makefile is not used (Windows), the command finishes by printing the exact `npm uninstall -g @grinev/opencode-telegram-bot` command to run.
 19. Stopping the OpenCode server (decision 8) is opt-in through `--stop-opencode`. The command shows the PID and command line found on the configured port and asks y/n separately; `--yes` does not skip that question, and with no terminal available the step is skipped with a message.
+20. No `sudo` is required up front. The Makefile and the `uninstall` command run as the invoking user, refuse to run as root (except `make help`), and use `sudo` only for the steps that need it, which are the systemd unit steps.
 
 ## Agent calls (confirmed by owner)
 
@@ -93,11 +94,11 @@ Status: draft. Records decisions made with the owner. Not approved for planning.
 - App homes: uninstall cleans the installed app home (the OS default location) and, when it is set, the `OPENCODE_TELEGRAM_HOME` override (decisions 5 and 15). It does not clean a source checkout's own files (the current directory a source run uses as its app home), because the user deletes the checkout.
 - Keychain items, `secrets.enc`, and `keystore_password` are removed whatever happens to the override step, because the keychain belongs to the OS user and not to an app home.
 - A symlinked `.env` or `secrets.enc`: the link is removed; a target outside the app home is left in place and reported in the summary.
+- Sudo handling (decision 20): the systemd steps run `sudo systemctl ...` with inherited stdio so sudo prompts on the terminal itself. The owner asked for the password to be passed as a string to the command; this design avoids that because a command-line string is visible in process listings. Running as root is refused because under `sudo` the home directory, the keychain, and the npm prefix can resolve to root's instead of the user's.
+- systemd: only the documented unit path is handled, with `systemctl stop`, `disable`, removal of the unit file, and `daemon-reload`, each through `sudo`. With no terminal or no `sudo`, the plan prints the exact commands instead of running them.
 
 ## Agent calls (not yet confirmed by owner)
 
-- Sudo handling: run `sudo systemctl ...` with inherited stdio so sudo prompts on the TTY itself. The owner asked for the password to be passed as a string to the command; this design avoids that because a command-line string is visible in process listings. The `uninstall` command runs as the invoking user and elevates only for the systemd steps; it refuses to run as root, because under `sudo` the home directory, the keychain, and the npm prefix can resolve to root's instead of the user's.
-- systemd: only the documented unit path is handled, with `systemctl stop`, `disable`, removal of the unit file, and `daemon-reload`, each through `sudo`. With no terminal or no `sudo`, the plan prints the exact commands instead of running them.
 - `OPENCODE_TELEGRAM_HOME` validation: the path is a directory, is absolute after resolution, is not a filesystem root or the user's home directory, and contains a bot file (`.env`, `settings.json`, or `run/bot-service.json`). A path that does not exist is skipped with a message and is never created. A skipped or failed override step does not stop the other steps, and the final summary lists what was left.
 - Other running bots: a bot started in a terminal (`opencode-telegram start`, `npm start`) has no state file, and the uninstaller does not look for it. A bot run by systemd is stopped through the documented unit. The plan reminds the user to stop any bot running in a terminal first.
 
@@ -113,4 +114,4 @@ Existing patterns: `tests/runtime/service/manager.test.ts` (mocked `spawn` and `
 
 ## Open questions
 
-- Whether the Makefile and the `uninstall` command run as the invoking user and elevate only for the systemd steps, or run entirely under `sudo`.
+None.
