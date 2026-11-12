@@ -128,12 +128,29 @@ describe("runtime/uninstall/remove-path", () => {
       const realRm = fs.rm.bind(fs);
       const rmSpy = vi.spyOn(fs, "rm").mockRejectedValueOnce(errnoError("EPERM"));
       rmSpy.mockImplementation(realRm);
+      const chmodSpy = vi.spyOn(fs, "chmod");
 
       const result = await removePath(file);
 
       expect(result.status).toBe("removed");
       expect(rmSpy).toHaveBeenCalledTimes(2);
+      expect(chmodSpy).toHaveBeenCalledTimes(1);
+      expect(chmodSpy).toHaveBeenCalledWith(file, 0o600);
       expect(await exists(file)).toBe(false);
+    });
+
+    it("makes a directory owner-writable with 0700 before the retry", async () => {
+      const dir = path.join(appHome, "run");
+      await fs.mkdir(dir);
+      const realRm = fs.rm.bind(fs);
+      const rmSpy = vi.spyOn(fs, "rm").mockRejectedValueOnce(errnoError("EPERM"));
+      rmSpy.mockImplementation(realRm);
+      const chmodSpy = vi.spyOn(fs, "chmod");
+
+      const result = await removePath(dir);
+
+      expect(result.status).toBe("removed");
+      expect(chmodSpy).toHaveBeenCalledWith(dir, 0o700);
     });
 
     it("retries once on EACCES as well", async () => {
@@ -142,12 +159,51 @@ describe("runtime/uninstall/remove-path", () => {
       const realRm = fs.rm.bind(fs);
       const rmSpy = vi.spyOn(fs, "rm").mockRejectedValueOnce(errnoError("EACCES"));
       rmSpy.mockImplementation(realRm);
+      const chmodSpy = vi.spyOn(fs, "chmod");
 
       const result = await removePath(file);
 
       expect(result.status).toBe("removed");
       expect(rmSpy).toHaveBeenCalledTimes(2);
+      expect(chmodSpy).toHaveBeenCalledTimes(1);
     });
+
+    // A real unlink of a symlink does not hit EPERM on a writable directory, so the failure is
+    // simulated: a symlink must neither be chmodded (chmod follows links) nor retried.
+    it.skipIf(isWindows)("neither chmods nor retries a symlink that hits EPERM", async () => {
+      const targetFile = path.join(outside, "real.env");
+      await fs.writeFile(targetFile, "x", { mode: 0o600 });
+      const link = path.join(appHome, ".env");
+      await fs.symlink(targetFile, link);
+      const rmSpy = vi.spyOn(fs, "rm").mockRejectedValue(errnoError("EPERM"));
+      const chmodSpy = vi.spyOn(fs, "chmod");
+
+      const result = await removePath(link);
+
+      expect(result.status).toBe("failed");
+      expect(result.error).toContain("EPERM");
+      expect(rmSpy).toHaveBeenCalledTimes(1);
+      expect(chmodSpy).not.toHaveBeenCalled();
+      expect((await fs.stat(targetFile)).mode & 0o777).toBe(0o600);
+    });
+
+    it.skipIf(isWindows)(
+      "rejects a target with a trailing separator without touching it",
+      async () => {
+        const targetDir = path.join(outside, "dir");
+        await fs.mkdir(targetDir);
+        await fs.writeFile(path.join(targetDir, "keep.txt"), "keep");
+        const link = path.join(appHome, "run");
+        await fs.symlink(targetDir, link);
+
+        const result = await removePath(`${link}${path.sep}`);
+
+        expect(result.status).toBe("failed");
+        expect(result.error).toBeTruthy();
+        expect(await exists(link)).toBe(true);
+        expect(await fs.readFile(path.join(targetDir, "keep.txt"), "utf-8")).toBe("keep");
+      },
+    );
 
     it("reports a persistent failure with the error text and does not throw", async () => {
       const file = path.join(appHome, ".env");
@@ -253,6 +309,99 @@ describe("runtime/uninstall/remove-path", () => {
       expect(first.results.length).toBeGreaterThan(0);
       expect(second.results).toEqual([]);
       expect(second.homeRemoved).toBe(first.homeRemoved);
+    });
+
+    it("reports a homeError when rmdir of the empty home fails", async () => {
+      vi.spyOn(fs, "rmdir").mockRejectedValue(errnoError("EACCES"));
+
+      const { homeRemoved, homeError } = await removeAppHomeData(appHome);
+
+      expect(homeRemoved).toBe(false);
+      expect(homeError).toContain("EACCES");
+    });
+
+    it("treats ENOTEMPTY from rmdir as not empty, without a homeError", async () => {
+      vi.spyOn(fs, "rmdir").mockRejectedValue(errnoError("ENOTEMPTY"));
+
+      const { homeRemoved, homeError } = await removeAppHomeData(appHome);
+
+      expect(homeRemoved).toBe(false);
+      expect(homeError).toBeUndefined();
+    });
+
+    it("never throws when the targets cannot be listed", async () => {
+      vi.spyOn(fs, "readdir").mockRejectedValue(errnoError("EACCES"));
+
+      const result = await removeAppHomeData(appHome);
+
+      expect(result.results).toEqual([]);
+      expect(result.homeRemoved).toBe(false);
+      expect(result.homeError).toContain("EACCES");
+    });
+
+    it.skipIf(isWindows)("leaves a symlinked logs entry untouched and keeps the home", async () => {
+      const outsideLogs = path.join(outside, "logs");
+      await fs.mkdir(outsideLogs);
+      await fs.writeFile(path.join(outsideLogs, "a.log"), "log");
+      await fs.symlink(outsideLogs, path.join(appHome, "logs"));
+
+      const { results, homeRemoved } = await removeAppHomeData(appHome);
+
+      expect(results).toEqual([]);
+      expect(homeRemoved).toBe(false);
+      expect((await fs.lstat(path.join(appHome, "logs"))).isSymbolicLink()).toBe(true);
+      expect(await fs.readFile(path.join(outsideLogs, "a.log"), "utf-8")).toBe("log");
+    });
+
+    it.skipIf(isWindows)(
+      "unlinks a symlinked temp sibling and keeps its outside target",
+      async () => {
+        const tmp = ".env.123.0b8c4b3e-1d5e-4c46-9a53-5b1d0d0d9f11.tmp";
+        const targetFile = path.join(outside, "victim.txt");
+        await fs.writeFile(targetFile, "keep");
+        await fs.symlink(targetFile, path.join(appHome, tmp));
+
+        const { results, homeRemoved } = await removeAppHomeData(appHome);
+
+        expect(results).toHaveLength(1);
+        expect(results[0]?.status).toBe("removed");
+        expect(await fs.readFile(targetFile, "utf-8")).toBe("keep");
+        expect(homeRemoved).toBe(true);
+      },
+    );
+
+    it.skipIf(isWindows)("unlinks symlinked run and local-commands directories only", async () => {
+      for (const name of ["run", "local-commands"]) {
+        const outsideDir = path.join(outside, name);
+        await fs.mkdir(outsideDir);
+        await fs.writeFile(path.join(outsideDir, "keep.txt"), "keep");
+        await fs.symlink(outsideDir, path.join(appHome, name));
+      }
+
+      const { results, homeRemoved } = await removeAppHomeData(appHome);
+
+      expect(results.map((r) => r.status)).toEqual(["removed", "removed"]);
+      expect(homeRemoved).toBe(true);
+      for (const name of ["run", "local-commands"]) {
+        expect(await fs.readFile(path.join(outside, name, "keep.txt"), "utf-8")).toBe("keep");
+      }
+    });
+
+    it.skipIf(isWindows)("unlinks a symlink loop and reports no linkTarget", async () => {
+      const a = path.join(appHome, ".env");
+      const b = path.join(appHome, "settings.json");
+      await fs.symlink(b, a);
+      await fs.symlink(a, b);
+
+      // The first removal sees the intact loop; the second link then dangles, which is reported.
+      const first = await removePath(a);
+      const { results, homeRemoved } = await removeAppHomeData(appHome);
+
+      expect(first.status).toBe("removed");
+      expect(first.linkTarget).toBeUndefined();
+      expect(await exists(a)).toBe(false);
+      expect(results.map((r) => r.status)).toEqual(["removed"]);
+      expect(homeRemoved).toBe(true);
     });
 
     it("reports homeRemoved false for a missing home", async () => {
