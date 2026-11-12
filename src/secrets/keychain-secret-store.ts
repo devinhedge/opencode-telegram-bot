@@ -35,4 +35,17 @@ export class KeychainSecretStore implements SecretStore {
       // No-op if absent or unavailable.
     }
   }
+
+  /**
+   * Deletes the credential and reports the outcome. The library resolves `true` when it deleted
+   * a credential, `false` when none existed, and rejects when the store could not be changed.
+   */
+  async removeSecret(account: string): Promise<"removed" | "absent" | "failed"> {
+    try {
+      const entry = new AsyncEntry(KEYCHAIN_SERVICE_NAME, account);
+      return (await entry.deletePassword()) ? "removed" : "absent";
+    } catch {
+      return "failed";
+    }
+  }
 }

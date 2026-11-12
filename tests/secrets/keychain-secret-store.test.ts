@@ -60,6 +60,25 @@ describe("KeychainSecretStore", () => {
     await expect(store.deleteSecret("acct")).resolves.toBeUndefined();
   });
 
+  it("removeSecret returns removed when the credential was deleted", async () => {
+    mockDeletePassword.mockResolvedValue(true);
+    const store = new KeychainSecretStore();
+    expect(await store.removeSecret("acct")).toBe("removed");
+    expect(mockDeletePassword).toHaveBeenCalledTimes(1);
+  });
+
+  it("removeSecret returns absent when the library reports no credential", async () => {
+    mockDeletePassword.mockResolvedValue(false);
+    const store = new KeychainSecretStore();
+    expect(await store.removeSecret("acct")).toBe("absent");
+  });
+
+  it("removeSecret returns failed when deletion rejects", async () => {
+    mockDeletePassword.mockRejectedValue(new Error("store locked"));
+    const store = new KeychainSecretStore();
+    expect(await store.removeSecret("acct")).toBe("failed");
+  });
+
   it("isAvailable false when keyring throws", async () => {
     mockGetPassword.mockRejectedValue(new Error("no keychain"));
     const store = new KeychainSecretStore();

@@ -32,6 +32,8 @@ const INDIRECT_CALL_SITES: Record<string, string[]> = {
   "runtime/bootstrap.ts": ["account"],
   // Passes accounts taken from its SECRET_ACCOUNTS map.
   "config.ts": ["account"],
+  // Passes each account of its accounts parameter, which defaults to STORED_KEYCHAIN_ACCOUNTS.
+  "runtime/uninstall/keychain.ts": ["account"],
 };
 
 /** Account constants that are read-only probes and never stored. */
