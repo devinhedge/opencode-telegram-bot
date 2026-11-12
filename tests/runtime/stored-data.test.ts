@@ -40,10 +40,11 @@ const NON_STORED_ACCOUNT_CONSTANTS = new Set(["PROBE_ACCOUNT"]);
 const CALL_PATTERN = /\b(?:set|get|delete|remove)Secret\(/g;
 const LITERAL_PATTERN = /^(["'`])((?:\\.|(?!\1)[^\\])*)\1$/;
 // Covers constants whose name contains "account" (any case) and whose initializer starts with a
-// quote, single quote, or backtick literal. A template with `${}` is recorded as raw text, so it
-// fails the inventory check and forces a review. Initializers that are not literals (calls,
-// concatenations, identifiers) are not matched; their values reach the store only through a
-// non-literal call, which the indirect call site record pins per file.
+// double quote, single quote or backtick literal. The pattern has no end anchor, so it matches the
+// leading literal and ignores whatever follows it (`"a" + b` records `"a"`). A template with `${}`
+// is recorded as raw text, so it fails the inventory check and forces a review. Initializers that
+// do not start with a literal (calls, identifiers) are not matched; their values reach the store
+// only through a non-literal call, which the indirect call site record pins per file.
 const ACCOUNT_CONSTANT_PATTERN =
   /\b(?:export\s+)?const\s+(\w*account\w*)\s*(?::[^=]+)?=\s*(["'`])((?:\\.|(?!\2)[^\\])*)\2/gi;
 
@@ -333,6 +334,9 @@ describe("keychain account guard helpers", () => {
     ["`x${fn(1, 2)}`)", "`x${fn(1, 2)}`"],
     ["account // it's a comment (\n, value)", "account // it's a comment ("],
     ["account /* don't ) */, value)", "account /* don't ) */"],
+    ["a / b, v)", "a / b"],
+    ["(x) / 2, v)", "(x) / 2"],
+    ["a / b / c)", "a / b / c"],
     ["name.replace(/['\"(]/g, ''), v)", "name.replace(/['\"(]/g, '')"],
   ])("reads the first argument of %s whole", (rest, expected) => {
     expect(readFirstArgument(rest, "test")).toBe(expected);
