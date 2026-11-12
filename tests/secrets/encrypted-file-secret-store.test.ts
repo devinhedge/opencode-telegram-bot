@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
-import { mkdtemp, rm } from "node:fs/promises";
+import { chmod, mkdtemp, readdir, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { EncryptedFileSecretStore } from "../../src/secrets/encrypted-file-secret-store.js";
@@ -105,7 +105,6 @@ describe("EncryptedFileSecretStore file mode", () => {
     await store.unlock("pw");
     await store.setSecret("acct", "value");
 
-    const { stat } = await import("node:fs/promises");
     expect((await stat(filePath)).mode & 0o777).toBe(0o600);
   });
 
@@ -119,5 +118,30 @@ describe("EncryptedFileSecretStore file mode", () => {
     const second = new EncryptedFileSecretStore(filePath);
     await second.unlock("pw");
     expect(await second.getSecret("acct")).toBe("two");
+    if (process.platform !== "win32") {
+      expect((await stat(filePath)).mode & 0o777).toBe(0o600);
+    }
   });
+
+  it.skipIf(process.platform === "win32")(
+    "tightens an existing wider secrets.enc to 0600 and keeps its content valid",
+    async () => {
+      const filePath = join(dir, "secrets.enc");
+      const first = new EncryptedFileSecretStore(filePath);
+      await first.unlock("pw");
+      await first.setSecret("acct", "one");
+      await chmod(filePath, 0o644);
+
+      const second = new EncryptedFileSecretStore(filePath);
+      await second.unlock("pw");
+      await second.setSecret("other", "two");
+
+      expect((await stat(filePath)).mode & 0o777).toBe(0o600);
+      const third = new EncryptedFileSecretStore(filePath);
+      await third.unlock("pw");
+      expect(await third.getSecret("acct")).toBe("one");
+      expect(await third.getSecret("other")).toBe("two");
+      expect((await readdir(dir)).filter((name) => name.endsWith(".tmp"))).toEqual([]);
+    },
+  );
 });

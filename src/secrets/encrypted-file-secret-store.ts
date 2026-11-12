@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs";
 import { dirname } from "node:path";
 import { randomBytes, scrypt, createCipheriv, createDecipheriv } from "node:crypto";
 import { promisify } from "node:util";
+import { writeFileAtomically } from "../runtime/env-file.js";
 import type { SecretStore } from "./secret-store.js";
 
 const scryptAsync = promisify(scrypt) as (
@@ -95,8 +96,9 @@ export class EncryptedFileSecretStore implements SecretStore {
       ciphertext: ciphertext.toString("base64"),
     };
 
-    await fs.mkdir(dirname(this.filePath), { recursive: true });
-    await fs.writeFile(this.filePath, JSON.stringify(payload), { encoding: "utf8", mode: 0o600 });
+    // Atomic replace through an owner-only temp file: the rename gives secrets.enc a fresh 0600
+    // file (tightening a wider existing one), and a crash mid-write cannot truncate the secrets.
+    await writeFileAtomically(this.filePath, JSON.stringify(payload));
   }
 
   async getSecret(account: string): Promise<string | null> {

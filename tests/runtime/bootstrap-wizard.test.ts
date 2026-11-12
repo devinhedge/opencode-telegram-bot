@@ -372,12 +372,20 @@ describe("runtime/bootstrap wizard LOG_LOCATION question", () => {
         await chmod(runtimePaths.envFilePath, 0o400);
         __setMockInputs(["en", "123456:abcdef", "123456789", "1", "", "opencode", "", ""]);
         vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+        const realEnvFilePath = await fsPromises.realpath(runtimePaths.envFilePath);
         const renameSpy = vi.spyOn(fsPromises, "rename").mockRejectedValueOnce(new Error("boom"));
+        const chmodSpy = vi.spyOn(fsPromises, "chmod");
 
         try {
           await expect(runWizardAndPersist(runtimePaths)).rejects.toThrow("boom");
+          // Opened for the update (0600), then put back to read-only (0400) after the failure.
+          const envModes = chmodSpy.mock.calls
+            .filter(([target]) => target === realEnvFilePath)
+            .map(([, mode]) => mode);
+          expect(envModes).toEqual([0o600, 0o400]);
         } finally {
           renameSpy.mockRestore();
+          chmodSpy.mockRestore();
         }
 
         expect((await stat(runtimePaths.envFilePath)).mode & 0o777).toBe(0o400);

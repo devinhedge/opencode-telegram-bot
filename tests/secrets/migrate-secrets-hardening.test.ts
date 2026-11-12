@@ -59,15 +59,56 @@ describe("migrateSecretsIfNeeded file hardening", () => {
     "leaves the read-only .env unchanged and removes the backup when the replace fails",
     async () => {
       await fs.chmod(envFilePath, 0o400);
+      const realEnvFilePath = await fs.realpath(envFilePath);
       vi.spyOn(fs, "rename").mockRejectedValueOnce(new Error("rename failed"));
+      const chmodSpy = vi.spyOn(fs, "chmod");
 
       await expect(migrateSecretsIfNeeded(new FakeSecretStore(), envFilePath)).rejects.toThrow(
         "rename failed",
       );
 
+      // The file is opened for the update (0600) and put back to read-only (0400) afterwards.
+      const envModes = chmodSpy.mock.calls
+        .filter(([target]) => target === realEnvFilePath)
+        .map(([, mode]) => mode);
+      expect(envModes).toEqual([0o600, 0o400]);
       expect(await fs.readFile(envFilePath, "utf8")).toBe(legacyContent);
       expect((await fs.stat(envFilePath)).mode & 0o777).toBe(0o400);
       expect((await fs.readdir(dir)).sort()).toEqual([".env"]);
+    },
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "replaces a pre-existing wider .bak with a 0600 backup of the original content",
+    async () => {
+      const bakFilePath = `${envFilePath}.bak`;
+      await fs.writeFile(bakFilePath, "stale backup\n", "utf8");
+      await fs.chmod(bakFilePath, 0o644);
+
+      await migrateSecretsIfNeeded(new FakeSecretStore(), envFilePath);
+
+      expect(await fs.readFile(bakFilePath, "utf8")).toBe(legacyContent);
+      expect((await fs.stat(bakFilePath)).mode & 0o777).toBe(0o600);
+    },
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "keeps the cleaned .env and the backup when only restoring the mode fails",
+    async () => {
+      await fs.chmod(envFilePath, 0o400);
+      const realChmod = fs.chmod.bind(fs);
+      vi.spyOn(fs, "chmod").mockImplementation(async (target, mode) => {
+        if (mode === 0o400) {
+          throw new Error("chmod failed");
+        }
+        return realChmod(target, mode);
+      });
+
+      const result = await migrateSecretsIfNeeded(new FakeSecretStore(), envFilePath);
+
+      expect(result.migrated).toBe(true);
+      expect(await fs.readFile(envFilePath, "utf8")).toBe("OTHER_VAR=keep\n");
+      expect(await fs.readFile(`${envFilePath}.bak`, "utf8")).toBe(legacyContent);
     },
   );
 });
