@@ -681,7 +681,14 @@ describe("resolveLogsDirPath", () => {
       const dir = await resolveLogsDirPath({ env: containerEnv(), warn });
 
       expect(dir).toBe(appLogsDir);
-      expect(warn).toHaveBeenCalledTimes(1);
+      const expectedReason = await fs.readFile(envFilePath, "utf-8").then(
+        () => "",
+        (error: Error) => error.message,
+      );
+      expect(expectedReason).toContain("EISDIR");
+      expect(warn.mock.calls.map(([message]) => message)).toEqual([
+        t("runtime.logs.env_read_failed", { envPath: envFilePath, reason: expectedReason }),
+      ]);
     });
 
     it("keeps the handed-down service directory over the container rule", async () => {

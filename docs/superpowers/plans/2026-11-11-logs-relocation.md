@@ -1,7 +1,7 @@
 ---
 title: Logs Relocation Implementation Plan
 status: approved
-version: 0.6.0
+version: 0.6.1
 last_updated: 2026-11-12
 review_date: 2027-05-12
 spec: docs/superpowers/specs/2026-11-11-logs-relocation-design.md
@@ -27,7 +27,7 @@ spec: docs/superpowers/specs/2026-11-11-logs-relocation-design.md
 - `LOG_RETENTION` is read from the real environment, then `.env`; installed-mode daily logs, sources-mode per-launch logs, and service logs are each pruned separately.
 - Unix permissions: log directory 0700, log files 0600, enforced on every start including existing paths. Windows relies on default ACLs.
 - Unusable directory: the application logger warns once on stderr and the bot keeps running. Daemon startup fails with an error if the service log cannot be opened.
-- Invalid `LOG_LOCATION`: with a TTY, warn and prompt for `1) default` or `2) app` (the words are accepted too), save the answer to `.env`; without a TTY, warn once on stderr and use `default`.
+- Invalid `LOG_LOCATION` (outside a container; inside one see Task 4): with a TTY, warn and prompt for `1) default` or `2) app` (the words are accepted too), save the answer to `.env`; without a TTY, warn once on stderr and use `default`.
 - No migration of, or special handling for, `<repo>/logs` and `<appHome>/logs` legacy files.
 - Cross-platform: no hardcoded separators; Windows-only logic behind `process.platform`; every test passes on every OS or is skipped outside its OS.
 - Code, identifiers, and comments in English; user-facing strings through `t()` with a key in every locale; no raw `console.*` in feature code.
@@ -37,7 +37,7 @@ spec: docs/superpowers/specs/2026-11-11-logs-relocation-design.md
 
 - `LOG_LOCATION=` (empty) is treated as unset, with no prompt (Task 1, Task 4).
 - `" App "` (case and whitespace) is accepted as `app` (Task 1).
-- An invalid `LOG_LOCATION` supplied by the real environment warns and uses `default`, and is not written to `.env`, since `.env` cannot override it (Task 4).
+- An invalid `LOG_LOCATION` supplied by the real environment warns and uses `default` (outside a container; inside one see Task 4), and is not written to `.env`, since `.env` cannot override it (Task 4).
 - The main-log and service-log retention scans never delete each other's files or unrelated files such as `notes.txt` (Task 3).
 - A pre-existing 0755 log directory and 0644 log file are tightened to 0700 and 0600 (Task 3, Task 5).
 - A daemon child whose handed-down log directory is missing recreates it through the logger's `ensureLogsDir` call and does not fail (Task 5).
@@ -82,7 +82,7 @@ Branch: create `feat/logs-relocation` from `main` before Task 1. Commit steps ru
 
 - [ ] **Step 1: Write failing tests** using a temp directory: creates the file when missing with `LOG_LOCATION=app\n`; replaces the first active `LOG_LOCATION=bad` line in place, drops later duplicate assignments, and keeps every other line; appends with a trailing newline when the key is absent; performs no write when the value is unchanged; leaves no `.tmp` sibling; two concurrent replacements both succeed; on non-Windows (skip on `win32`) a new file is `0o600`, the temp file is written with mode `0o600`, a stale temp file does not influence the mode, an existing file keeps its mode, a read-only file is updated and ends read-only, and a symlinked file keeps its link and the target mode.
 - [ ] **Step 2: Run** `npx vitest run tests/runtime/env-file.test.ts`. Expected: FAIL.
-- [ ] **Step 3: Implement** `persistEnvValue`: read (ENOENT is empty), replace the first active assignment of `key` in place, drop later duplicates, append `key=value` only when the key is absent, return without writing when the content is unchanged, and otherwise write with `replaceEnvFile` (temp file created 0600). An existing file keeps its mode (a read-only file is reopened with `reopenEnvFileForEdit` from `src/secrets/file-permissions.ts` first, and the mode is restored after the write); a missing file is created 0600. It never calls `finalizeEnvFile`. `persistOpencodeVersion` in `config.ts` is not used for this, because importing `config.ts` runs its load-time side effects.
+- [ ] **Step 3: Implement** `persistEnvValue`: read (ENOENT is empty), replace the first active assignment of `key` in place (keeping its indentation and `export` prefix), drop later duplicates, append `key=value` only when the key is absent, return without writing when the content is unchanged, and otherwise write with `replaceEnvFile` (temp file created 0600). An existing file keeps its mode (a read-only file is reopened with `reopenEnvFileForEdit` from `src/secrets/file-permissions.ts` first, and the mode is restored after the write); a missing file is created 0600. It never calls `finalizeEnvFile`. `persistOpencodeVersion` in `config.ts` is not used for this, because importing `config.ts` runs its load-time side effects.
 - [ ] **Step 4: Run** `npx vitest run tests/runtime/env-file.test.ts tests/runtime/bootstrap.test.ts tests/runtime/bootstrap-wizard.test.ts`. Expected: PASS.
 - [ ] **Step 5: Commit** `refactor(runtime): extract env file writer and add persistEnvValue`.
 

@@ -129,7 +129,7 @@ function logFilesIn(dirPath: string): string[] {
 // The spawned process cannot be told it is not in a container: /.dockerenv is read from the real
 // filesystem. Inside a container the default location is the app home, so the canonical-directory
 // case cannot run there.
-const hostIsContainer = isContainerRuntime();
+const hostIsContainer = isContainerRuntime({ env: {} });
 
 describe.each(RUNTIME_MODES)("built entrypoint log location in %s mode", (mode) => {
   it.skipIf(hostIsContainer)(
