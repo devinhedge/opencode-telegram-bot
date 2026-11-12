@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach, afterEach } from "vitest";
+import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
@@ -132,11 +132,13 @@ describe("restart-queue-store", () => {
       queuedPrompts: [],
       inboxPrompts: [],
     };
-    // Make the directory read-only to cause write failure
-    await fs.chmod(tempDir, 0o555);
-    await expect(saveRestartQueue(state, filePath)).rejects.toThrow();
-    // Restore permissions
-    await fs.chmod(tempDir, 0o755);
+    // Fail the temp-file write; a read-only directory is not enforced on Windows.
+    const writeFileSpy = vi.spyOn(fs, "writeFile").mockRejectedValueOnce(new Error("disk full"));
+    try {
+      await expect(saveRestartQueue(state, filePath)).rejects.toThrow("disk full");
+    } finally {
+      writeFileSpy.mockRestore();
+    }
     // Original file should still exist
     const content = await fs.readFile(filePath, "utf-8");
     expect(content).toBe(originalContent);
