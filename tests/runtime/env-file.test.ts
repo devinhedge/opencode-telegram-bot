@@ -39,7 +39,7 @@ describe("runtime/env-file", () => {
     await persistEnvValue(envFilePath, "LOG_LOCATION", "app");
 
     expect(await fs.readFile(envFilePath, "utf-8")).toBe(
-      "# comment\nA=1\n# LOG_LOCATION=commented\nB=2\nLOG_LOCATION=app\n",
+      "# comment\nA=1\nLOG_LOCATION=app\n# LOG_LOCATION=commented\nB=2\n",
     );
   });
 
@@ -50,26 +50,70 @@ describe("runtime/env-file", () => {
     await persistEnvValue(envFilePath, "LOG_LOCATION", "app");
 
     expect(await fs.readFile(envFilePath, "utf-8")).toBe(
-      "# header\n\nA=1\n\n# tail\nLOG_LOCATION=app\n",
+      "# header\n\nA=1\n\nLOG_LOCATION=app\n# tail\n",
     );
   });
 
-  it("removes every duplicate active assignment and appends one", async () => {
+  it("keeps the position of the first assignment and drops later duplicates", async () => {
     await fs.mkdir(path.dirname(envFilePath), { recursive: true });
     await fs.writeFile(envFilePath, "LOG_LOCATION=a\nA=1\nLOG_LOCATION=b\n", "utf-8");
 
     await persistEnvValue(envFilePath, "LOG_LOCATION", "app");
 
-    expect(await fs.readFile(envFilePath, "utf-8")).toBe("A=1\nLOG_LOCATION=app\n");
+    expect(await fs.readFile(envFilePath, "utf-8")).toBe("LOG_LOCATION=app\nA=1\n");
   });
 
-  it("treats an export line as the active assignment", async () => {
+  it("keeps the assignment next to its commented template entry", async () => {
+    await fs.mkdir(path.dirname(envFilePath), { recursive: true });
+    await fs.writeFile(envFilePath, "# VERSION=v1\nVERSION=v1\n# NEXT=1\nB=2\n", "utf-8");
+
+    await persistEnvValue(envFilePath, "VERSION", "v2");
+
+    expect(await fs.readFile(envFilePath, "utf-8")).toBe(
+      "# VERSION=v1\nVERSION=v2\n# NEXT=1\nB=2\n",
+    );
+  });
+
+  it("treats an export line as the active assignment and replaces it in place", async () => {
     await fs.mkdir(path.dirname(envFilePath), { recursive: true });
     await fs.writeFile(envFilePath, "export LOG_LOCATION=bad\nA=1\n", "utf-8");
 
     await persistEnvValue(envFilePath, "LOG_LOCATION", "app");
 
+    expect(await fs.readFile(envFilePath, "utf-8")).toBe("LOG_LOCATION=app\nA=1\n");
+  });
+
+  it("performs no write when the value is unchanged", async () => {
+    await fs.mkdir(path.dirname(envFilePath), { recursive: true });
+    await fs.writeFile(envFilePath, "A=1\nLOG_LOCATION=app\n", "utf-8");
+    await fs.chmod(envFilePath, 0o400);
+    const before = await fs.stat(envFilePath);
+    const renameSpy = vi.spyOn(fs, "rename");
+    const chmodSpy = vi.spyOn(fs, "chmod");
+
+    try {
+      await persistEnvValue(envFilePath, "LOG_LOCATION", "app");
+
+      expect(renameSpy).not.toHaveBeenCalled();
+      expect(chmodSpy).not.toHaveBeenCalled();
+    } finally {
+      renameSpy.mockRestore();
+      chmodSpy.mockRestore();
+    }
+
+    const after = await fs.stat(envFilePath);
+    expect(after.ino).toBe(before.ino);
+    expect(after.mode & 0o777).toBe(0o400);
     expect(await fs.readFile(envFilePath, "utf-8")).toBe("A=1\nLOG_LOCATION=app\n");
+  });
+
+  it("appends an absent key with a trailing newline", async () => {
+    await fs.mkdir(path.dirname(envFilePath), { recursive: true });
+    await fs.writeFile(envFilePath, "A=1\nB=2", "utf-8");
+
+    await persistEnvValue(envFilePath, "C", "3");
+
+    expect(await fs.readFile(envFilePath, "utf-8")).toBe("A=1\nB=2\nC=3\n");
   });
 
   it("matches the key literally, not as a pattern", async () => {
@@ -87,7 +131,7 @@ describe("runtime/env-file", () => {
 
     await persistEnvValue(envFilePath, "LOG_LOCATION", "app");
 
-    expect(await fs.readFile(envFilePath, "utf-8")).toBe("A=1\r\nB=2\r\nLOG_LOCATION=app\r\n");
+    expect(await fs.readFile(envFilePath, "utf-8")).toBe("A=1\r\nLOG_LOCATION=app\r\nB=2\r\n");
   });
 
   it("handles a file without a trailing newline", async () => {
@@ -170,7 +214,7 @@ describe("runtime/env-file", () => {
   );
 
   it.skipIf(process.platform === "win32")(
-    "does not reuse the mode of a leftover temp file",
+    "is not influenced by a stale temp file of an earlier crash",
     async () => {
       await fs.mkdir(path.dirname(envFilePath), { recursive: true });
       const leftoverPath = `${envFilePath}.${process.pid}.tmp`;
@@ -181,8 +225,6 @@ describe("runtime/env-file", () => {
 
       expect((await fs.stat(envFilePath)).mode & 0o777).toBe(0o600);
       expect(await fs.readFile(envFilePath, "utf-8")).toBe("TELEGRAM_BOT_TOKEN=secret\n");
-      const entries = await fs.readdir(path.dirname(envFilePath));
-      expect(entries.filter((name) => name.endsWith(".tmp"))).toEqual([]);
     },
   );
 
@@ -299,6 +341,101 @@ describe("runtime/env-file replaceEnvFile", () => {
       expect(await modeOf(envFilePath)).toBe(0o400);
       expect(await fs.readFile(envFilePath, "utf-8")).toBe("old\n");
       expect(await tempSiblings()).toEqual([]);
+    },
+  );
+
+  // The real Windows case: renaming over a read-only file fails there without the reopen step.
+  // No rename guard here; this runs only on Windows CI or a manual Windows run.
+  it.runIf(process.platform === "win32")("replaces a read-only file on Windows", async () => {
+    await fs.writeFile(envFilePath, "old\n", "utf-8");
+    await fs.chmod(envFilePath, 0o400);
+
+    await replaceEnvFile(envFilePath, "A=1\n");
+
+    expect(await fs.readFile(envFilePath, "utf-8")).toBe("A=1\n");
+    expect(await tempSiblings()).toEqual([]);
+  });
+
+  it.skipIf(process.platform === "win32")(
+    "updates the target of a symlinked file in place and keeps the link and the target mode",
+    async () => {
+      const targetDir = path.join(tempDir, "real");
+      const targetPath = path.join(targetDir, "target.env");
+      await fs.mkdir(targetDir);
+      await fs.writeFile(targetPath, "old\n", "utf-8");
+      await fs.chmod(targetPath, 0o640);
+      await fs.symlink(targetPath, envFilePath);
+
+      await replaceEnvFile(envFilePath, "A=1\n");
+
+      expect((await fs.lstat(envFilePath)).isSymbolicLink()).toBe(true);
+      expect(await fs.readFile(targetPath, "utf-8")).toBe("A=1\n");
+      expect(await modeOf(targetPath)).toBe(0o640);
+      expect((await fs.readdir(targetDir)).filter((name) => name.endsWith(".tmp"))).toEqual([]);
+    },
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "keeps a read-only symlink target read-only",
+    async () => {
+      const targetPath = path.join(tempDir, "target.env");
+      await fs.writeFile(targetPath, "old\n", "utf-8");
+      await fs.chmod(targetPath, 0o400);
+      await fs.symlink(targetPath, envFilePath);
+
+      await replaceEnvFile(envFilePath, "A=1\n");
+
+      expect((await fs.lstat(envFilePath)).isSymbolicLink()).toBe(true);
+      expect(await fs.readFile(targetPath, "utf-8")).toBe("A=1\n");
+      expect(await modeOf(targetPath)).toBe(0o400);
+    },
+  );
+
+  it("lets two concurrent replacements of the same path both succeed", async () => {
+    await Promise.all([
+      replaceEnvFile(envFilePath, "FIRST=1\n"),
+      replaceEnvFile(envFilePath, "SECOND=2\n"),
+    ]);
+
+    expect(["FIRST=1\n", "SECOND=2\n"]).toContain(await fs.readFile(envFilePath, "utf-8"));
+    expect(await tempSiblings()).toEqual([]);
+  });
+
+  it.skipIf(process.platform === "win32")(
+    "does not fail after a successful replace when restoring the mode fails",
+    async () => {
+      await fs.writeFile(envFilePath, "old\n", "utf-8");
+      await fs.chmod(envFilePath, 0o400);
+      const realChmod = fs.chmod.bind(fs);
+      vi.spyOn(fs, "chmod").mockImplementation(async (target, mode) => {
+        if (mode === 0o400) {
+          throw new Error("chmod failed");
+        }
+        return realChmod(target, mode);
+      });
+
+      await expect(replaceEnvFile(envFilePath, "A=1\n")).resolves.toBeUndefined();
+
+      expect(await fs.readFile(envFilePath, "utf-8")).toBe("A=1\n");
+      expect(await modeOf(envFilePath)).toBe(0o600);
+    },
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "rethrows the original error when both the write and the mode restore fail",
+    async () => {
+      await fs.writeFile(envFilePath, "old\n", "utf-8");
+      await fs.chmod(envFilePath, 0o400);
+      const realChmod = fs.chmod.bind(fs);
+      vi.spyOn(fs, "chmod").mockImplementation(async (target, mode) => {
+        if (mode === 0o400) {
+          throw new Error("chmod failed");
+        }
+        return realChmod(target, mode);
+      });
+      vi.spyOn(fs, "rename").mockRejectedValueOnce(new Error("rename failed"));
+
+      await expect(replaceEnvFile(envFilePath, "A=1\n")).rejects.toThrow("rename failed");
     },
   );
 });

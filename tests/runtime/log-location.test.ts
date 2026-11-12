@@ -408,6 +408,15 @@ describe("resolveLogsDirPath", () => {
       expect(await fs.readFile(envFilePath, "utf-8")).toBe(`A=1\nLOG_LOCATION=${expected}\n`);
     });
 
+    it("persists the answer in place of the invalid assignment", async () => {
+      await fs.writeFile(envFilePath, "A=1\nLOG_LOCATION=bogus\nB=2\n", "utf-8");
+      const ask = vi.fn().mockResolvedValueOnce("app");
+
+      await resolveLogsDirPath({ env: baseEnv(), isInteractive: true, ask, warn: vi.fn() });
+
+      expect(await fs.readFile(envFilePath, "utf-8")).toBe("A=1\nLOG_LOCATION=app\nB=2\n");
+    });
+
     it("lists the numbered choices in the prompt", async () => {
       const ask = vi.fn().mockResolvedValueOnce("app");
       await resolveLogsDirPath({ env: baseEnv(), isInteractive: true, ask, warn: vi.fn() });

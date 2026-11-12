@@ -1,5 +1,5 @@
-import { describe, expect, it, beforeEach, afterEach } from "vitest";
-import { mkdtemp, rm, stat, writeFile, readFile, chmod } from "node:fs/promises";
+import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
+import fsPromises, { mkdtemp, rm, stat, writeFile, readFile, chmod } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { hardenEnvFile, reopenEnvFileForEdit, finalizeEnvFile } from "../../src/secrets/file-permissions.js";
@@ -31,6 +31,23 @@ describe("file-permissions", () => {
     const content = await readFile(envFilePath, "utf8");
     expect(content).toBe("TEST_KEY=test_value\n");
   });
+
+  it.skipIf(process.platform === "win32")(
+    "hardenEnvFile creates the file owner-only from the start when writing content",
+    async () => {
+      const writeFileSpy = vi.spyOn(fsPromises, "writeFile");
+
+      try {
+        await hardenEnvFile(envFilePath, "TEST_KEY=test_value\n");
+
+        const contentWrites = writeFileSpy.mock.calls.filter(([target]) => target === envFilePath);
+        expect(contentWrites).toHaveLength(1);
+        expect(contentWrites[0]?.[2]).toMatchObject({ mode: 0o600 });
+      } finally {
+        writeFileSpy.mockRestore();
+      }
+    },
+  );
 
   it("reopenEnvFileForEdit sets 0600 for editing", async () => {
     await hardenEnvFile(envFilePath, "TEST_KEY=test_value\n");
