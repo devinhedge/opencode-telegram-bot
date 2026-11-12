@@ -1,7 +1,7 @@
 ---
 title: Uninstaller Design
 status: draft
-version: 0.5.0
+version: 0.6.0
 last_updated: 2026-11-12
 review_date: 2027-05-12
 branch: feat/uninstaller
@@ -20,21 +20,24 @@ Status: draft. Records decisions made with the owner. Not approved for planning.
 
 - The daemon is a detached child process started by `opencode-telegram start --daemon`. State file: `<appHome>/run/bot-service.json`. No launchd, Windows service, or scheduled task exists. See `src/runtime/service/manager.ts`.
 - Linux systemd support is a hand-written unit described in `docs/LINUX_SYSTEMD_SETUP.md`. The code never creates it.
-- Global CLI install is an npm link: `<prefix>/bin/opencode-telegram` pointing through `<prefix>/lib/node_modules/@grinev/opencode-telegram-bot` to `dist/cli.js`.
+- The documented install is `npm install -g @grinev/opencode-telegram-bot` (or `npx`): a real package directory under `<prefix>/lib/node_modules/@grinev/opencode-telegram-bot` plus a launcher on the path (launcher shims on Windows). In development, `npm link` makes `<prefix>/bin/opencode-telegram` a symlink chain through `<prefix>/lib/node_modules/@grinev/opencode-telegram-bot` to the checkout's `dist/cli.js`, and the chain dangles after the checkout is deleted.
 - Secrets live in the OS keychain under service `opencode-telegram-bot` (`src/secrets/keychain-secret-store.ts`), with an encrypted-file fallback `secrets.enc`. Account names are enumerated in `src/secrets/migrate-secrets.ts` and `src/secrets/integrity.ts`; there is no enumerate API.
 - `.env.bak` retains pre-migration plaintext secrets.
 - After the config wizard, `.env` is owner read-only (mode 0400, the read-only attribute on Windows).
 - Atomic writes leave temporary sibling files only when a write is interrupted: `.env.<pid>.<uuid>.tmp`, `secrets.enc.<pid>.<uuid>.tmp`, and the temporary siblings of `settings.json` and the files under `run/`.
 - `<appHome>/local-commands/` holds user-authored JSON files that define custom Telegram slash commands.
-- The OpenCode server the bot starts is a detached process that outlives the bot.
+- The OpenCode server the bot starts is a detached process that outlives the bot. The bot records a server PID only through the stand-mode PID file (`OPENCODE_STAND_PID_FILE`, `src/opencode/process.ts`); otherwise the server is found by a port lookup.
+- A source run (`npm start`) uses the current directory as the app home, so a checkout holds its own `.env`, `settings.json`, `run/` and `local-commands/`. The `stop`, `status` and `config` commands and the daemon force installed mode (`src/cli.ts`). The installed app home is `~/Library/Application Support/opencode-telegram-bot` on macOS, `$XDG_CONFIG_HOME` or `~/.config` plus `/opencode-telegram-bot` on Linux, and `%APPDATA%\opencode-telegram-bot` on Windows, unless `OPENCODE_TELEGRAM_HOME` overrides it (`src/runtime/paths.ts`).
+- The encrypted secret store can read its password from a user-created `<appHome>/keystore_password` file (`src/secrets/secret-store-factory.ts`), and it writes through a symlinked `secrets.enc`.
+- The systemd unit documented in `docs/LINUX_SYSTEMD_SETUP.md` is `/etc/systemd/system/opencode-telegram-bot.service`. A bot run by systemd or in a terminal has no state file.
 - Logs are written to the canonical per-user log directory (macOS `~/Library/Logs/opencode-telegram-bot/`, Linux `$XDG_STATE_HOME/opencode-telegram-bot/logs/` defaulting to `~/.local/state/opencode-telegram-bot/logs/`, Windows `%LOCALAPPDATA%\opencode-telegram-bot\Logs\`), or to `<appHome>/logs` when `LOG_LOCATION=app`. Main logs are `opencode-telegram-bot-<date or timestamp>.log` and daemon output is `opencode-telegram-bot-service-<timestamp>.log`; the state file records the service log path.
 - The runtime detects a container with `isContainerRuntime` (`src/runtime/container.ts`): true when `OPENCODE_TELEGRAM_CONTAINER` is truthy or `/.dockerenv` exists. The Docker image sets the variable.
 
 ## Goals
 
 - Stop the bot daemon.
-- Remove the global npm links.
-- Remove keychain items and `secrets.enc`.
+- Remove the global CLI install.
+- Remove keychain items, `secrets.enc`, and the `keystore_password` file.
 - Remove from app home: `.env`, `.env.bak`, `settings.json` and its backups, `run/`, `local-commands/`, and interrupted-write temporary siblings.
 - Preserve logs: never remove the canonical log directory or `<appHome>/logs`.
 - Allow the repository to be deleted afterward with nothing left behind except logs.
@@ -83,6 +86,12 @@ Status: draft. Records decisions made with the owner. Not approved for planning.
 - The uninstaller does not initialize the file logger, so it creates no log file of its own.
 - What the bot stores (app-home files and keychain accounts) is declared in one place that the uninstaller reads, so a feature that adds stored data registers it once and uninstall removes it. Keychain accounts need this because there is no enumerate API.
 - The container check (decision 13) uses `isContainerRuntime`, runs before any other step, and applies even with `--yes`. The refusal message is printed to the terminal in the user's locale, not written to a log file, and the command exits with a non-zero status.
+- App homes: uninstall cleans the installed app home (the OS default location) and, when it is set, the `OPENCODE_TELEGRAM_HOME` override (decisions 5 and 15). It does not clean a source checkout's own files (the current directory a source run uses as its app home), because the user deletes the checkout.
+- `OPENCODE_TELEGRAM_HOME` validation: the path exists, is a directory, is absolute after resolution, is not a filesystem root or the user's home directory, and contains a bot file (`.env`, `settings.json`, or `run/bot-service.json`). A skipped or failed override step does not stop the other steps, and the final summary lists what was left.
+- Keychain items, `secrets.enc`, and `keystore_password` are removed whatever happens to the override step, because the keychain belongs to the OS user and not to an app home.
+- systemd: only the documented unit path is handled, with `systemctl stop`, `disable`, removal of the unit file, and `daemon-reload`, each through `sudo`. With no terminal or no `sudo`, the plan prints the exact commands instead of running them.
+- A symlinked `.env` or `secrets.enc`: the link is removed; a target outside the app home is left in place and reported in the summary.
+- A bot running in a terminal or under systemd has no state file. The uninstaller stops only the detached daemon and the documented unit, and does not look for other running bot processes.
 
 ## Test requirements (owner)
 
@@ -96,4 +105,5 @@ Existing patterns: `tests/runtime/service/manager.test.ts` (mocked `spawn` and `
 
 ## Open questions
 
-None.
+- How a global npm install is removed: decision 4 covers the symlinks `npm link` leaves, but the documented install (`npm install -g`) is a real package directory with launchers, and Windows launchers are not symlinks.
+- How the opt-in OpenCode server stop (decision 8) is triggered and targeted: the bot keeps no record of the server it starts, so finding it means a port lookup that can reach a server the user started.
