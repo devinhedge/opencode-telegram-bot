@@ -2,7 +2,12 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { persistEnvValue, writeFileAtomically } from "../../src/runtime/env-file.js";
+import {
+  persistEnvValue,
+  replaceEnvFile,
+  writeFileAtomically,
+} from "../../src/runtime/env-file.js";
+import { simulateWindowsReadOnlyRenameFailure } from "../helpers/windows-rename-guard.js";
 
 describe("runtime/env-file", () => {
   let tempDir: string;
@@ -224,6 +229,76 @@ describe("runtime/env-file", () => {
 
       expect((await fs.stat(envFilePath)).mode & 0o777).toBe(0o400);
       expect(await fs.readFile(envFilePath, "utf-8")).toBe("A=1\n");
+    },
+  );
+});
+
+describe("runtime/env-file replaceEnvFile", () => {
+  let tempDir: string;
+  let envFilePath: string;
+
+  beforeEach(async () => {
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "env-file-replace-"));
+    envFilePath = path.join(tempDir, ".env");
+  });
+
+  afterEach(async () => {
+    vi.restoreAllMocks();
+    await fs.rm(tempDir, { recursive: true, force: true });
+  });
+
+  async function modeOf(filePath: string): Promise<number> {
+    return (await fs.stat(filePath)).mode & 0o777;
+  }
+
+  async function tempSiblings(): Promise<string[]> {
+    return (await fs.readdir(tempDir)).filter((name) => name.endsWith(".tmp"));
+  }
+
+  it.skipIf(process.platform === "win32")("creates a new file as 0600", async () => {
+    await replaceEnvFile(envFilePath, "A=1\n");
+
+    expect(await fs.readFile(envFilePath, "utf-8")).toBe("A=1\n");
+    expect(await modeOf(envFilePath)).toBe(0o600);
+  });
+
+  it.skipIf(process.platform === "win32")("keeps an existing 0644 mode", async () => {
+    await fs.writeFile(envFilePath, "old\n", "utf-8");
+    await fs.chmod(envFilePath, 0o644);
+
+    await replaceEnvFile(envFilePath, "A=1\n");
+
+    expect(await fs.readFile(envFilePath, "utf-8")).toBe("A=1\n");
+    expect(await modeOf(envFilePath)).toBe(0o644);
+  });
+
+  it.skipIf(process.platform === "win32")(
+    "replaces a read-only file when the destination must be writable to rename",
+    async () => {
+      await fs.writeFile(envFilePath, "old\n", "utf-8");
+      await fs.chmod(envFilePath, 0o400);
+      simulateWindowsReadOnlyRenameFailure();
+
+      await replaceEnvFile(envFilePath, "A=1\n");
+
+      expect(await fs.readFile(envFilePath, "utf-8")).toBe("A=1\n");
+      expect(await modeOf(envFilePath)).toBe(0o400);
+      expect(await tempSiblings()).toEqual([]);
+    },
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "restores the previous mode, removes the temp file and rethrows when the write fails",
+    async () => {
+      await fs.writeFile(envFilePath, "old\n", "utf-8");
+      await fs.chmod(envFilePath, 0o400);
+      vi.spyOn(fs, "rename").mockRejectedValueOnce(new Error("rename failed"));
+
+      await expect(replaceEnvFile(envFilePath, "A=1\n")).rejects.toThrow("rename failed");
+
+      expect(await modeOf(envFilePath)).toBe(0o400);
+      expect(await fs.readFile(envFilePath, "utf-8")).toBe("old\n");
+      expect(await tempSiblings()).toEqual([]);
     },
   );
 });

@@ -57,6 +57,27 @@ async function restoreMode(filePath: string, mode: number | undefined): Promise<
 }
 
 /**
+ * Replaces the whole content of an env file atomically. A missing file is created 0600; the mode
+ * of an existing file is kept, including a read-only one (also when the write fails).
+ */
+export async function replaceEnvFile(filePath: string, content: string): Promise<void> {
+  const previousMode = await readExistingMode(filePath);
+  if (previousMode !== undefined && (previousMode & 0o200) === 0) {
+    // Renaming over a read-only file fails on Windows, so open it for the update first.
+    await reopenEnvFileForEdit(filePath);
+  }
+
+  try {
+    await writeFileAtomically(filePath, content);
+  } catch (error) {
+    await restoreMode(filePath, previousMode).catch(() => undefined);
+    throw error;
+  }
+
+  await restoreMode(filePath, previousMode);
+}
+
+/**
  * Sets `key=value` in the .env file, replacing any active assignment of the key
  * and keeping every other line. Creates the file (0600) when missing; the mode of
  * an existing file is preserved, including a read-only one.
@@ -78,18 +99,5 @@ export async function persistEnvValue(
 
   const nextContent = `${[...keptLines, `${key}=${value}`].join(lineEnding)}${lineEnding}`;
 
-  const previousMode = await readExistingMode(envFilePath);
-  if (previousMode !== undefined && (previousMode & 0o200) === 0) {
-    // Renaming over a read-only file fails on Windows, so open it for the update first.
-    await reopenEnvFileForEdit(envFilePath);
-  }
-
-  try {
-    await writeFileAtomically(envFilePath, nextContent);
-  } catch (error) {
-    await restoreMode(envFilePath, previousMode).catch(() => undefined);
-    throw error;
-  }
-
-  await restoreMode(envFilePath, previousMode);
+  await replaceEnvFile(envFilePath, nextContent);
 }
