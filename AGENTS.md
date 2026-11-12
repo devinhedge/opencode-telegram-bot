@@ -201,10 +201,11 @@ The project uses `src/utils/logger.ts` with level-based logging.
 
 Log files:
 
-- In source mode logs are stored `<project root>/logs` by default.
-- Each source-mode bot run writes to a separate file named `bot-YYYY-MM-DD_HH-MM-SS_<pid>.log`.
-- The `logs/` directory is gitignored, so search inside it directly: use `path: "logs"` with `pattern: "*.log"`.
-- Installed mode writes under the installed app home `logs` directory and uses daily files named `bot-YYYY-MM-DD.log`.
+- Logs are written to the per-user log directory of the OS in both source and installed mode: macOS `~/Library/Logs/opencode-telegram-bot/`; Linux `$XDG_STATE_HOME/opencode-telegram-bot/logs/` (default `~/.local/state/opencode-telegram-bot/logs/`); Windows `%LOCALAPPDATA%\opencode-telegram-bot\Logs\`.
+- `LOG_LOCATION=app` (in `.env` or the environment; the environment wins) writes to `<appHome>/logs` instead; the Docker image sets it. `OPENCODE_TELEGRAM_HOME` alone does not move logs.
+- Source mode writes one file per run named `opencode-telegram-bot-YYYY-MM-DD_HH-MM-SS_<pid>.log`; installed mode writes daily files named `opencode-telegram-bot-YYYY-MM-DD.log`; the daemon output is `opencode-telegram-bot-service-YYYY-MM-DD_HH-MM-SS.log`.
+- To find logs, search the absolute path of the directory above (or `<appHome>/logs` when `LOG_LOCATION=app`) with `pattern: "opencode-telegram-bot-*.log"`. In source mode the logs are not inside the repository, so `path: "logs"` finds nothing.
+- Main logs and service logs are pruned separately by `LOG_RETENTION`.
 
 Levels:
 
