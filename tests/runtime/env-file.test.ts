@@ -521,6 +521,21 @@ describe("runtime/env-file resolveSymlinkTarget", () => {
     expect(await resolveSymlinkTarget(link)).toBe(path.join(tempDir, "gone"));
   });
 
+  it.skipIf(process.platform === "win32")(
+    "resolves a relative target against the physical directory of a symlinked parent",
+    async () => {
+      const physicalDir = path.join(tempDir, "real", "a");
+      await fs.mkdir(physicalDir, { recursive: true });
+      await fs.symlink(physicalDir, path.join(tempDir, "linkdir"));
+      await fs.symlink("../target.env", path.join(physicalDir, "env"));
+
+      // Physically real/a/../target.env; a lexical resolution would give <tempDir>/target.env.
+      expect(await resolveSymlinkTarget(path.join(tempDir, "linkdir", "env"))).toBe(
+        path.join(tempDir, "real", "target.env"),
+      );
+    },
+  );
+
   it.skipIf(process.platform === "win32")("rejects a link loop", async () => {
     const first = path.join(tempDir, "first");
     const second = path.join(tempDir, "second");

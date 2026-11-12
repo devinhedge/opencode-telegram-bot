@@ -132,11 +132,12 @@ describe("EncryptedFileSecretStore file mode", () => {
       const first = new EncryptedFileSecretStore(targetPath);
       await first.unlock("pw");
       await first.setSecret("acct", "one");
-      await chmod(targetPath, 0o644);
       await symlink(targetPath, linkPath);
 
       const second = new EncryptedFileSecretStore(linkPath);
       await second.unlock("pw");
+      // Widened after the unlock-time tightening, so only the write path can make it 0600 again.
+      await chmod(targetPath, 0o644);
       await second.setSecret("acct", "two");
 
       expect((await lstat(linkPath)).isSymbolicLink()).toBe(true);
@@ -144,6 +145,26 @@ describe("EncryptedFileSecretStore file mode", () => {
       const third = new EncryptedFileSecretStore(targetPath);
       await third.unlock("pw");
       expect(await third.getSecret("acct")).toBe("two");
+    },
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "creates the target of a dangling symlinked secrets.enc, keeping the link",
+    async () => {
+      const targetPath = join(dir, "real", "target.enc");
+      const linkPath = join(dir, "secrets.enc");
+      await mkdir(join(dir, "real"));
+      await symlink(targetPath, linkPath);
+
+      const store = new EncryptedFileSecretStore(linkPath);
+      await store.unlock("pw");
+      await store.setSecret("acct", "one");
+
+      expect((await lstat(linkPath)).isSymbolicLink()).toBe(true);
+      expect((await stat(targetPath)).mode & 0o777).toBe(0o600);
+      const reread = new EncryptedFileSecretStore(targetPath);
+      await reread.unlock("pw");
+      expect(await reread.getSecret("acct")).toBe("one");
     },
   );
 

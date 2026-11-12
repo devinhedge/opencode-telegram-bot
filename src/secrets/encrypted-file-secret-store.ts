@@ -52,10 +52,11 @@ export class EncryptedFileSecretStore implements SecretStore {
       if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
     }
 
-    if (raw !== null) {
+    if (raw !== null && process.platform !== "win32") {
       try {
         // Best effort: an older or hand-copied file may be group or other readable. The file
-        // stays usable when this fails, so the failure is ignored.
+        // stays usable when this fails, so the failure is ignored. Tightening before the
+        // password check is acceptable: the file only becomes more restrictive.
         await fs.chmod(this.filePath, 0o600);
       } catch {
         // ignored

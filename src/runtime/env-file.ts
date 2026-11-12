@@ -84,7 +84,11 @@ export async function resolveSymlinkTarget(filePath: string): Promise<string> {
       return current;
     }
 
-    current = path.resolve(path.dirname(current), await fs.readlink(current));
+    // A relative target resolves against the physical directory of the link: a parent that is
+    // itself a symlink changes what `..` means. The lexical directory is the fallback.
+    const lexicalDir = path.dirname(current);
+    const physicalDir = await fs.realpath(lexicalDir).catch(() => lexicalDir);
+    current = path.resolve(physicalDir, await fs.readlink(current));
   }
 
   throw new Error(`Too many levels of symbolic links: ${filePath}`);
@@ -124,10 +128,10 @@ export async function replaceEnvFile(filePath: string, content: string): Promise
 
 /**
  * Sets `key=value` in the .env file. The first active assignment of the key is replaced in place
- * (its indentation and `export` prefix are kept), later duplicate active assignments are dropped, and the key is appended when absent. Every
- * other line and the line-ending style are kept. The file is not touched when the result equals
- * its content. Creates the file (0600) when missing; the mode of an existing file is preserved,
- * including a read-only one.
+ * (its indentation and `export` prefix are kept), later duplicate active assignments are
+ * dropped, and the key is appended when absent. Every other line and the line-ending style are
+ * kept. The file is not touched when the result equals its content. Creates the file (0600)
+ * when missing; the mode of an existing file is preserved, including a read-only one.
  */
 export async function persistEnvValue(
   envFilePath: string,
