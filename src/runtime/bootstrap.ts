@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 import { getRuntimePaths, type RuntimePaths } from "./paths.js";
-import { writeFileAtomically } from "./env-file.js";
+import { replaceEnvFile } from "./env-file.js";
 import { finalizeEnvFile } from "../secrets/file-permissions.js";
 import { createSecretStore, type CreateSecretStoreOptions } from "../secrets/secret-store-factory.js";
 import { SECRET_ENV_VARS, type SecretEnvVar } from "../secrets/migrate-secrets.js";
@@ -722,7 +722,7 @@ export async function runWizardAndPersist(runtimePaths: RuntimePaths): Promise<v
 
   // Write non-secrets to .env
   const envContent = buildEnvFileContent(existingContent ?? "", nonSecrets, envExampleContent);
-  await writeFileAtomically(runtimePaths.envFilePath, envContent);
+  await replaceEnvFile(runtimePaths.envFilePath, envContent);
   await finalizeEnvFile(runtimePaths.envFilePath);
 
   process.stdout.write(
