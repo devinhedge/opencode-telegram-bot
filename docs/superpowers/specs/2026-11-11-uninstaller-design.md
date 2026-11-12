@@ -1,7 +1,7 @@
 ---
 title: Uninstaller Design
 status: draft
-version: 0.6.0
+version: 0.7.0
 last_updated: 2026-11-12
 review_date: 2027-05-12
 branch: feat/uninstaller
@@ -48,6 +48,7 @@ Status: draft. Records decisions made with the owner. Not approved for planning.
 - Relocating or migrating logs.
 - Uninstalling from inside a container.
 - Removing Docker containers, volumes, or sidecars (for example a telemetry collector).
+- The Makefile and its targets other than the call into `opencode-telegram uninstall` (separate feature).
 - Localizing existing `stop` and `status` output (separate feature).
 - Fixing the unwired `RESTARTING` env var, the missing `--restart` usage text, or the systemd doc inconsistency (separate issues).
 
@@ -74,6 +75,7 @@ Status: draft. Records decisions made with the owner. Not approved for planning.
 13. Inside a container the uninstaller refuses to run and removes nothing. It tells the user that the container should be rebuilt and redeployed, or destroyed.
 14. The uninstaller never calls Docker and never removes a Docker container or volume, on a host or anywhere else.
 15. `--yes` skips only the main confirmation (decision 3). The `OPENCODE_TELEGRAM_HOME` override removal (decision 5) still asks; with no terminal available that step is skipped with a message.
+16. A Makefile for macOS and Linux provides `install`, `config`, `start`, `stop`, `restart`, `uninstall`, and `help`. The Makefile does not cover Windows.
 
 ## Agent calls (not yet confirmed by owner)
 
@@ -92,6 +94,7 @@ Status: draft. Records decisions made with the owner. Not approved for planning.
 - systemd: only the documented unit path is handled, with `systemctl stop`, `disable`, removal of the unit file, and `daemon-reload`, each through `sudo`. With no terminal or no `sudo`, the plan prints the exact commands instead of running them.
 - A symlinked `.env` or `secrets.enc`: the link is removed; a target outside the app home is left in place and reported in the summary.
 - A bot running in a terminal or under systemd has no state file. The uninstaller stops only the detached daemon and the documented unit, and does not look for other running bot processes.
+- The Makefile (decision 16) is its own feature with its own spec. `make uninstall` stops the daemon, runs `opencode-telegram uninstall` from the checkout's built `dist/cli.js` (so it works when the global install is broken), and removes the CLI install that `make install` made. This spec covers the `uninstall` command only.
 
 ## Test requirements (owner)
 
