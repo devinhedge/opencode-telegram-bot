@@ -1,7 +1,7 @@
 ---
 title: Uninstaller Implementation Plan
 status: draft
-version: 0.1.2
+version: 0.1.3
 last_updated: 2026-11-12
 review_date: 2027-05-12
 spec: docs/superpowers/specs/2026-11-11-uninstaller-design.md
@@ -88,7 +88,7 @@ spec: docs/superpowers/specs/2026-11-11-uninstaller-design.md
 
 **Interfaces:**
 - Consumes: `listAppHomeTargets`, `PRESERVED_APP_HOME_ENTRIES` (Task 1); `resolveSymlinkTarget(filePath): Promise<string>` (`src/runtime/env-file.ts`).
-- Produces: `type RemoveStatus = "removed" | "absent" | "failed"`; `interface RemoveResult { path: string; status: RemoveStatus; linkTarget?: string | undefined; error?: string | undefined }`; `removePath(target: string): Promise<RemoveResult>`; `removeAppHomeData(appHome: string): Promise<{ results: RemoveResult[]; homeRemoved: boolean }>`.
+- Produces: `type RemoveStatus = "removed" | "absent" | "failed"`; `interface RemoveResult { path: string; status: RemoveStatus; linkTarget?: string | undefined; error?: string | undefined }`; `removePath(target: string): Promise<RemoveResult>`; `interface RemoveAppHomeResult { results: RemoveResult[]; homeRemoved: boolean; homeError?: string | undefined }`; `removeAppHomeData(appHome: string): Promise<RemoveAppHomeResult>` (never throws). A `linkTarget` can be missing or inside the home and removed in the same run; Task 10 reports "left in place" only for a target that exists and lies outside the home.
 
 `removePath` uses `lstat`, never `fs.access`: a symlink is unlinked and its final target reported in `linkTarget` and left in place; a regular file or directory is removed recursively; on EPERM or EACCES it chmods the entry to owner-writable once and retries (this covers the Windows read-only attribute); a missing path is `absent`. It never calls `reopenEnvFileForEdit` (that helper creates a missing `.env` and follows links).
 
