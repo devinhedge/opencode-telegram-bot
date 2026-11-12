@@ -3,11 +3,22 @@ import { promisify } from "node:util";
 
 // This module must stay free of config.js: config loads .env into process.env and can
 // throw at import, and the uninstaller needs process control without either effect.
+
 // Promisified per call: config.ts imports this module, and tests that mock
 // node:child_process without exec or execFile must still be able to load config.ts.
 function execAsync(command: string): Promise<{ stdout: string; stderr: string }> {
   return promisify(exec)(command);
 }
+
+function execFileAsync(
+  file: string,
+  args: string[],
+  options: { timeout: number },
+): Promise<{ stdout: string; stderr: string }> {
+  return promisify(execFile)(file, args, options);
+}
+
+const PS_TIMEOUT_MS = 5000;
 const DEFAULT_OPENCODE_PORT = 4096;
 const PROCESS_EXIT_POLL_MS = 100;
 
@@ -161,10 +172,20 @@ export async function findServerPid(port: number): Promise<number | null> {
   return process.platform === "win32" ? findWindowsServerPid(port) : findUnixServerPid(port);
 }
 
-/** The command line of a running process (POSIX `ps`), or null on any error or empty output. */
+/**
+ * The command line of a running process via POSIX `ps`, or null on an invalid pid, any error
+ * (including a ps timeout), or empty output. macOS and Linux only: process finding is out of
+ * scope on Windows, where this always returns null.
+ */
 export async function getProcessCommandLine(pid: number): Promise<string | null> {
+  if (!Number.isInteger(pid) || pid <= 0 || process.platform === "win32") {
+    return null;
+  }
+
   try {
-    const { stdout } = await promisify(execFile)("ps", ["-o", "args=", "-p", String(pid)]);
+    const { stdout } = await execFileAsync("ps", ["-o", "args=", "-p", String(pid)], {
+      timeout: PS_TIMEOUT_MS,
+    });
     const commandLine = stdout.trim();
     return commandLine || null;
   } catch {
