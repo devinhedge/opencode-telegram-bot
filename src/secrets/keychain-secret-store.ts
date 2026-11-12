@@ -27,6 +27,7 @@ export class KeychainSecretStore implements SecretStore {
     await entry.setPassword(value);
   }
 
+  // Swallows every error; use removeSecret when the outcome matters.
   async deleteSecret(account: string): Promise<void> {
     const entry = new AsyncEntry(KEYCHAIN_SERVICE_NAME, account);
     try {

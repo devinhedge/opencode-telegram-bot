@@ -32,7 +32,9 @@ const INDIRECT_CALL_SITES: Record<string, string[]> = {
   "runtime/bootstrap.ts": ["account"],
   // Passes accounts taken from its SECRET_ACCOUNTS map.
   "config.ts": ["account"],
-  // Passes each account of its accounts parameter, which defaults to STORED_KEYCHAIN_ACCOUNTS.
+  // Passes each account of its accounts parameter, which defaults to STORED_KEYCHAIN_ACCOUNTS;
+  // tests/runtime/uninstall/keychain.test.ts ("removes every inventory account once, in order,
+  // and reports each status") asserts the default equals STORED_KEYCHAIN_ACCOUNTS.
   "runtime/uninstall/keychain.ts": ["account"],
 };
 

@@ -48,14 +48,41 @@ describe("runtime/uninstall/keychain", () => {
     expect(removeSecret).not.toHaveBeenCalled();
   });
 
-  it("reports all absent on a second run over an empty store", async () => {
-    const { store } = createStore(true, () => "absent");
+  it("reports removed on the first run and absent on the second over a stateful store", async () => {
+    const present = new Set<string>(STORED_KEYCHAIN_ACCOUNTS);
+    const store: KeychainRemovalStore = {
+      isAvailable: async () => true,
+      removeSecret: async (account) => (present.delete(account) ? "removed" : "absent"),
+    };
+
+    const first = await removeKeychainAccounts(store);
+    const second = await removeKeychainAccounts(store);
+
+    expect(first.results.every((entry) => entry.status === "removed")).toBe(true);
+    expect(second.available).toBe(true);
+    expect(second.results).toEqual(
+      STORED_KEYCHAIN_ACCOUNTS.map((account) => ({ account, status: "absent" })),
+    );
+  });
+
+  it("reports every account failed when the keychain is available but locked", async () => {
+    const { store } = createStore(true, () => "failed");
 
     const result = await removeKeychainAccounts(store);
 
-    expect(result.available).toBe(true);
-    expect(result.results.every((entry) => entry.status === "absent")).toBe(true);
-    expect(result.results).toHaveLength(STORED_KEYCHAIN_ACCOUNTS.length);
+    expect(result).toEqual({
+      available: true,
+      results: STORED_KEYCHAIN_ACCOUNTS.map((account) => ({ account, status: "failed" })),
+    });
+  });
+
+  it("returns availability and no results for an empty account list", async () => {
+    const { store, removeSecret } = createStore(true, () => "removed");
+
+    const result = await removeKeychainAccounts(store, []);
+
+    expect(result).toEqual({ available: true, results: [] });
+    expect(removeSecret).not.toHaveBeenCalled();
   });
 
   it("honors an explicit account list", async () => {

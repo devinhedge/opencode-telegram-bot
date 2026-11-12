@@ -9,8 +9,9 @@ export interface KeychainRemoval {
 }
 
 /**
- * Removes each account from the OS keychain and reports per-account status. Never reads or
- * returns a secret value.
+ * Removes each account from the OS keychain and reports per-account status. An unavailable
+ * store returns `available: false` with empty results; the caller must report that. Never reads
+ * a stored secret (`isAvailable` probes a dedicated probe account).
  */
 export async function removeKeychainAccounts(
   store: KeychainRemovalStore,
