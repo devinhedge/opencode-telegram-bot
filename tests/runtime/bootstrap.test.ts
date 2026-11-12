@@ -288,6 +288,21 @@ describe("runtime/bootstrap", () => {
 
     expect(dockerfile).toMatch(/^ENV LOG_LOCATION=app\r?$/m);
   });
+
+  it("sets LOG_LOCATION=app in the Compose environment so env_file cannot override the image", () => {
+    const compose = fs.readFileSync(path.resolve(process.cwd(), "docker-compose.yml"), "utf-8");
+
+    expect(compose).toMatch(/^\s*-\s*LOG_LOCATION=app\r?$/m);
+  });
+
+  it("does not override LOG_LOCATION in the desktop Compose file", () => {
+    const desktop = fs.readFileSync(
+      path.resolve(process.cwd(), "docker-compose.desktop.yml"),
+      "utf-8",
+    );
+
+    expect(desktop).not.toMatch(/^[^#\n]*LOG_LOCATION/m);
+  });
 });
 
 describe("runtime/bootstrap installed configuration", () => {
