@@ -75,7 +75,9 @@ if ($recordedPid -eq 0) {
 
 $loggedPids = @()
 if (Test-Path $logsDir) {
+    # Main logs only: a digit must follow the prefix, so opencode-telegram-bot-service-* never matches.
     $loggedPids = Get-ChildItem $logsDir -Filter "opencode-telegram-bot-*.log" -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -match '^opencode-telegram-bot-\d' } |
         ForEach-Object { if ($_.Name -match '_(\d+)\.log$') { [int]$Matches[1] } } |
         Select-Object -Unique
 }
