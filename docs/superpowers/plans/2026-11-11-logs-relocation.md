@@ -1,7 +1,7 @@
 ---
 title: Logs Relocation Implementation Plan
 status: approved
-version: 0.3.0
+version: 0.3.1
 last_updated: 2026-11-11
 review_date: 2027-05-11
 spec: docs/superpowers/specs/2026-11-11-logs-relocation-design.md
@@ -91,7 +91,7 @@ Branch: create `feat/logs-relocation` from `main` before Task 1. Commit steps ru
 **Files:** Create `src/utils/log-files.ts`; Test `tests/utils/log-files.test.ts`.
 
 **Interfaces:**
-- Produces: `getLogRetention(env?: NodeJS.ProcessEnv): number` (default 10; a missing, non-numeric, zero, or negative value gives the default); `buildMainLogFileName(mode: RuntimeMode, now: Date, pid: number): string` (installed `opencode-telegram-bot-YYYY-MM-DD.log`; sources `opencode-telegram-bot-YYYY-MM-DD_HH-MM-SS_<pid>.log`); `getMainLogFilePattern(mode: RuntimeMode): RegExp`; `buildServiceLogFileName(now: Date): string` (`opencode-telegram-bot-service-YYYY-MM-DD_HH-MM-SS.log`); `SERVICE_LOG_FILE_PATTERN: RegExp`; `ensureLogsDir(dirPath: string): Promise<void>`; `secureLogFile(filePath: string): Promise<void>`; `pruneLogFiles(dirPath: string, pattern: RegExp, retention: number, onError: (message: string, error: unknown) => void): Promise<void>`.
+- Produces: `getLogRetention(env?: NodeJS.ProcessEnv): number` (default 10; a missing, non-numeric, zero, or negative value gives the default); `buildMainLogFileName(mode: RuntimeMode, now: Date, pid: number): string` (installed `opencode-telegram-bot-YYYY-MM-DD.log`; sources `opencode-telegram-bot-YYYY-MM-DD_HH-MM-SS_<pid>.log`); `getMainLogFilePattern(mode: RuntimeMode): RegExp`; `buildServiceLogFileName(now: Date): string` (`opencode-telegram-bot-service-YYYY-MM-DD_HH-MM-SS.log`); `SERVICE_LOG_FILE_PATTERN: RegExp`; `ensureLogsDir(dirPath: string): Promise<void>`; `secureLogFile(filePath: string): Promise<void>`; `FILE_MODE = 0o600`; `ensureLogsDirSync(dirPath: string): void` and `secureLogFileSync(filePath: string): void` (synchronous variants for the logger's rotation path and the service log descriptor); `pruneLogFiles(dirPath: string, pattern: RegExp, retention: number, onError: (message: string, error: unknown) => void): Promise<void>`.
 
 - [ ] **Step 1: Write failing tests:**
   - The main patterns match only their own mode's names; neither main pattern matches a service name; `SERVICE_LOG_FILE_PATTERN` matches only service names.
@@ -116,7 +116,7 @@ Resolution order: (1) when `OPENCODE_TELEGRAM_SERVICE_CHILD=1` and `OPENCODE_TEL
 
 - [ ] **Step 1: Write failing tests** with injected `env`, `ask`, `warn`: unset gives canonical; `app` gives `<appHome>/logs`; `LOG_LOCATION=` (empty) gives canonical with `warn` not called; real env beats a conflicting `.env` value; invalid with `isInteractive: true` and `ask` returning `"x"` then `"app"` calls `ask` twice, persists `LOG_LOCATION=app` to `.env`, and returns the app path; invalid with `isInteractive: false` calls `warn` once and returns canonical without persisting; invalid from `env` (not `.env`) calls `warn` once, does not persist; service child override wins over everything; a second call returns the memoized value without calling `ask` again.
 - [ ] **Step 2: Run** `npx vitest run tests/runtime/log-location.test.ts`. Expected: FAIL.
-- [ ] **Step 3: Add the five i18n keys** to `en.ts` and a translation in each of the other locale files (the `I18nKey` type forces parity). Run `npx vitest run tests/i18n`. Expected: PASS.
+- [ ] **Step 3: Add the i18n keys listed above** to `en.ts` and a translation in each of the other locale files (the `I18nKey` type forces parity). Run `npx vitest run tests/i18n`. Expected: PASS.
 - [ ] **Step 4: Implement `resolveLogsDirPath`.** Default `isInteractive` is `process.stdin.isTTY && process.stdout.isTTY`. Default `warn` writes to `process.stderr`. Confirm `src/secrets/file-permissions.ts` does not import the logger; if it does, call `fs.chmod` directly in `env-file.ts` to avoid a cycle.
 - [ ] **Step 5: Run** the Task 4 tests and `npx tsc --noEmit`. Expected: PASS.
 - [ ] **Step 6: Commit** `feat(logs): resolve log directory from LOG_LOCATION`.
