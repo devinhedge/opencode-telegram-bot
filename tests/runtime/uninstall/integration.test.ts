@@ -400,6 +400,9 @@ describe("runtime/uninstall integration", () => {
     // removeAppHomeData acts only on entries that exist (listAppHomeTargets lstats each one), so
     // an inventory entry that is already gone produces no per-target line at all: no removal, no
     // "Already absent" line (that one is printed only for a missing home, see the next test).
+    // INVENTORY_NAMES includes the temp sibling names (e.g. ".env.123....tmp"), and a line about
+    // ".env" would also match their prefix; the substring match is on purpose, so any line about
+    // an entry or its sibling fails the test.
     for (const name of INVENTORY_NAMES) {
       expect(
         lines.some((line) => line.includes(path.join(home, name))),
@@ -447,7 +450,10 @@ describe("runtime/uninstall integration", () => {
     expectNothingRealTouched();
   });
 
-  it("derives the daemon from the state file in the home and stops that pid via the fake", async () => {
+  // Limit: the status is built by this test's own fake (readStatus in createDeps), which reads the
+  // state file; the real manager's parsing is not exercised here. This only checks that the pid
+  // in the status reaches the plan and stop lines, and that the state file is then removed.
+  it("uses the pid from the daemon status for the plan and stop lines", async () => {
     const home = resolveUninstallHomes({}).defaultHome;
     await populateHome(home);
     const statePid = FAKE_DAEMON_PID + 1;
@@ -480,6 +486,13 @@ describe("runtime/uninstall integration", () => {
       for (const name of [...SECRET_FILES, ".env.bak", "settings.json.bak", "notes.txt"]) {
         await fs.writeFile(path.join(home, name), "decoy");
       }
+    }
+
+    // An invalid override gets no secret-files plan line. The generic plan_override line IS
+    // printed for any configured override (run.ts prints it before the verdict is applied), so it
+    // is deliberately not asserted either way here.
+    function expectNoOverridePlan(): void {
+      expect(lines).not.toContain(tEn("uninstall.plan_override_secrets", { path: overrideHome }));
     }
 
     async function expectDecoysUntouched(home: string): Promise<void> {
@@ -553,6 +566,7 @@ describe("runtime/uninstall integration", () => {
           reason: tEn("uninstall.override_reason_no_bot_files"),
         }),
       );
+      expectNoOverridePlan();
       expect(secrets.size).toBe(0);
       expectNothingRealTouched();
     });
@@ -580,6 +594,9 @@ describe("runtime/uninstall integration", () => {
         expect(lines).toContain(
           tEn("uninstall.step_override_invalid", { path: overrideHome, reason: tEn(key) }),
         );
+        expectNoOverridePlan();
+        // The keychain step still runs for an invalid override.
+        expect(secrets.size).toBe(0);
         expectNothingRealTouched();
       });
     }
@@ -596,6 +613,8 @@ describe("runtime/uninstall integration", () => {
           reason: tEn("uninstall.override_reason_missing"),
         }),
       );
+      expectNoOverridePlan();
+      expect(secrets.size).toBe(0);
       expectNothingRealTouched();
     });
   });
