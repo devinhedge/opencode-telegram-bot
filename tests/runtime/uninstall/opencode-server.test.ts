@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -90,6 +90,91 @@ describe("runtime/uninstall/opencode-server", () => {
 
     it("returns null for an unparseable URL", async () => {
       expect(await resolveOpencodePort({ OPENCODE_API_URL: "not a url" }, envFilePath)).toBeNull();
+    });
+  });
+
+  describe("resolveOpencodePort edge cases", () => {
+    const portOf = (url: string) => resolveOpencodePort({ OPENCODE_API_URL: url }, envFilePath);
+
+    it("returns null when .env cannot be read for a reason other than ENOENT", async () => {
+      await mkdir(envFilePath);
+
+      expect(await resolveOpencodePort({}, envFilePath)).toBeNull();
+    });
+
+    it("falls back to the defaults when .env does not exist", async () => {
+      expect(await resolveOpencodePort({}, envFilePath)).toBe(4096);
+    });
+
+    it("resolves a URL without a port to the scheme default", async () => {
+      expect(await portOf("http://localhost")).toBe(80);
+      expect(await portOf("https://localhost")).toBe(443);
+      expect(await portOf("http://localhost/")).toBe(80);
+    });
+
+    it("resolves an explicit scheme default port", async () => {
+      expect(await portOf("http://localhost:80")).toBe(80);
+      expect(await portOf("https://localhost:443")).toBe(443);
+    });
+
+    it("accepts a bracketed IPv6 loopback and 0.0.0.0", async () => {
+      expect(await portOf("http://[::1]:4096")).toBe(4096);
+      expect(await portOf("http://0.0.0.0:4096")).toBe(4096);
+    });
+
+    it("refuses localhost with a trailing dot", async () => {
+      expect(await portOf("http://localhost.:4096")).toBeNull();
+    });
+
+    it("refuses the userinfo trick and accepts a local host behind userinfo", async () => {
+      expect(await portOf("http://localhost@evil.com:4096")).toBeNull();
+      expect(await portOf("http://evil.com@localhost:5000")).toBe(5000);
+    });
+
+    it("refuses port 0 and a port above 65535", async () => {
+      expect(await portOf("http://localhost:0")).toBeNull();
+      expect(await portOf("http://localhost:65536")).toBeNull();
+    });
+
+    it("accepts https and an uppercase host", async () => {
+      expect(await portOf("https://localhost:8443")).toBe(8443);
+      expect(await portOf("http://LOCALHOST:4096")).toBe(4096);
+    });
+
+    it("refuses a scheme other than http and https", async () => {
+      expect(await portOf("ftp://localhost:21")).toBeNull();
+    });
+
+    it("lets the real environment version win over .env", async () => {
+      await writeFile(envFilePath, "OPENCODE_SERVER_VERSION=v2\n");
+
+      expect(await resolveOpencodePort({ OPENCODE_SERVER_VERSION: "v1" }, envFilePath)).toBe(4096);
+    });
+
+    it("falls to the default for a blank .env value", async () => {
+      await writeFile(envFilePath, "OPENCODE_API_URL=\n");
+
+      expect(await resolveOpencodePort({}, envFilePath)).toBe(4096);
+    });
+
+    it("lets a remote URL in the real environment beat a local one in .env", async () => {
+      await writeFile(envFilePath, "OPENCODE_API_URL=http://localhost:6000\n");
+
+      expect(await portOf("http://opencode.example.com:4096")).toBeNull();
+    });
+  });
+
+  describe("findOpencodeServer listener refusal", () => {
+    it("refuses a listener that is this process or its parent", async () => {
+      for (const pid of [process.pid, process.ppid]) {
+        const server = await findOpencodeServer({
+          port: 4096,
+          findPid: vi.fn().mockResolvedValue(pid),
+          commandLine: vi.fn().mockResolvedValue("x"),
+        });
+
+        expect(server).toBeNull();
+      }
     });
   });
 
