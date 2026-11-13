@@ -823,7 +823,6 @@ export const tr: I18nDictionary = {
   "uninstall.plan_keychain": "Anahtar zincirindeki saklı gizli bilgileri sil (servis {service}).",
   "uninstall.plan_logs_stay": "Günlük dosyaları asla kaldırılmaz ve {path} içinde kalır.",
   "uninstall.plan_opencode_server": "OpenCode sunucusunu durdur (ayrıca onaylanır).",
-  "uninstall.plan_nothing": "Kaldırılacak bir şey yok.",
   "uninstall.confirm_plan": "Bu planla devam edilsin mi? [y/N] ",
   "uninstall.confirm_override": "{path} içindeki veriler de kaldırılsın mı? [y/N] ",
   "uninstall.confirm_stop_process":
@@ -866,8 +865,7 @@ export const tr: I18nDictionary = {
   "uninstall.step_process_stopped": "{pid} işlemi durduruldu.",
   "uninstall.step_process_failed": "{pid} işlemi durdurulamadı.",
   "uninstall.step_process_skipped": "{pid} işlemi atlandı.",
-  "uninstall.step_process_refused":
-    "{pid} işlemi atlandı: komut satırı durdurulmadan önce değişti.",
+  "uninstall.step_process_refused": "{pid} işlemine sinyal gönderilmedi: artık botla eşleşmiyor.",
   "uninstall.process_unverified":
     "{pid} işleminin çalışma dizini okunamadı, bu nedenle bu eşleşme doğrulanmadı.",
   "uninstall.started_unknown": "bilinmiyor",
@@ -887,7 +885,7 @@ export const tr: I18nDictionary = {
   "uninstall.step_opencode_none": "Durdurulacak OpenCode sunucusu bulunamadı.",
   "uninstall.command_unavailable": "(komut satırı kullanılamıyor)",
   "uninstall.home_removed": "{path} uygulama dizini kaldırıldı.",
-  "uninstall.home_kept": "{path} uygulama dizini korundu: hâlâ dosya içeriyor (günlükler kalır).",
+  "uninstall.home_kept": "{path} uygulama dizini korundu: hâlâ başka dosyalar içeriyor.",
   "uninstall.summary_ok": "Kaldırma tamamlandı.",
   "uninstall.left_process": "{pid} işlemi",
   "uninstall.left_opencode": "OpenCode portundaki işlem (PID {pid})",
@@ -895,5 +893,26 @@ export const tr: I18nDictionary = {
   "uninstall.summary_left": "Kaldırma tamamlandı; yerinde bırakılanlar: {items}",
   "uninstall.summary_failed": "Kaldırma tamamlandı. Başarısız adımlar: {count}",
   "uninstall.cli_hint": "CLI'nin kendisini kaldırmak için şunu çalıştırın: {command}",
+  "uninstall.plan_override_secrets":
+    "Bu dizinin geri kalanı korunsa bile {path} içindeki secrets.enc ve keystore_password dosyalarını kaldır.",
+  "uninstall.step_override_secrets":
+    "secrets.enc ve keystore_password {path} içinden kaldırılıyor: gizli bilgiler dizinin geri kalanına ne olursa olsun kaldırılır.",
+  "uninstall.left_override_kept": "{path} (secrets.enc ve keystore_password dışındaki her şey)",
+  "uninstall.left_scan": "daemon dışındaki bot işlemleri (denetlenmedi)",
+  "uninstall.left_daemon": "bot daemon'u (hâlâ çalışıyor olabilir)",
+  "uninstall.summary_failed_left":
+    "Kaldırma tamamlandı. Başarısız adımlar: {count}. Yerinde bırakılanlar: {items}",
+  "uninstall.list_separator": ", ",
+  "uninstall.step_systemd_ran": "{path} systemd birimi şu komutlarla kaldırıldı:\n{commands}",
+  "uninstall.step_process_skipped_no_terminal":
+    "{pid} işlemi atlandı: durdurmayı onaylamak için terminal yok.",
+  "uninstall.step_opencode_skipped_no_terminal":
+    "OpenCode portundaki işlemin durdurulması atlandı: onaylamak için terminal yok.",
+  "uninstall.step_override_skipped_no_terminal":
+    "OPENCODE_TELEGRAM_HOME dizini {path} atlandı: kaldırmayı onaylamak için terminal yok.",
+  "uninstall.step_logs_warning": "Günlük konumu: {message}",
+  "uninstall.step_homes_error": "Uygulama dizini belirlenemedi: {reason}. Hiçbir şey kaldırılmadı.",
+  "uninstall.home_kept_logs":
+    "{path} uygulama dizini korundu: günlükler dahil hâlâ dosya içeriyor.",
 
 };

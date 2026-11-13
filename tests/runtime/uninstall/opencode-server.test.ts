@@ -185,6 +185,31 @@ describe("runtime/uninstall/opencode-server", () => {
         expect(server).toBeNull();
       }
     });
+
+    it("refuses a listener in the excluded pids and never reads its command line", async () => {
+      const commandLine = vi.fn().mockResolvedValue("x");
+
+      const server = await findOpencodeServer({
+        port: 4096,
+        findPid: vi.fn().mockResolvedValue(555),
+        commandLine,
+        excludePids: [111, 555],
+      });
+
+      expect(server).toBeNull();
+      expect(commandLine).not.toHaveBeenCalled();
+    });
+
+    it("accepts a listener that is not excluded", async () => {
+      const server = await findOpencodeServer({
+        port: 4096,
+        findPid: vi.fn().mockResolvedValue(556),
+        commandLine: vi.fn().mockResolvedValue("opencode serve"),
+        excludePids: [555],
+      });
+
+      expect(server?.pid).toBe(556);
+    });
   });
 
   describe("findOpencodeServer", () => {

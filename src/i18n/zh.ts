@@ -763,7 +763,6 @@ export const zh: I18nDictionary = {
   "uninstall.plan_keychain": "从钥匙串中删除已保存的密钥（服务 {service}）。",
   "uninstall.plan_logs_stay": "日志文件不会被删除，仍保留在 {path}。",
   "uninstall.plan_opencode_server": "停止 OpenCode 服务器（单独确认）。",
-  "uninstall.plan_nothing": "没有需要删除的内容。",
   "uninstall.confirm_plan": "是否按此计划继续？[y/N] ",
   "uninstall.confirm_override": "是否同时删除 {path} 中的数据？[y/N] ",
   "uninstall.confirm_stop_process":
@@ -803,7 +802,7 @@ export const zh: I18nDictionary = {
   "uninstall.step_process_stopped": "已停止进程 {pid}。",
   "uninstall.step_process_failed": "无法停止进程 {pid}。",
   "uninstall.step_process_skipped": "已跳过进程 {pid}。",
-  "uninstall.step_process_refused": "已跳过进程 {pid}：其命令行在停止前发生了变化。",
+  "uninstall.step_process_refused": "未向进程 {pid} 发送信号：它已不再与机器人匹配。",
   "uninstall.process_unverified": "无法读取进程 {pid} 的工作目录，因此此匹配未经验证。",
   "uninstall.started_unknown": "未知",
   "uninstall.step_override_invalid": "已跳过 OPENCODE_TELEGRAM_HOME 目录 {path}：{reason}",
@@ -822,7 +821,7 @@ export const zh: I18nDictionary = {
   "uninstall.step_opencode_none": "未找到需要停止的 OpenCode 服务器。",
   "uninstall.command_unavailable": "（命令行不可用）",
   "uninstall.home_removed": "已删除应用主目录 {path}。",
-  "uninstall.home_kept": "已保留应用主目录 {path}：其中仍有文件（日志会保留）。",
+  "uninstall.home_kept": "已保留应用主目录 {path}：其中仍有其他文件。",
   "uninstall.summary_ok": "卸载完成。",
   "uninstall.left_process": "进程 {pid}",
   "uninstall.left_opencode": "OpenCode 端口上的进程（PID {pid}）",
@@ -830,5 +829,23 @@ export const zh: I18nDictionary = {
   "uninstall.summary_left": "卸载完成；保留未动的项目：{items}",
   "uninstall.summary_failed": "卸载完成。失败的步骤：{count}",
   "uninstall.cli_hint": "要删除 CLI 本身，请运行：{command}",
+  "uninstall.plan_override_secrets":
+    "即使保留该目录的其余内容，也会删除 {path} 中的 secrets.enc 和 keystore_password。",
+  "uninstall.step_override_secrets":
+    "正在从 {path} 删除 secrets.enc 和 keystore_password：无论目录其余部分如何处理，密钥都会被删除。",
+  "uninstall.left_override_kept": "{path}（除 secrets.enc 和 keystore_password 外的全部内容）",
+  "uninstall.left_scan": "守护进程之外的机器人进程（未检查）",
+  "uninstall.left_daemon": "机器人守护进程（可能仍在运行）",
+  "uninstall.summary_failed_left": "卸载完成。失败的步骤：{count}。保留未动的项目：{items}",
+  "uninstall.list_separator": "、",
+  "uninstall.step_systemd_ran": "已通过运行以下命令删除 systemd 单元 {path}：\n{commands}",
+  "uninstall.step_process_skipped_no_terminal": "已跳过进程 {pid}：没有终端可确认停止它。",
+  "uninstall.step_opencode_skipped_no_terminal":
+    "已跳过停止 OpenCode 端口上的进程：没有终端可进行确认。",
+  "uninstall.step_override_skipped_no_terminal":
+    "已跳过 OPENCODE_TELEGRAM_HOME 目录 {path}：没有终端可确认删除。",
+  "uninstall.step_logs_warning": "日志位置：{message}",
+  "uninstall.step_homes_error": "无法确定应用主目录：{reason}。未删除任何内容。",
+  "uninstall.home_kept_logs": "已保留应用主目录 {path}：其中仍有文件，包括日志。",
 
 };

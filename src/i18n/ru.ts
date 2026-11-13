@@ -842,7 +842,6 @@ export const ru: I18nDictionary = {
   "uninstall.plan_keychain": "Удалить сохранённые секреты из связки ключей (служба {service}).",
   "uninstall.plan_logs_stay": "Файлы журналов никогда не удаляются и остаются в {path}.",
   "uninstall.plan_opencode_server": "Остановить сервер OpenCode (подтверждается отдельно).",
-  "uninstall.plan_nothing": "Удалять нечего.",
   "uninstall.confirm_plan": "Выполнить этот план? [y/N] ",
   "uninstall.confirm_override": "Удалить также данные в {path}? [y/N] ",
   "uninstall.confirm_stop_process":
@@ -886,7 +885,7 @@ export const ru: I18nDictionary = {
   "uninstall.step_process_failed": "Не удалось остановить процесс {pid}.",
   "uninstall.step_process_skipped": "Процесс {pid} пропущен.",
   "uninstall.step_process_refused":
-    "Процесс {pid} пропущен: его командная строка изменилась до остановки.",
+    "Процессу {pid} сигнал не отправлен: он больше не соответствует боту.",
   "uninstall.process_unverified":
     "Не удалось прочитать рабочий каталог процесса {pid}, поэтому это совпадение не проверено.",
   "uninstall.started_unknown": "неизвестно",
@@ -908,8 +907,7 @@ export const ru: I18nDictionary = {
   "uninstall.step_opencode_none": "Сервер OpenCode для остановки не найден.",
   "uninstall.command_unavailable": "(командная строка недоступна)",
   "uninstall.home_removed": "Каталог приложения {path} удалён.",
-  "uninstall.home_kept":
-    "Каталог приложения {path} сохранён: в нём остались файлы (журналы остаются).",
+  "uninstall.home_kept": "Каталог приложения {path} сохранён: в нём остались другие файлы.",
   "uninstall.summary_ok": "Удаление завершено.",
   "uninstall.left_process": "процесс {pid}",
   "uninstall.left_opencode": "процесс на порту OpenCode (PID {pid})",
@@ -917,5 +915,27 @@ export const ru: I18nDictionary = {
   "uninstall.summary_left": "Удаление завершено; оставлено на месте: {items}",
   "uninstall.summary_failed": "Удаление завершено. Шаги с ошибками: {count}",
   "uninstall.cli_hint": "Чтобы удалить саму CLI, выполните: {command}",
+  "uninstall.plan_override_secrets":
+    "Удалить secrets.enc и keystore_password в {path}, даже если остальное содержимое каталога останется.",
+  "uninstall.step_override_secrets":
+    "Удаление secrets.enc и keystore_password из {path}: секреты удаляются независимо от остального содержимого каталога.",
+  "uninstall.left_override_kept": "{path} (всё, кроме secrets.enc и keystore_password)",
+  "uninstall.left_scan": "процессы бота вне демона (не проверены)",
+  "uninstall.left_daemon": "демон бота (возможно, он всё ещё работает)",
+  "uninstall.summary_failed_left":
+    "Удаление завершено. Шаги с ошибками: {count}. Оставлено на месте: {items}",
+  "uninstall.list_separator": ", ",
+  "uninstall.step_systemd_ran": "Юнит systemd {path} удалён командами:\n{commands}",
+  "uninstall.step_process_skipped_no_terminal":
+    "Процесс {pid} пропущен: нет терминала, чтобы подтвердить остановку.",
+  "uninstall.step_opencode_skipped_no_terminal":
+    "Остановка процесса на порту OpenCode пропущена: нет терминала для подтверждения.",
+  "uninstall.step_override_skipped_no_terminal":
+    "Каталог OPENCODE_TELEGRAM_HOME {path} пропущен: нет терминала, чтобы подтвердить удаление.",
+  "uninstall.step_logs_warning": "Расположение журналов: {message}",
+  "uninstall.step_homes_error":
+    "Не удалось определить каталог приложения: {reason}. Ничего не удалено.",
+  "uninstall.home_kept_logs":
+    "Каталог приложения {path} сохранён: в нём остались файлы, включая журналы.",
 
 };

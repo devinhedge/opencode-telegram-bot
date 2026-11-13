@@ -18,16 +18,24 @@ const BOT_LOCALE_KEY = "BOT_LOCALE";
 // absent environment value falls through to the file. A missing or unreadable file, or an
 // unsupported value, yields undefined: the locale is a convenience and must never stop or block
 // the uninstall.
+// A null path (the app home is unknown) uses the environment only. The file is read only when it
+// is, or links to, a regular file, so a FIFO or device at that path can never block the run.
 export async function resolveUninstallLocale(
   env: NodeJS.ProcessEnv,
-  envFilePath: string,
+  envFilePath: string | null,
 ): Promise<Locale | undefined> {
   const fromEnv = env[BOT_LOCALE_KEY];
   if (fromEnv !== undefined && fromEnv.trim() !== "") {
     return resolveSupportedLocale(fromEnv) ?? undefined;
   }
+  if (envFilePath === null) {
+    return undefined;
+  }
 
   try {
+    if (!(await fs.stat(envFilePath)).isFile()) {
+      return undefined;
+    }
     const content = await fs.readFile(envFilePath, "utf-8");
     return resolveSupportedLocale(dotenv.parse(content)[BOT_LOCALE_KEY]) ?? undefined;
   } catch {

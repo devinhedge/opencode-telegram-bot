@@ -92,7 +92,8 @@ export async function resolveOpencodePort(
 /**
  * The process listening on the port. findServerPid returns only the first listener pid, so
  * callers word their output "the process found", never "the OpenCode server". A listener that
- * is this process or its parent is refused (null). On win32 the command line is always null:
+ * is this process, its parent, or in `excludePids` (the caller passes the own process chain and
+ * the bot daemon) is refused (null). On win32 the command line is always null:
  * the caller must print the pid, say the command line is unavailable, and mention in the
  * prompt that stopping kills the whole process tree (taskkill /T).
  */
@@ -100,13 +101,19 @@ export async function findOpencodeServer(deps: {
   port: number | null;
   findPid: typeof findServerPid;
   commandLine: typeof getProcessCommandLine;
+  excludePids?: readonly number[];
 }): Promise<OpencodeServer | null> {
   if (deps.port === null) {
     return null;
   }
 
   const pid = await deps.findPid(deps.port);
-  if (pid === null || pid === process.pid || pid === process.ppid) {
+  if (
+    pid === null ||
+    pid === process.pid ||
+    pid === process.ppid ||
+    (deps.excludePids ?? []).includes(pid)
+  ) {
     return null;
   }
 

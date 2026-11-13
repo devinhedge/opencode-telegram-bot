@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -35,7 +36,6 @@ const PLACEHOLDERS: Record<string, string[]> = {
   plan_keychain: ["service"],
   plan_logs_stay: ["path"],
   plan_opencode_server: [],
-  plan_nothing: [],
   confirm_plan: [],
   confirm_override: ["path"],
   confirm_stop_process: ["command", "pid", "started", "user"],
@@ -98,6 +98,20 @@ const PLACEHOLDERS: Record<string, string[]> = {
   summary_left: ["items"],
   summary_failed: ["count"],
   cli_hint: ["command"],
+  plan_override_secrets: ["path"],
+  step_override_secrets: ["path"],
+  left_override_kept: ["path"],
+  left_scan: [],
+  left_daemon: [],
+  summary_failed_left: ["count", "items"],
+  list_separator: [],
+  step_systemd_ran: ["commands", "path"],
+  step_process_skipped_no_terminal: ["pid"],
+  step_opencode_skipped_no_terminal: [],
+  step_override_skipped_no_terminal: ["path"],
+  step_logs_warning: ["message"],
+  step_homes_error: ["reason"],
+  home_kept_logs: ["path"],
 };
 
 const REQUIRED_KEYS = Object.keys(PLACEHOLDERS);
@@ -117,7 +131,9 @@ const LOCALES: Record<Exclude<Locale, "en">, I18nDictionary> = {
 };
 
 // Keys whose translation may legitimately equal the English text, each with a reason.
-const SAME_AS_ENGLISH: Record<string, string> = {};
+const SAME_AS_ENGLISH: Record<string, string> = {
+  list_separator: "a comma and a space separate list items in the Latin and Cyrillic scripts too",
+};
 
 function placeholdersOf(template: string): string[] {
   return [
@@ -218,6 +234,32 @@ describe("runtime/uninstall/messages", () => {
 
     it("returns undefined when the .env file is missing", async () => {
       await expect(resolveUninstallLocale({}, envFilePath)).resolves.toBeUndefined();
+    });
+
+    it.skipIf(process.platform === "win32")(
+      "never reads a FIFO at the .env path (it would block)",
+      async () => {
+        execFileSync("mkfifo", [envFilePath]);
+
+        await expect(resolveUninstallLocale({}, envFilePath)).resolves.toBeUndefined();
+      },
+      3000,
+    );
+
+    it.skipIf(process.platform === "win32")(
+      "follows a symlinked .env to a regular file",
+      async () => {
+        const target = path.join(tempRoot, "real.env");
+        await fs.writeFile(target, "BOT_LOCALE=fr\n");
+        await fs.symlink(target, envFilePath);
+
+        await expect(resolveUninstallLocale({}, envFilePath)).resolves.toBe("fr");
+      },
+    );
+
+    it("uses only the environment for a null path", async () => {
+      await expect(resolveUninstallLocale({ BOT_LOCALE: "de" }, null)).resolves.toBe("de");
+      await expect(resolveUninstallLocale({}, null)).resolves.toBeUndefined();
     });
 
     it("returns undefined without throwing when the .env path is not readable as a file", async () => {

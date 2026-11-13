@@ -800,7 +800,6 @@ export const ar: I18nDictionary = {
   "uninstall.plan_keychain": "حذف الأسرار المخزنة من سلسلة المفاتيح (الخدمة {service}).",
   "uninstall.plan_logs_stay": "لا تُزال ملفات السجل أبدًا وتبقى في {path}.",
   "uninstall.plan_opencode_server": "إيقاف خادم OpenCode (يُؤكَّد على حدة).",
-  "uninstall.plan_nothing": "لا شيء للإزالة.",
   "uninstall.confirm_plan": "هل تتابع بهذه الخطة؟ \u200E[y/N] ",
   "uninstall.confirm_override": "هل تزيل أيضًا البيانات في {path}؟ \u200E[y/N] ",
   "uninstall.confirm_stop_process":
@@ -842,7 +841,7 @@ export const ar: I18nDictionary = {
   "uninstall.step_process_stopped": "تم إيقاف العملية {pid}.",
   "uninstall.step_process_failed": "تعذّر إيقاف العملية {pid}.",
   "uninstall.step_process_skipped": "تم تخطي العملية {pid}.",
-  "uninstall.step_process_refused": "تم تخطي العملية {pid}: تغيّر سطر أوامرها قبل إيقافها.",
+  "uninstall.step_process_refused": "لم تُرسل إشارة إلى العملية {pid}: لم تعد تطابق البوت.",
   "uninstall.process_unverified":
     "تعذّرت قراءة مجلد العمل للعملية {pid}، لذا فهذا التطابق غير مُتحقق منه.",
   "uninstall.started_unknown": "غير معروف",
@@ -862,8 +861,7 @@ export const ar: I18nDictionary = {
   "uninstall.step_opencode_none": "لم يُعثر على خادم OpenCode لإيقافه.",
   "uninstall.command_unavailable": "(سطر الأوامر غير متاح)",
   "uninstall.home_removed": "تمت إزالة مجلد التطبيق {path}.",
-  "uninstall.home_kept":
-    "تم الإبقاء على مجلد التطبيق {path}: ما زال يحتوي على ملفات (تبقى السجلات).",
+  "uninstall.home_kept": "تم الإبقاء على مجلد التطبيق {path}: ما زال يحتوي على ملفات أخرى.",
   "uninstall.summary_ok": "اكتملت الإزالة.",
   "uninstall.left_process": "العملية {pid}",
   "uninstall.left_opencode": "العملية على منفذ OpenCode (PID {pid})",
@@ -871,5 +869,26 @@ export const ar: I18nDictionary = {
   "uninstall.summary_left": "اكتملت الإزالة؛ تُرك في مكانه: {items}",
   "uninstall.summary_failed": "اكتملت الإزالة. الخطوات الفاشلة: {count}",
   "uninstall.cli_hint": "لإزالة واجهة سطر الأوامر نفسها، شغّل: {command}",
+  "uninstall.plan_override_secrets":
+    "إزالة secrets.enc وkeystore_password في ‏{path} حتى لو بقي باقي ذلك المجلد.",
+  "uninstall.step_override_secrets":
+    "جارٍ إزالة secrets.enc وkeystore_password من ‏{path}: تُزال الأسرار مهما حدث لباقي المجلد.",
+  "uninstall.left_override_kept": "{path} (كل شيء عدا secrets.enc وkeystore_password)",
+  "uninstall.left_scan": "عمليات البوت خارج العملية الخلفية (لم يتم فحصها)",
+  "uninstall.left_daemon": "عملية البوت الخلفية (ربما ما زالت تعمل)",
+  "uninstall.summary_failed_left":
+    "اكتملت الإزالة. الخطوات الفاشلة: {count}. تُرك في مكانه: {items}",
+  "uninstall.list_separator": "، ",
+  "uninstall.step_systemd_ran": "تمت إزالة وحدة systemd ‏{path} بتشغيل:\n{commands}",
+  "uninstall.step_process_skipped_no_terminal":
+    "تم تخطي العملية {pid}: لا توجد طرفية لتأكيد إيقافها.",
+  "uninstall.step_opencode_skipped_no_terminal":
+    "تم تخطي إيقاف العملية على منفذ OpenCode: لا توجد طرفية للتأكيد.",
+  "uninstall.step_override_skipped_no_terminal":
+    "تم تخطي المجلد OPENCODE_TELEGRAM_HOME ‏{path}: لا توجد طرفية لتأكيد إزالته.",
+  "uninstall.step_logs_warning": "موقع السجلات: {message}",
+  "uninstall.step_homes_error": "تعذّر تحديد مجلد التطبيق: {reason}. لم تتم إزالة أي شيء.",
+  "uninstall.home_kept_logs":
+    "تم الإبقاء على مجلد التطبيق {path}: ما زال يحتوي على ملفات، منها السجلات.",
 
 };

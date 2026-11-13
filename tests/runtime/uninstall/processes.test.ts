@@ -2,6 +2,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   buildScanDeps,
+  collectOwnChain,
   createCwdReader,
   findBotProcesses,
   globalPackageRoot,
@@ -159,6 +160,20 @@ describe("parseProcessList", () => {
     ].join("\n");
 
     expect(parseProcessList(output).map((p) => p.pid)).toEqual([200]);
+  });
+});
+
+describe("collectOwnChain", () => {
+  it("returns the own pid, every ancestor pid, and the own parent", () => {
+    const listing = [proc(9000, 8000, "a"), proc(8000, 7000, "b"), proc(7000, 1, "c")];
+
+    expect([...collectOwnChain(listing, 9000, 8000)].sort((a, b) => a - b)).toEqual([
+      1, 7000, 8000, 9000,
+    ]);
+  });
+
+  it("throws when the listing lacks the own pid", () => {
+    expect(() => collectOwnChain([proc(1, 0, "x")], 9000, 8000)).toThrow();
   });
 });
 

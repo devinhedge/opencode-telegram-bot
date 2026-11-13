@@ -7,12 +7,14 @@ import { KeychainSecretStore } from "../../secrets/keychain-secret-store.js";
 import { isContainerRuntime } from "../container.js";
 import { resolveLogsDirPath } from "../log-location.js";
 import { askVisibleOrEof } from "../prompts.js";
-import { getBotServiceStatus, stopBotDaemon } from "../service/manager.js";
+import { readBotServiceStatus, stopBotDaemon } from "../service/manager.js";
+import type { BotServiceStatus } from "../service/types.js";
 import { KEYCHAIN_SERVICE, STORED_KEYCHAIN_ACCOUNTS, listAppHomeTargets } from "../stored-data.js";
 import {
   resolveUninstallHomes,
   validateOverrideHome,
   type OverrideInvalidReason,
+  type OverrideValidation,
   type UninstallHomes,
 } from "./homes.js";
 import { removeKeychainAccounts, type KeychainRemoval } from "./keychain.js";
@@ -28,18 +30,26 @@ import {
   type OpencodeServer,
 } from "./opencode-server.js";
 import {
+  collectOwnChain,
   defaultScanDeps,
   findBotProcesses,
   reverifyBotProcess,
   type BotProcess,
   type ScanDeps,
 } from "./processes.js";
-import { removeAppHomeData, type RemoveAppHomeResult } from "./remove-path.js";
+import {
+  removeAppHomeData,
+  removePath,
+  type RemoveAppHomeResult,
+  type RemoveResult,
+} from "./remove-path.js";
 import {
   SYSTEMD_COMMANDS,
   SYSTEMD_UNIT_PATH,
   defaultSystemdDeps,
+  defaultSystemdMainPidDeps,
   formatSystemdCommand,
+  getSystemdMainPid,
   removeSystemdUnit,
   type SystemdDeps,
   type SystemdOutcome,
@@ -47,12 +57,15 @@ import {
 
 // The uninstaller never initializes the file logger. Every line goes through the translator.
 
-/** Printed verbatim: a constant, not process text, so it is not passed through redaction. */
+/** A constant, not process text: printed verbatim and therefore not passed through redaction. */
 const CLI_UNINSTALL_COMMAND = "npm uninstall -g @grinev/opencode-telegram-bot";
 // SIGTERM, then SIGKILL after this long, the same as the daemon stop.
 const PROCESS_STOP_TIMEOUT_MS = 5000;
 const PROCESS_EXIT_POLL_MS = 100;
 const STOP_SIGNALS = ["SIGTERM", "SIGKILL"] as const;
+// Removed from a valid override even when the rest of it is kept (spec: secrets are removed
+// whatever happens to the override step).
+const OVERRIDE_SECRET_FILES = ["secrets.enc", "keystore_password"] as const;
 
 // run.ts lives in <root>/{src,dist}/runtime/uninstall; the running checkout or package root.
 const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
@@ -74,9 +87,15 @@ export interface UninstallDeps {
   ask(question: string): Promise<string | null>;
   /** Writes one translated line (the newline is added by the writer). */
   write(line: string): void;
-  homes: UninstallHomes;
-  getDaemonStatus: typeof getBotServiceStatus;
+  /** May throw (os.homedir); the run then refuses or stops before anything is touched. */
+  getHomes(): UninstallHomes;
+  /** Read-only: a stale or invalid state file is reported, never removed. */
+  getDaemonStatus(): Promise<BotServiceStatus>;
   stopDaemon: typeof stopBotDaemon;
+  /** The own pid and its ancestors. */
+  getOwnPidChain(): Promise<readonly number[]>;
+  /** The main pid of the systemd unit, or null. */
+  findSystemdMainPid(): Promise<number | null>;
   findBotProcesses(excludePids: readonly number[]): Promise<BotProcess[]>;
   /** Called immediately before every signal; false means the pid must not be signaled. */
   reverifyProcess(found: BotProcess): Promise<boolean>;
@@ -85,18 +104,23 @@ export interface UninstallDeps {
   /** Resolves true when the process has exited within the timeout. */
   waitForExit(pid: number, timeoutMs: number): Promise<boolean>;
   systemd: SystemdDeps;
-  findOpencode(): Promise<OpencodeServer | null>;
+  findOpencode(excludePids: readonly number[]): Promise<OpencodeServer | null>;
   stopOpencode(pid: number): Promise<boolean>;
+  validateOverride(overrideHome: string): Promise<OverrideValidation>;
+  removePath(target: string): Promise<RemoveResult>;
   removeAppHome(appHome: string): ReturnType<typeof removeAppHomeData>;
   removeKeychain(): Promise<KeychainRemoval>;
-  /** Resolves the log directory without prompting. */
-  resolveLogsDir(): Promise<string>;
+  /** Resolves the log directory without prompting; warnings go to `warn`. */
+  resolveLogsDir(warn: (message: string) => void): Promise<string>;
 }
 
 type Say = (key: I18nKey, params?: Record<string, string | number>) => void;
 type Translate = (key: I18nKey, params?: Record<string, string | number>) => string;
 
-interface Outcome {
+interface Context {
+  deps: UninstallDeps;
+  translate: Translate;
+  say: Say;
   failures: number;
   left: string[];
 }
@@ -108,6 +132,9 @@ type ScanState =
   | { kind: "unsupported" }
   | { kind: "failed"; reason: string };
 
+// Error reasons are raw OS and library diagnostics (English, for example "EACCES: permission
+// denied, rm '<path>'"): they carry paths and codes, never a secret value, and are not translated.
+// The same holds for the `ps` start time (LC_ALL=C day and month names) and account names.
 function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -162,13 +189,28 @@ async function detectDaemon(deps: UninstallDeps): Promise<DaemonState> {
   }
 }
 
-async function detectBots(deps: UninstallDeps, daemon: DaemonState): Promise<ScanState> {
+async function detectSystemdMainPid(deps: UninstallDeps): Promise<number | null> {
+  try {
+    return await deps.findSystemdMainPid();
+  } catch {
+    return null;
+  }
+}
+
+async function detectOwnChain(deps: UninstallDeps): Promise<readonly number[]> {
+  try {
+    return await deps.getOwnPidChain();
+  } catch {
+    return [process.pid, process.ppid];
+  }
+}
+
+async function detectBots(deps: UninstallDeps, exclude: readonly number[]): Promise<ScanState> {
   if (deps.platform === "win32") {
     return { kind: "unsupported" };
   }
 
   try {
-    const exclude = daemon.kind === "running" ? [daemon.pid] : [];
     return { kind: "found", processes: await deps.findBotProcesses(exclude) };
   } catch (error) {
     return { kind: "failed", reason: errorText(error) };
@@ -188,11 +230,26 @@ async function detectSystemdUnit(systemd: SystemdDeps): Promise<boolean> {
   }
 }
 
-async function detectOpencode(deps: UninstallDeps): Promise<OpencodeServer | null> {
+async function detectOpencode(
+  deps: UninstallDeps,
+  exclude: readonly number[],
+): Promise<OpencodeServer | null> {
   try {
-    return await deps.findOpencode();
+    return await deps.findOpencode(exclude);
   } catch {
     return null;
+  }
+}
+
+async function validate(
+  deps: UninstallDeps,
+  overrideHome: string,
+): Promise<OverrideInvalidReason | null> {
+  try {
+    const validation = await deps.validateOverride(overrideHome);
+    return validation.ok ? null : validation.reason;
+  } catch {
+    return "unreadable";
   }
 }
 
@@ -205,34 +262,35 @@ async function hasHomeTargets(appHome: string): Promise<boolean> {
   }
 }
 
-async function stopDaemonStep(
-  deps: UninstallDeps,
-  daemon: DaemonState,
-  say: Say,
-  outcome: Outcome,
-): Promise<void> {
+async function stopDaemonStep(ctx: Context, daemon: DaemonState): Promise<void> {
   if (daemon.kind === "stopped") {
-    say("uninstall.step_daemon_absent");
+    ctx.say("uninstall.step_daemon_absent");
     return;
   }
 
+  const failed = (): void => {
+    ctx.failures += 1;
+    ctx.left.push(ctx.translate("uninstall.left_daemon"));
+  };
+
   try {
-    const result = await deps.stopDaemon();
+    // Runs only after the main confirmation; it may remove the state file in the runtime home.
+    const result = await ctx.deps.stopDaemon();
     const pid = result.service?.pid ?? (daemon.kind === "running" ? daemon.pid : null);
     if (result.alreadyStopped) {
-      say("uninstall.step_daemon_absent");
+      ctx.say("uninstall.step_daemon_absent");
     } else if (result.success && pid !== null) {
-      say("uninstall.step_daemon_stopped", { pid });
+      ctx.say("uninstall.step_daemon_stopped", { pid });
     } else if (pid !== null) {
-      say("uninstall.step_daemon_failed", { pid });
-      outcome.failures += 1;
+      ctx.say("uninstall.step_daemon_failed", { pid });
+      failed();
     } else {
-      say("uninstall.step_daemon_error", { reason: result.error ?? "" });
-      outcome.failures += 1;
+      ctx.say("uninstall.step_daemon_error", { reason: result.error ?? "" });
+      failed();
     }
   } catch (error) {
-    say("uninstall.step_daemon_error", { reason: errorText(error) });
-    outcome.failures += 1;
+    ctx.say("uninstall.step_daemon_error", { reason: errorText(error) });
+    failed();
   }
 }
 
@@ -240,8 +298,8 @@ type ProcessStopResult = "stopped" | "failed" | "refused";
 
 /**
  * SIGTERM, then SIGKILL after the timeout. The process is re-verified immediately before each
- * signal; a process that no longer verifies is never signaled again (refused), unless it has
- * already exited.
+ * signal; a pid that no longer matches the bot is never signaled (refused) unless it has
+ * already exited (stopped). A signal error other than ESRCH is a failure.
  */
 async function stopBotProcess(deps: UninstallDeps, found: BotProcess): Promise<ProcessStopResult> {
   if (!Number.isInteger(found.pid) || found.pid <= 0) {
@@ -267,31 +325,27 @@ async function stopBotProcess(deps: UninstallDeps, found: BotProcess): Promise<P
   return "failed";
 }
 
-async function stopBotsStep(
-  deps: UninstallDeps,
-  scan: ScanState,
-  translate: Translate,
-  say: Say,
-  outcome: Outcome,
-): Promise<void> {
+async function stopBotsStep(ctx: Context, scan: ScanState): Promise<void> {
+  const { deps, translate, say } = ctx;
   if (scan.kind === "unsupported") {
     say("uninstall.step_scan_unsupported");
     return;
   }
   if (scan.kind === "failed") {
+    // A skipped step, not a failure: the summary says the processes were not checked.
     say("uninstall.step_scan_failed", { reason: scan.reason });
-    outcome.failures += 1;
+    ctx.left.push(translate("uninstall.left_scan"));
     return;
   }
 
   for (const found of scan.processes) {
-    const leaveRunning = (): void => {
-      say("uninstall.step_process_skipped", { pid: found.pid });
-      outcome.left.push(translate("uninstall.left_process", { pid: found.pid }));
+    const leftRunning = (): void => {
+      ctx.left.push(translate("uninstall.left_process", { pid: found.pid }));
     };
 
     if (!deps.isInteractive) {
-      leaveRunning();
+      say("uninstall.step_process_skipped_no_terminal", { pid: found.pid });
+      leftRunning();
       continue;
     }
 
@@ -305,7 +359,8 @@ async function stopBotsStep(
       command: redactCommandLine(found.commandLine),
     });
     if (!(await confirm(deps, question))) {
-      leaveRunning();
+      say("uninstall.step_process_skipped", { pid: found.pid });
+      leftRunning();
       continue;
     }
 
@@ -318,13 +373,15 @@ async function stopBotsStep(
 
     if (result === "stopped") {
       say("uninstall.step_process_stopped", { pid: found.pid });
-      continue;
+    } else if (result === "refused") {
+      // The pid exited or was reused: not this run's failure, but it is reported as left.
+      say("uninstall.step_process_refused", { pid: found.pid });
+      leftRunning();
+    } else {
+      say("uninstall.step_process_failed", { pid: found.pid });
+      ctx.failures += 1;
+      leftRunning();
     }
-    say(result === "refused" ? "uninstall.step_process_refused" : "uninstall.step_process_failed", {
-      pid: found.pid,
-    });
-    outcome.failures += 1;
-    outcome.left.push(translate("uninstall.left_process", { pid: found.pid }));
   }
 }
 
@@ -337,54 +394,59 @@ const SYSTEMD_OUTCOME_KEYS: Record<SystemdOutcome, I18nKey> = {
   failed: "uninstall.systemd_outcome_failed",
 };
 
-async function systemdStep(
-  deps: UninstallDeps,
-  translate: Translate,
-  say: Say,
-  outcome: Outcome,
-): Promise<void> {
+function formatCommands(commands: readonly (readonly string[])[]): string {
+  return commands.map(formatSystemdCommand).join("\n");
+}
+
+async function systemdStep(ctx: Context): Promise<void> {
   let commands: readonly (readonly string[])[];
   try {
-    const result = await removeSystemdUnit(deps.systemd);
-    say("uninstall.step_systemd", { outcome: translate(SYSTEMD_OUTCOME_KEYS[result.outcome]) });
-    if (result.outcome === "removed" || result.commands.length === 0) {
+    const result = await removeSystemdUnit(ctx.deps.systemd);
+    ctx.say("uninstall.step_systemd", {
+      outcome: ctx.translate(SYSTEMD_OUTCOME_KEYS[result.outcome]),
+    });
+    if (result.outcome === "removed") {
+      ctx.say("uninstall.step_systemd_ran", {
+        path: SYSTEMD_UNIT_PATH,
+        commands: formatCommands(result.commands),
+      });
+      return;
+    }
+    if (result.commands.length === 0) {
       return;
     }
     if (result.outcome === "failed") {
-      outcome.failures += 1;
+      ctx.failures += 1;
     }
     commands = result.commands;
   } catch (error) {
-    say("uninstall.step_systemd_failed", { reason: errorText(error) });
-    outcome.failures += 1;
+    ctx.say("uninstall.step_systemd_failed", { reason: errorText(error) });
+    ctx.failures += 1;
     commands = SYSTEMD_COMMANDS;
   }
 
-  say("uninstall.step_systemd_commands", {
-    commands: commands.map(formatSystemdCommand).join("\n"),
-  });
-  outcome.left.push(SYSTEMD_UNIT_PATH);
+  ctx.say("uninstall.step_systemd_commands", { commands: formatCommands(commands) });
+  ctx.left.push(SYSTEMD_UNIT_PATH);
 }
 
 async function opencodeStep(
-  deps: UninstallDeps,
+  ctx: Context,
   server: OpencodeServer | null,
-  translate: Translate,
-  say: Say,
-  outcome: Outcome,
+  exclude: readonly number[],
 ): Promise<void> {
+  const { deps, translate, say } = ctx;
   if (server === null) {
     say("uninstall.step_opencode_none");
     return;
   }
 
-  const leaveRunning = (): void => {
-    say("uninstall.step_opencode_skipped");
-    outcome.left.push(translate("uninstall.left_opencode", { pid: server.pid }));
+  const leftRunning = (): void => {
+    ctx.left.push(translate("uninstall.left_opencode", { pid: server.pid }));
   };
 
   if (!deps.isInteractive) {
-    leaveRunning();
+    say("uninstall.step_opencode_skipped_no_terminal");
+    leftRunning();
     return;
   }
 
@@ -400,17 +462,18 @@ async function opencodeStep(
         : redactCommandLine(server.commandLine),
   });
   if (!(await confirm(deps, question))) {
-    leaveRunning();
+    say("uninstall.step_opencode_skipped");
+    leftRunning();
     return;
   }
 
   // Time of check to time of use: the listener is looked up again right before the kill, and a
   // different pid or command line means the confirmed process is not the one listening now.
-  const fresh = await detectOpencode(deps);
+  const fresh = await detectOpencode(deps, exclude);
   if (fresh === null || fresh.pid !== server.pid || fresh.commandLine !== server.commandLine) {
     say("uninstall.step_opencode_refused", { pid: server.pid });
-    outcome.failures += 1;
-    outcome.left.push(translate("uninstall.left_opencode", { pid: server.pid }));
+    ctx.failures += 1;
+    leftRunning();
     return;
   }
 
@@ -425,61 +488,72 @@ async function opencodeStep(
     say("uninstall.step_opencode_stopped", { pid: server.pid });
   } else {
     say("uninstall.step_opencode_failed", { pid: server.pid });
-    outcome.failures += 1;
-    outcome.left.push(translate("uninstall.left_opencode", { pid: server.pid }));
+    ctx.failures += 1;
+    leftRunning();
   }
 }
 
-async function removeHomeStep(
-  deps: UninstallDeps,
+/** Prints each result; a link target that still exists outside the home is listed as left. */
+async function reportRemovals(
+  ctx: Context,
+  results: readonly RemoveResult[],
   appHome: string,
-  say: Say,
-  outcome: Outcome,
+  realHome: string,
 ): Promise<void> {
+  const linkTargets: string[] = [];
+  for (const result of results) {
+    if (result.status === "failed") {
+      ctx.say("uninstall.step_failed", { path: result.path, reason: result.error ?? "" });
+      ctx.failures += 1;
+    } else if (result.status === "absent") {
+      ctx.say("uninstall.step_absent", { path: result.path });
+    } else if (result.linkTarget !== undefined) {
+      ctx.say("uninstall.step_link_removed", { path: result.path, target: result.linkTarget });
+      linkTargets.push(result.linkTarget);
+    } else {
+      ctx.say("uninstall.step_removed", { path: result.path });
+    }
+  }
+
+  // A target inside the home was either removed in this run or stays with the kept home.
+  for (const target of linkTargets) {
+    if (isInside(target, appHome) || isInside(target, realHome) || !(await pathExists(target))) {
+      continue;
+    }
+    ctx.say("uninstall.step_target_left", { path: target });
+    ctx.left.push(target);
+  }
+}
+
+async function removeHomeStep(ctx: Context, appHome: string): Promise<void> {
+  if (!(await pathExists(appHome))) {
+    ctx.say("uninstall.step_absent", { path: appHome });
+    return;
+  }
+
   // Taken before the removal: the home itself may be removed when it ends up empty.
   const realHome = await realpathOrSelf(appHome);
 
   let removal: RemoveAppHomeResult;
   try {
-    removal = await deps.removeAppHome(appHome);
+    removal = await ctx.deps.removeAppHome(appHome);
   } catch (error) {
     removal = { results: [], homeRemoved: false, homeError: errorText(error) };
   }
 
-  const linkTargets: string[] = [];
-  for (const result of removal.results) {
-    if (result.status === "failed") {
-      say("uninstall.step_failed", { path: result.path, reason: result.error ?? "" });
-      outcome.failures += 1;
-    } else if (result.status === "absent") {
-      say("uninstall.step_absent", { path: result.path });
-    } else if (result.linkTarget !== undefined) {
-      say("uninstall.step_link_removed", { path: result.path, target: result.linkTarget });
-      linkTargets.push(result.linkTarget);
-    } else {
-      say("uninstall.step_removed", { path: result.path });
-    }
-  }
-
-  // Only a target that still exists outside the home is left in place; a target inside the home
-  // was either removed in this run or stays with the kept home.
-  for (const target of linkTargets) {
-    if (isInside(target, appHome) || isInside(target, realHome) || !(await pathExists(target))) {
-      continue;
-    }
-    say("uninstall.step_target_left", { path: target });
-    outcome.left.push(target);
-  }
+  await reportRemovals(ctx, removal.results, appHome, realHome);
 
   if (removal.homeError !== undefined) {
-    say("uninstall.step_home_error", { path: appHome, reason: removal.homeError });
-    outcome.failures += 1;
+    ctx.say("uninstall.step_home_error", { path: appHome, reason: removal.homeError });
+    ctx.failures += 1;
   }
 
   if (removal.homeRemoved) {
-    say("uninstall.home_removed", { path: appHome });
+    ctx.say("uninstall.home_removed", { path: appHome });
+  } else if (await pathExists(path.join(appHome, "logs"))) {
+    ctx.say("uninstall.home_kept_logs", { path: appHome });
   } else if (await pathExists(appHome)) {
-    say("uninstall.home_kept", { path: appHome });
+    ctx.say("uninstall.home_kept", { path: appHome });
   }
 }
 
@@ -492,43 +566,66 @@ const OVERRIDE_REASON_KEYS: Record<OverrideInvalidReason, I18nKey> = {
   "no-bot-files": "uninstall.override_reason_no_bot_files",
 };
 
-async function overrideStep(
-  deps: UninstallDeps,
+function reportInvalidOverride(
+  ctx: Context,
   overrideHome: string,
-  translate: Translate,
-  say: Say,
-  outcome: Outcome,
-): Promise<void> {
-  let reason: OverrideInvalidReason | null;
-  try {
-    const validation = await validateOverrideHome(overrideHome);
-    reason = validation.ok ? null : validation.reason;
-  } catch {
-    reason = "unreadable";
+  reason: OverrideInvalidReason,
+): void {
+  ctx.say("uninstall.step_override_invalid", {
+    path: overrideHome,
+    reason: ctx.translate(OVERRIDE_REASON_KEYS[reason]),
+  });
+  // A missing directory leaves nothing behind and is never created; an invalid one is untouched.
+  if (reason !== "missing") {
+    ctx.left.push(overrideHome);
   }
+}
 
-  if (reason !== null) {
-    say("uninstall.step_override_invalid", {
-      path: overrideHome,
-      reason: translate(OVERRIDE_REASON_KEYS[reason]),
-    });
-    // A missing directory leaves nothing behind and is never created.
-    if (reason !== "missing") {
-      outcome.left.push(overrideHome);
+/** The kept override still loses its secret files: only these two names, links unlinked only. */
+async function removeOverrideSecrets(ctx: Context, overrideHome: string): Promise<void> {
+  ctx.say("uninstall.step_override_secrets", { path: overrideHome });
+  const realHome = await realpathOrSelf(overrideHome);
+  const results: RemoveResult[] = [];
+  for (const name of OVERRIDE_SECRET_FILES) {
+    const target = path.join(overrideHome, name);
+    try {
+      results.push(await ctx.deps.removePath(target));
+    } catch (error) {
+      results.push({ path: target, status: "failed", error: errorText(error) });
     }
+  }
+  await reportRemovals(ctx, results, overrideHome, realHome);
+  ctx.left.push(ctx.translate("uninstall.left_override_kept", { path: overrideHome }));
+}
+
+async function overrideStep(ctx: Context, overrideHome: string): Promise<void> {
+  const before = await validate(ctx.deps, overrideHome);
+  if (before !== null) {
+    reportInvalidOverride(ctx, overrideHome, before);
     return;
   }
 
-  const confirmed =
-    deps.isInteractive &&
-    (await confirm(deps, translate("uninstall.confirm_override", { path: overrideHome })));
-  if (!confirmed) {
-    say("uninstall.step_override_skipped", { path: overrideHome });
-    outcome.left.push(overrideHome);
+  if (!ctx.deps.isInteractive) {
+    ctx.say("uninstall.step_override_skipped_no_terminal", { path: overrideHome });
+    await removeOverrideSecrets(ctx, overrideHome);
     return;
   }
 
-  await removeHomeStep(deps, overrideHome, say, outcome);
+  const question = ctx.translate("uninstall.confirm_override", { path: overrideHome });
+  if (!(await confirm(ctx.deps, question))) {
+    ctx.say("uninstall.step_override_skipped", { path: overrideHome });
+    await removeOverrideSecrets(ctx, overrideHome);
+    return;
+  }
+
+  // The answer may have taken a while: the directory must still qualify right before removal.
+  const after = await validate(ctx.deps, overrideHome);
+  if (after !== null) {
+    reportInvalidOverride(ctx, overrideHome, after);
+    return;
+  }
+
+  await removeHomeStep(ctx, overrideHome);
 }
 
 const KEYCHAIN_STATUS_KEYS: Record<KeychainRemoval["results"][number]["status"], I18nKey> = {
@@ -537,16 +634,12 @@ const KEYCHAIN_STATUS_KEYS: Record<KeychainRemoval["results"][number]["status"],
   failed: "uninstall.keychain_status_failed",
 };
 
-async function keychainStep(
-  deps: UninstallDeps,
-  translate: Translate,
-  say: Say,
-  outcome: Outcome,
-): Promise<void> {
+async function keychainStep(ctx: Context): Promise<void> {
   let removal: KeychainRemoval;
   try {
-    removal = await deps.removeKeychain();
+    removal = await ctx.deps.removeKeychain();
   } catch {
+    // The error text is not printed: a keyring library message is not ours to show.
     removal = {
       available: true,
       results: STORED_KEYCHAIN_ACCOUNTS.map((account) => ({ account, status: "failed" })),
@@ -554,36 +647,60 @@ async function keychainStep(
   }
 
   if (!removal.available) {
-    say("uninstall.step_keychain_unavailable");
-    outcome.left.push(translate("uninstall.left_keychain"));
+    ctx.say("uninstall.step_keychain_unavailable");
+    ctx.left.push(ctx.translate("uninstall.left_keychain"));
     return;
   }
 
   for (const { account, status } of removal.results) {
-    say("uninstall.step_keychain", { account, status: translate(KEYCHAIN_STATUS_KEYS[status]) });
+    ctx.say("uninstall.step_keychain", {
+      account,
+      status: ctx.translate(KEYCHAIN_STATUS_KEYS[status]),
+    });
     if (status === "failed") {
-      outcome.failures += 1;
+      ctx.failures += 1;
     }
   }
+}
+
+function printSummary(ctx: Context): void {
+  const items = ctx.left.join(ctx.translate("uninstall.list_separator"));
+  if (ctx.failures > 0 && ctx.left.length > 0) {
+    ctx.say("uninstall.summary_failed_left", { count: ctx.failures, items });
+  } else if (ctx.failures > 0) {
+    ctx.say("uninstall.summary_failed", { count: ctx.failures });
+  } else if (ctx.left.length > 0) {
+    ctx.say("uninstall.summary_left", { items });
+  } else {
+    ctx.say("uninstall.summary_ok");
+  }
+  // {command} is the only placeholder not passed through redactCommandLine: it is a constant.
+  ctx.say("uninstall.cli_hint", { command: CLI_UNINSTALL_COMMAND });
 }
 
 /**
  * Runs the uninstall: refusals, plan, one confirmation (skipped by --yes), then every step in a
  * fixed order. A failing step never stops the others. Returns 0 on success and 1 when a step
- * failed or the run was refused or declined.
+ * failed or the run was refused or declined. Pass either every dependency or none: a partial set
+ * is a type error, so a missing key can never fall back to real system access.
  */
 export async function runUninstall(
   options: UninstallOptions,
-  overrides: Partial<UninstallDeps> = {},
+  deps: UninstallDeps = defaultUninstallDeps(),
 ): Promise<number> {
-  const deps: UninstallDeps = { ...defaultUninstallDeps(), ...overrides };
-  const { defaultHome, overrideHome } = deps.homes;
+  let homes: UninstallHomes | null = null;
+  let homesError = "";
+  try {
+    homes = deps.getHomes();
+  } catch (error) {
+    homesError = errorText(error);
+  }
 
   // Read-only: the locale comes from the environment or the .env of the app home the bot uses,
   // so even the refusals are localized.
   const locale = await resolveUninstallLocale(
     deps.env,
-    path.join(overrideHome ?? defaultHome, ".env"),
+    homes === null ? null : path.join(homes.overrideHome ?? homes.defaultHome, ".env"),
   );
   const translate: Translate = createUninstallTranslator(locale);
   const say: Say = (key, params) => deps.write(translate(key, params));
@@ -596,18 +713,35 @@ export async function runUninstall(
     say("uninstall.refused_root");
     return 1;
   }
+  if (homes === null) {
+    say("uninstall.step_homes_error", { reason: homesError });
+    return 1;
+  }
+  const { defaultHome, overrideHome } = homes;
 
   let logsDir: string | null;
   try {
-    logsDir = await deps.resolveLogsDir();
+    logsDir = await deps.resolveLogsDir((message) =>
+      say("uninstall.step_logs_warning", { message: message.trimEnd() }),
+    );
   } catch {
     logsDir = null;
   }
 
   const daemon = await detectDaemon(deps);
-  const scan = await detectBots(deps, daemon);
+  const daemonPids = daemon.kind === "running" ? [daemon.pid] : [];
+  const systemdPid = await detectSystemdMainPid(deps);
+  // A bot run by systemd is stopped through the unit and is never asked about twice.
+  const scan = await detectBots(
+    deps,
+    systemdPid === null ? daemonPids : [...daemonPids, systemdPid],
+  );
   const systemdPlanned = await detectSystemdUnit(deps.systemd);
-  const server = options.stopOpencode ? await detectOpencode(deps) : null;
+  const opencodeExclude = options.stopOpencode
+    ? [...(await detectOwnChain(deps)), ...daemonPids]
+    : [];
+  const server = options.stopOpencode ? await detectOpencode(deps, opencodeExclude) : null;
+  const overrideValid = overrideHome !== null && (await validate(deps, overrideHome)) === null;
 
   say("uninstall.plan_header");
   if (daemon.kind === "running") {
@@ -627,6 +761,9 @@ export async function runUninstall(
   }
   if (overrideHome !== null) {
     say("uninstall.plan_override", { path: overrideHome });
+    if (overrideValid) {
+      say("uninstall.plan_override_secrets", { path: overrideHome });
+    }
   }
   say("uninstall.plan_keychain", { service: KEYCHAIN_SERVICE });
   if (logsDir !== null) {
@@ -644,33 +781,23 @@ export async function runUninstall(
     }
   }
 
-  const outcome: Outcome = { failures: 0, left: [] };
-  await stopDaemonStep(deps, daemon, say, outcome);
-  await stopBotsStep(deps, scan, translate, say, outcome);
-  await systemdStep(deps, translate, say, outcome);
+  const ctx: Context = { deps, translate, say, failures: 0, left: [] };
+  await stopDaemonStep(ctx, daemon);
+  await stopBotsStep(ctx, scan);
+  await systemdStep(ctx);
   if (options.stopOpencode) {
-    await opencodeStep(deps, server, translate, say, outcome);
+    await opencodeStep(ctx, server, opencodeExclude);
   }
   // Includes secrets.enc and keystore_password.
-  await removeHomeStep(deps, defaultHome, say, outcome);
+  await removeHomeStep(ctx, defaultHome);
   if (overrideHome !== null) {
-    await overrideStep(deps, overrideHome, translate, say, outcome);
+    await overrideStep(ctx, overrideHome);
   }
   // Runs whatever happened to the override: the keychain belongs to the OS user.
-  await keychainStep(deps, translate, say, outcome);
+  await keychainStep(ctx);
 
-  if (outcome.failures > 0) {
-    say("uninstall.summary_failed", { count: outcome.failures });
-  }
-  if (outcome.left.length > 0) {
-    say("uninstall.summary_left", { items: outcome.left.join(", ") });
-  }
-  if (outcome.failures === 0 && outcome.left.length === 0) {
-    say("uninstall.summary_ok");
-  }
-  say("uninstall.cli_hint", { command: CLI_UNINSTALL_COMMAND });
-
-  return outcome.failures > 0 ? 1 : 0;
+  printSummary(ctx);
+  return ctx.failures > 0 ? 1 : 0;
 }
 
 function isAlive(pid: number): boolean {
@@ -694,16 +821,24 @@ async function waitForProcessExit(pid: number, timeoutMs: number): Promise<boole
   return !isAlive(pid);
 }
 
-/** The real system access. Nothing here runs until a step calls it. */
+/**
+ * The real system access. Building it touches nothing and cannot throw: every lookup, including
+ * the app homes (os.homedir can throw), runs only when a step calls it.
+ */
 export function defaultUninstallDeps(): UninstallDeps {
-  const homes = resolveUninstallHomes(process.env);
-  const runtimeEnvFile = path.join(homes.overrideHome ?? homes.defaultHome, ".env");
+  let homes: UninstallHomes | undefined;
+  const getHomes = (): UninstallHomes => (homes ??= resolveUninstallHomes(process.env));
+  const runtimeEnvFile = (): string => {
+    const { defaultHome, overrideHome } = getHomes();
+    return path.join(overrideHome ?? defaultHome, ".env");
+  };
   let scanDeps: Promise<ScanDeps> | undefined;
   let excludedPids: readonly number[] = [];
   const getScanDeps = async (): Promise<ScanDeps> => ({
     ...(await (scanDeps ??= defaultScanDeps([PACKAGE_ROOT]))),
     excludePids: excludedPids,
   });
+  const systemd = defaultSystemdDeps();
 
   return {
     env: process.env,
@@ -715,10 +850,16 @@ export function defaultUninstallDeps(): UninstallDeps {
     write: (line) => {
       process.stdout.write(`${line}\n`);
     },
-    homes,
-    getDaemonStatus: getBotServiceStatus,
+    getHomes,
+    getDaemonStatus: () => readBotServiceStatus(),
     stopDaemon: stopBotDaemon,
+    getOwnPidChain: async () => {
+      const scan = await getScanDeps();
+      return [...collectOwnChain(await scan.listProcesses(), scan.ownPid, scan.ownPpid)];
+    },
+    findSystemdMainPid: () => getSystemdMainPid(defaultSystemdMainPidDeps(systemd)),
     findBotProcesses: async (excludePids) => {
+      // Kept for reverifyProcess, which must apply the same exclusions before every signal.
       excludedPids = [...excludePids];
       return findBotProcesses(await getScanDeps());
     },
@@ -727,23 +868,19 @@ export function defaultUninstallDeps(): UninstallDeps {
       process.kill(pid, signal);
     },
     waitForExit: waitForProcessExit,
-    systemd: defaultSystemdDeps(),
-    findOpencode: async () =>
+    systemd,
+    findOpencode: async (excludePids) =>
       findOpencodeServer({
-        port: await resolveOpencodePort(process.env, runtimeEnvFile),
+        port: await resolveOpencodePort(process.env, runtimeEnvFile()),
         findPid: findServerPid,
         commandLine: getProcessCommandLine,
+        excludePids,
       }),
     stopOpencode: (pid) => stopOpencodeServer(pid),
+    validateOverride: (overrideHome) => validateOverrideHome(overrideHome),
+    removePath,
     removeAppHome: removeAppHomeData,
     removeKeychain: () => removeKeychainAccounts(new KeychainSecretStore()),
-    resolveLogsDir: () =>
-      resolveLogsDirPath({
-        prompt: false,
-        isInteractive: false,
-        warn: (message) => {
-          process.stdout.write(message.endsWith("\n") ? message : `${message}\n`);
-        },
-      }),
+    resolveLogsDir: (warn) => resolveLogsDirPath({ prompt: false, isInteractive: false, warn }),
   };
 }

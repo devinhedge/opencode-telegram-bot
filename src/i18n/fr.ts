@@ -849,7 +849,6 @@ export const fr: I18nDictionary = {
   "uninstall.plan_logs_stay":
     "Les fichiers journaux ne sont jamais supprimés et restent dans {path}.",
   "uninstall.plan_opencode_server": "Arrêter le serveur OpenCode (confirmé séparément).",
-  "uninstall.plan_nothing": "Rien à supprimer.",
   "uninstall.confirm_plan": "Exécuter ce plan ? [y/N] ",
   "uninstall.confirm_override": "Supprimer aussi les données de {path} ? [y/N] ",
   "uninstall.confirm_stop_process":
@@ -896,7 +895,7 @@ export const fr: I18nDictionary = {
   "uninstall.step_process_failed": "Impossible d'arrêter le processus {pid}.",
   "uninstall.step_process_skipped": "Processus {pid} ignoré.",
   "uninstall.step_process_refused":
-    "Processus {pid} ignoré : sa ligne de commande a changé avant l'arrêt.",
+    "Aucun signal envoyé au processus {pid} : il ne correspond plus au bot.",
   "uninstall.process_unverified":
     "Le répertoire de travail du processus {pid} n'a pas pu être lu ; cette correspondance n'est donc pas vérifiée.",
   "uninstall.started_unknown": "inconnu",
@@ -918,7 +917,7 @@ export const fr: I18nDictionary = {
   "uninstall.command_unavailable": "(ligne de commande indisponible)",
   "uninstall.home_removed": "Répertoire de l'application {path} supprimé.",
   "uninstall.home_kept":
-    "Répertoire de l'application {path} conservé : il contient encore des fichiers (les journaux restent).",
+    "Répertoire de l'application {path} conservé : il contient encore d'autres fichiers.",
   "uninstall.summary_ok": "Désinstallation terminée.",
   "uninstall.left_process": "processus {pid}",
   "uninstall.left_opencode": "le processus sur le port OpenCode (PID {pid})",
@@ -926,5 +925,27 @@ export const fr: I18nDictionary = {
   "uninstall.summary_left": "Désinstallation terminée ; laissé en place : {items}",
   "uninstall.summary_failed": "Désinstallation terminée. Étapes en échec : {count}",
   "uninstall.cli_hint": "Pour supprimer la CLI elle-même, exécutez : {command}",
+  "uninstall.plan_override_secrets":
+    "Supprimer secrets.enc et keystore_password dans {path}, même si le reste de ce répertoire est conservé.",
+  "uninstall.step_override_secrets":
+    "Suppression de secrets.enc et keystore_password dans {path} : les secrets sont supprimés quoi qu'il advienne du reste du répertoire.",
+  "uninstall.left_override_kept": "{path} (tout sauf secrets.enc et keystore_password)",
+  "uninstall.left_scan": "processus du bot hors du démon (non vérifiés)",
+  "uninstall.left_daemon": "le démon du bot (il est peut-être encore en cours d'exécution)",
+  "uninstall.summary_failed_left":
+    "Désinstallation terminée. Étapes en échec : {count}. Laissé en place : {items}",
+  "uninstall.list_separator": ", ",
+  "uninstall.step_systemd_ran": "Unité systemd {path} supprimée en exécutant :\n{commands}",
+  "uninstall.step_process_skipped_no_terminal":
+    "Processus {pid} ignoré : aucun terminal pour confirmer son arrêt.",
+  "uninstall.step_opencode_skipped_no_terminal":
+    "Arrêt du processus du port OpenCode ignoré : aucun terminal pour le confirmer.",
+  "uninstall.step_override_skipped_no_terminal":
+    "Répertoire OPENCODE_TELEGRAM_HOME {path} ignoré : aucun terminal pour confirmer sa suppression.",
+  "uninstall.step_logs_warning": "Emplacement des journaux : {message}",
+  "uninstall.step_homes_error":
+    "Impossible de déterminer le répertoire de l'application : {reason}. Rien n'a été supprimé.",
+  "uninstall.home_kept_logs":
+    "Répertoire de l'application {path} conservé : il contient encore des fichiers, dont les journaux.",
 
 };

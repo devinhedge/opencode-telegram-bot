@@ -88,6 +88,7 @@ import { getServiceLogsDirFromEnv } from "../../../src/runtime/service/env.js";
 import {
   getBotServiceStatus,
   getServiceStateFilePath,
+  readBotServiceStatus,
   startBotDaemon,
   stopBotDaemon,
 } from "../../../src/runtime/service/manager.js";
@@ -395,6 +396,107 @@ describe("runtime/service/manager", () => {
       cleanupReason: "stale",
     });
     await expect(fs.access(getServiceStateFilePath())).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  describe("readBotServiceStatus", () => {
+    beforeEach(() => {
+      vi.mocked(logger.info).mockClear();
+      vi.mocked(logger.warn).mockClear();
+    });
+
+    async function writeState(content: string): Promise<void> {
+      await fs.mkdir(path.dirname(getServiceStateFilePath()), { recursive: true });
+      await fs.writeFile(getServiceStateFilePath(), content);
+    }
+
+    it("reports a stale state file and leaves it in place without logging", async () => {
+      const content = JSON.stringify({
+        pid: 9876,
+        startedAt: new Date().toISOString(),
+        logFilePath: path.join(tempDirPath, "logs", "bot-service.log"),
+        mode: "daemon",
+      });
+      await writeState(content);
+      vi.spyOn(process, "kill").mockImplementation(() => {
+        throw new Error("ESRCH");
+      });
+
+      const status = await readBotServiceStatus();
+
+      expect(status).toEqual({ status: "stopped", service: null, cleanupReason: "stale" });
+      await expect(fs.readFile(getServiceStateFilePath(), "utf-8")).resolves.toBe(content);
+      expect(logger.info).not.toHaveBeenCalled();
+    });
+
+    it("reports a recycled pid as stale and leaves the file in place", async () => {
+      const restorePlatform = setPlatform("win32");
+      const content = JSON.stringify({
+        pid: 11236,
+        startedAt: new Date("2026-07-18T20:56:06.413Z").toISOString(),
+        logFilePath: path.join(tempDirPath, "logs", "bot-service.log"),
+        mode: "daemon",
+      });
+      await writeState(content);
+      vi.spyOn(process, "kill").mockImplementation(() => true);
+      execMock.mockImplementation(
+        (
+          _command: string,
+          callback: (error: Error | null, stdout: string, stderr: string) => void,
+        ) => {
+          callback(null, "20260719095542.123456+180\n", "");
+          return {};
+        },
+      );
+
+      try {
+        const status = await readBotServiceStatus();
+
+        expect(status).toEqual({ status: "stopped", service: null, cleanupReason: "stale" });
+        await expect(fs.readFile(getServiceStateFilePath(), "utf-8")).resolves.toBe(content);
+        expect(logger.warn).not.toHaveBeenCalled();
+      } finally {
+        restorePlatform();
+      }
+    });
+
+    it("reports invalid JSON and an invalid state without removing the file", async () => {
+      for (const content of ["{not json", JSON.stringify({ pid: -1 })]) {
+        await writeState(content);
+
+        const status = await readBotServiceStatus();
+
+        expect(status).toEqual({ status: "stopped", service: null, cleanupReason: "invalid" });
+        await expect(fs.readFile(getServiceStateFilePath(), "utf-8")).resolves.toBe(content);
+      }
+    });
+
+    it("reads an explicit state file path and reports a live daemon as running", async () => {
+      const explicit = path.join(tempDirPath, "other", "bot-service.json");
+      await fs.mkdir(path.dirname(explicit), { recursive: true });
+      await fs.writeFile(
+        explicit,
+        JSON.stringify({
+          pid: 2468,
+          startedAt: new Date(Date.now() + 60_000).toISOString(),
+          logFilePath: path.join(tempDirPath, "logs", "bot-service.log"),
+          mode: "daemon",
+        }),
+      );
+      vi.spyOn(process, "kill").mockImplementation(() => true);
+
+      const status = await readBotServiceStatus(explicit);
+
+      expect(status.status).toBe("running");
+      expect(status.service?.pid).toBe(2468);
+    });
+
+    it("keeps getBotServiceStatus removing a stale file", async () => {
+      await writeState("{not json");
+
+      await getBotServiceStatus();
+
+      await expect(fs.access(getServiceStateFilePath())).rejects.toMatchObject({ code: "ENOENT" });
+    });
   });
 
   it("stops daemon process and clears runtime state", async () => {

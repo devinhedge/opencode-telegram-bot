@@ -834,7 +834,6 @@ export const it: I18nDictionary = {
     "Eliminare i segreti memorizzati nel portachiavi (servizio {service}).",
   "uninstall.plan_logs_stay": "I file di log non vengono mai rimossi e restano in {path}.",
   "uninstall.plan_opencode_server": "Arrestare il server OpenCode (confermato separatamente).",
-  "uninstall.plan_nothing": "Niente da rimuovere.",
   "uninstall.confirm_plan": "Procedere con questo piano? [y/N] ",
   "uninstall.confirm_override": "Rimuovere anche i dati in {path}? [y/N] ",
   "uninstall.confirm_stop_process":
@@ -880,7 +879,7 @@ export const it: I18nDictionary = {
   "uninstall.step_process_failed": "Impossibile arrestare il processo {pid}.",
   "uninstall.step_process_skipped": "Processo {pid} saltato.",
   "uninstall.step_process_refused":
-    "Processo {pid} saltato: la sua riga di comando è cambiata prima dell'arresto.",
+    "Nessun segnale inviato al processo {pid}: non corrisponde più al bot.",
   "uninstall.process_unverified":
     "Impossibile leggere la directory di lavoro del processo {pid}, quindi questa corrispondenza non è verificata.",
   "uninstall.started_unknown": "sconosciuto",
@@ -902,7 +901,7 @@ export const it: I18nDictionary = {
   "uninstall.command_unavailable": "(riga di comando non disponibile)",
   "uninstall.home_removed": "Directory dell'applicazione {path} rimossa.",
   "uninstall.home_kept":
-    "Directory dell'applicazione {path} mantenuta: contiene ancora file (i log restano).",
+    "Directory dell'applicazione {path} mantenuta: contiene ancora altri file.",
   "uninstall.summary_ok": "Disinstallazione completata.",
   "uninstall.left_process": "processo {pid}",
   "uninstall.left_opencode": "il processo sulla porta OpenCode (PID {pid})",
@@ -910,5 +909,27 @@ export const it: I18nDictionary = {
   "uninstall.summary_left": "Disinstallazione completata; lasciato al suo posto: {items}",
   "uninstall.summary_failed": "Disinstallazione completata. Passaggi non riusciti: {count}",
   "uninstall.cli_hint": "Per rimuovere la CLI stessa, esegui: {command}",
+  "uninstall.plan_override_secrets":
+    "Rimuovere secrets.enc e keystore_password in {path} anche se il resto di quella directory viene mantenuto.",
+  "uninstall.step_override_secrets":
+    "Rimozione di secrets.enc e keystore_password da {path}: i segreti vengono rimossi qualunque cosa accada al resto della directory.",
+  "uninstall.left_override_kept": "{path} (tutto tranne secrets.enc e keystore_password)",
+  "uninstall.left_scan": "processi del bot fuori dal daemon (non controllati)",
+  "uninstall.left_daemon": "il daemon del bot (potrebbe essere ancora in esecuzione)",
+  "uninstall.summary_failed_left":
+    "Disinstallazione completata. Passaggi non riusciti: {count}. Lasciato al suo posto: {items}",
+  "uninstall.list_separator": ", ",
+  "uninstall.step_systemd_ran": "Unità systemd {path} rimossa eseguendo:\n{commands}",
+  "uninstall.step_process_skipped_no_terminal":
+    "Processo {pid} saltato: nessun terminale per confermarne l'arresto.",
+  "uninstall.step_opencode_skipped_no_terminal":
+    "Arresto del processo sulla porta OpenCode saltato: nessun terminale per confermarlo.",
+  "uninstall.step_override_skipped_no_terminal":
+    "Directory OPENCODE_TELEGRAM_HOME {path} saltata: nessun terminale per confermarne la rimozione.",
+  "uninstall.step_logs_warning": "Posizione dei log: {message}",
+  "uninstall.step_homes_error":
+    "Impossibile determinare la directory dell'applicazione: {reason}. Non è stato rimosso nulla.",
+  "uninstall.home_kept_logs":
+    "Directory dell'applicazione {path} mantenuta: contiene ancora file, inclusi i log.",
 
 };

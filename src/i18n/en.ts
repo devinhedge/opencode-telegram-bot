@@ -829,7 +829,6 @@ export const en = {
   "uninstall.plan_keychain": "Delete the stored secrets from the keychain (service {service}).",
   "uninstall.plan_logs_stay": "Log files are never removed and stay in {path}.",
   "uninstall.plan_opencode_server": "Stop the OpenCode server (confirmed separately).",
-  "uninstall.plan_nothing": "Nothing to remove.",
   "uninstall.confirm_plan": "Proceed with this plan? [y/N] ",
   "uninstall.confirm_override": "Also remove the data in {path}? [y/N] ",
   "uninstall.confirm_stop_process":
@@ -873,8 +872,7 @@ export const en = {
   "uninstall.step_process_stopped": "Stopped process {pid}.",
   "uninstall.step_process_failed": "Could not stop process {pid}.",
   "uninstall.step_process_skipped": "Skipped process {pid}.",
-  "uninstall.step_process_refused":
-    "Skipped process {pid}: its command line changed before it was stopped.",
+  "uninstall.step_process_refused": "Did not signal process {pid}: it no longer matches the bot.",
   "uninstall.process_unverified":
     "The working directory of process {pid} could not be read, so this match is unverified.",
   "uninstall.started_unknown": "unknown",
@@ -896,7 +894,7 @@ export const en = {
   "uninstall.step_opencode_none": "No OpenCode server was found to stop.",
   "uninstall.command_unavailable": "(command line unavailable)",
   "uninstall.home_removed": "Removed the app home {path}.",
-  "uninstall.home_kept": "Kept the app home {path}: it still contains files (logs stay).",
+  "uninstall.home_kept": "Kept the app home {path}: it still contains other files.",
   "uninstall.summary_ok": "Uninstall finished.",
   "uninstall.left_process": "process {pid}",
   "uninstall.left_opencode": "the process on the OpenCode port (PID {pid})",
@@ -904,6 +902,26 @@ export const en = {
   "uninstall.summary_left": "Uninstall finished; left in place: {items}",
   "uninstall.summary_failed": "Uninstall finished. Failed steps: {count}",
   "uninstall.cli_hint": "To remove the CLI itself, run: {command}",
+  "uninstall.plan_override_secrets":
+    "Remove secrets.enc and keystore_password in {path} even if you keep the rest of that directory.",
+  "uninstall.step_override_secrets":
+    "Removing secrets.enc and keystore_password from {path}: secrets are removed whatever happens to the rest of the directory.",
+  "uninstall.left_override_kept": "{path} (all but secrets.enc and keystore_password)",
+  "uninstall.left_scan": "bot processes outside the daemon (not checked)",
+  "uninstall.left_daemon": "the bot daemon (it may still be running)",
+  "uninstall.summary_failed_left":
+    "Uninstall finished. Failed steps: {count}. Left in place: {items}",
+  "uninstall.list_separator": ", ",
+  "uninstall.step_systemd_ran": "Removed the systemd unit {path} by running:\n{commands}",
+  "uninstall.step_process_skipped_no_terminal":
+    "Skipped process {pid}: no terminal to confirm stopping it.",
+  "uninstall.step_opencode_skipped_no_terminal":
+    "Skipped stopping the process on the OpenCode port: no terminal to confirm it.",
+  "uninstall.step_override_skipped_no_terminal":
+    "Skipped the OPENCODE_TELEGRAM_HOME directory {path}: no terminal to confirm its removal.",
+  "uninstall.step_logs_warning": "Log location: {message}",
+  "uninstall.step_homes_error": "Could not determine the app home: {reason}. Nothing was removed.",
+  "uninstall.home_kept_logs": "Kept the app home {path}: it still contains files, including logs.",
 } as const;
 
 export const projectSearchFallback = {

@@ -827,7 +827,6 @@ export const ko: I18nDictionary = {
   "uninstall.plan_keychain": "키체인에 저장된 비밀 정보를 삭제합니다 (서비스 {service}).",
   "uninstall.plan_logs_stay": "로그 파일은 제거되지 않으며 {path}에 남습니다.",
   "uninstall.plan_opencode_server": "OpenCode 서버를 중지합니다 (별도로 확인합니다).",
-  "uninstall.plan_nothing": "제거할 항목이 없습니다.",
   "uninstall.confirm_plan": "이 계획대로 진행할까요? [y/N] ",
   "uninstall.confirm_override": "{path}의 데이터도 제거할까요? [y/N] ",
   "uninstall.confirm_stop_process":
@@ -868,7 +867,7 @@ export const ko: I18nDictionary = {
   "uninstall.step_process_failed": "프로세스 {pid}을(를) 중지하지 못했습니다.",
   "uninstall.step_process_skipped": "프로세스 {pid}을(를) 건너뛰었습니다.",
   "uninstall.step_process_refused":
-    "프로세스 {pid}을(를) 건너뛰었습니다: 중지하기 전에 명령줄이 바뀌었습니다.",
+    "프로세스 {pid}에 신호를 보내지 않았습니다: 더 이상 봇과 일치하지 않습니다.",
   "uninstall.process_unverified":
     "프로세스 {pid}의 작업 디렉터리를 읽을 수 없어 이 일치 항목은 확인되지 않았습니다.",
   "uninstall.started_unknown": "알 수 없음",
@@ -890,7 +889,7 @@ export const ko: I18nDictionary = {
   "uninstall.step_opencode_none": "중지할 OpenCode 서버를 찾지 못했습니다.",
   "uninstall.command_unavailable": "(명령줄을 사용할 수 없음)",
   "uninstall.home_removed": "앱 홈 {path}을(를) 제거했습니다.",
-  "uninstall.home_kept": "앱 홈 {path}은(는) 파일이 남아 있어 유지했습니다 (로그는 남습니다).",
+  "uninstall.home_kept": "앱 홈 {path}에 다른 파일이 남아 있어 유지했습니다.",
   "uninstall.summary_ok": "제거를 완료했습니다.",
   "uninstall.left_process": "프로세스 {pid}",
   "uninstall.left_opencode": "OpenCode 포트의 프로세스 (PID {pid})",
@@ -898,5 +897,27 @@ export const ko: I18nDictionary = {
   "uninstall.summary_left": "제거를 완료했습니다. 그대로 남긴 항목: {items}",
   "uninstall.summary_failed": "제거를 완료했습니다. 실패한 단계: {count}",
   "uninstall.cli_hint": "CLI 자체를 제거하려면 다음을 실행하세요: {command}",
+  "uninstall.plan_override_secrets":
+    "해당 디렉터리의 나머지를 유지하더라도 {path}의 secrets.enc와 keystore_password는 제거합니다.",
+  "uninstall.step_override_secrets":
+    "{path}에서 secrets.enc와 keystore_password를 제거합니다: 비밀 정보는 디렉터리의 나머지와 관계없이 제거됩니다.",
+  "uninstall.left_override_kept": "{path} (secrets.enc와 keystore_password를 제외한 모든 항목)",
+  "uninstall.left_scan": "데몬 밖의 봇 프로세스 (확인하지 않음)",
+  "uninstall.left_daemon": "봇 데몬 (아직 실행 중일 수 있음)",
+  "uninstall.summary_failed_left":
+    "제거를 완료했습니다. 실패한 단계: {count}. 그대로 남긴 항목: {items}",
+  "uninstall.list_separator": ", ",
+  "uninstall.step_systemd_ran":
+    "다음 명령을 실행하여 systemd 유닛 {path}을(를) 제거했습니다:\n{commands}",
+  "uninstall.step_process_skipped_no_terminal":
+    "프로세스 {pid}을(를) 건너뛰었습니다: 중지를 확인할 터미널이 없습니다.",
+  "uninstall.step_opencode_skipped_no_terminal":
+    "OpenCode 포트의 프로세스 중지를 건너뛰었습니다: 확인할 터미널이 없습니다.",
+  "uninstall.step_override_skipped_no_terminal":
+    "OPENCODE_TELEGRAM_HOME 디렉터리 {path}을(를) 건너뛰었습니다: 제거를 확인할 터미널이 없습니다.",
+  "uninstall.step_logs_warning": "로그 위치: {message}",
+  "uninstall.step_homes_error":
+    "앱 홈을 확인할 수 없습니다: {reason}. 아무것도 제거하지 않았습니다.",
+  "uninstall.home_kept_logs": "앱 홈 {path}에 로그를 포함한 파일이 남아 있어 유지했습니다.",
 
 };

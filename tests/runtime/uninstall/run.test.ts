@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -14,7 +15,10 @@ import type { KeychainRemovalStore } from "../../../src/runtime/uninstall/keycha
 import { createUninstallTranslator } from "../../../src/runtime/uninstall/messages.js";
 import type { OpencodeServer } from "../../../src/runtime/uninstall/opencode-server.js";
 import type { BotProcess } from "../../../src/runtime/uninstall/processes.js";
-import { removeAppHomeData } from "../../../src/runtime/uninstall/remove-path.js";
+import { readBotServiceStatus } from "../../../src/runtime/service/manager.js";
+import { validateOverrideHome } from "../../../src/runtime/uninstall/homes.js";
+import { removeAppHomeData, removePath } from "../../../src/runtime/uninstall/remove-path.js";
+import { assertInsideTempRoot } from "./temp-root-guard.js";
 import {
   runUninstall,
   type UninstallDeps,
@@ -30,6 +34,8 @@ import {
 const isWindows = process.platform === "win32";
 const SENTINEL = "SECRET-SENTINEL";
 const DAEMON_PID = 4242;
+const OWN_PID = 9100;
+const OWN_PPID = 9099;
 const TEMP_SIBLING = ".env.123.0123abcd-0123-4567-89ab-0123456789ab.tmp";
 const CLI_COMMAND = "npm uninstall -g @grinev/opencode-telegram-bot";
 const YES: UninstallOptions = { yes: true, stopOpencode: false };
@@ -111,6 +117,51 @@ function botProcess(pid: number, commandLine = `node /opt/bot/dist/cli.js start`
   return { pid, user: "dev", startedAt: "Thu Nov 12 10:00:00 2026", commandLine, verified: true };
 }
 
+/**
+ * Wraps every dependency that reaches the filesystem so that a path outside the test's temp root
+ * fails the test before anything is touched. The wrappers are mocks, so call assertions still work.
+ */
+// The run catches step errors, so a guard throw alone could be swallowed: every violation is also
+// recorded here and afterEach fails the test when the list is not empty.
+const guardViolations: string[] = [];
+
+function guard(target: string, root: string): void {
+  try {
+    assertInsideTempRoot(target, root);
+  } catch (error) {
+    guardViolations.push(target);
+    throw error;
+  }
+}
+
+function guardFilesystemDeps(deps: UninstallDeps, root: string): UninstallDeps {
+  const { getHomes, validateOverride, removePath: remove, removeAppHome, getDaemonStatus } = deps;
+  return {
+    ...deps,
+    getHomes: vi.fn(() => {
+      const homes = getHomes();
+      guard(homes.defaultHome, root);
+      if (homes.overrideHome !== null) {
+        guard(homes.overrideHome, root);
+      }
+      return homes;
+    }),
+    getDaemonStatus: vi.fn(() => getDaemonStatus()),
+    validateOverride: vi.fn(async (target: string) => {
+      guard(target, root);
+      return validateOverride(target);
+    }),
+    removePath: vi.fn(async (target: string) => {
+      guard(target, root);
+      return remove(target);
+    }),
+    removeAppHome: vi.fn(async (home: string) => {
+      guard(home, root);
+      return removeAppHome(home);
+    }),
+  };
+}
+
 interface Harness {
   deps: UninstallDeps;
   lines: string[];
@@ -136,6 +187,8 @@ describe("runtime/uninstall/run", () => {
   afterEach(async () => {
     vi.restoreAllMocks();
     await fs.rm(tempRoot, { recursive: true, force: true });
+    const violations = guardViolations.splice(0);
+    expect(violations, "a fake was asked to touch a path outside the temp root").toEqual([]);
   });
 
   function createHarness(overrides: Partial<UninstallDeps> = {}): Harness {
@@ -159,7 +212,7 @@ describe("runtime/uninstall/run", () => {
     };
     let daemonStatus: BotServiceStatus = runningStatus(DAEMON_PID);
 
-    const deps: UninstallDeps = {
+    const base: UninstallDeps = {
       env: {},
       platform: "linux",
       isContainer: vi.fn(() => false),
@@ -172,8 +225,10 @@ describe("runtime/uninstall/run", () => {
       write: vi.fn((line: string) => {
         lines.push(line);
       }),
-      homes: { defaultHome, overrideHome: null },
+      getHomes: () => ({ defaultHome, overrideHome: null }),
       getDaemonStatus: vi.fn(async () => daemonStatus),
+      getOwnPidChain: vi.fn(async () => [OWN_PID, OWN_PPID]),
+      findSystemdMainPid: vi.fn(async () => null),
       stopDaemon: vi.fn(async (): Promise<ServiceOperationResult> => {
         const service = daemonStatus.service;
         daemonStatus = STOPPED_STATUS;
@@ -196,11 +251,14 @@ describe("runtime/uninstall/run", () => {
       systemd,
       findOpencode: vi.fn(async () => null),
       stopOpencode: vi.fn(async () => true),
-      removeAppHome: vi.fn((home: string) => removeAppHomeData(home)),
+      validateOverride: (target: string) => validateOverrideHome(target),
+      removePath: (target: string) => removePath(target),
+      removeAppHome: (home: string) => removeAppHomeData(home),
       removeKeychain: vi.fn(() => removeKeychainAccounts(store)),
       resolveLogsDir: vi.fn(async () => path.join(tempRoot, "canonical-logs")),
       ...overrides,
     };
+    const deps = guardFilesystemDeps(base, tempRoot);
 
     return { deps, lines, prompts, answers, secrets, events };
   }
@@ -275,7 +333,7 @@ describe("runtime/uninstall/run", () => {
       expect(
         await exists(path.join(defaultHome, "logs", "opencode-telegram-bot-2026-11-12.log")),
       ).toBe(true);
-      expect(harness.lines).toContain(tEn("uninstall.home_kept", { path: defaultHome }));
+      expect(harness.lines).toContain(tEn("uninstall.home_kept_logs", { path: defaultHome }));
       expect(harness.secrets.size).toBe(0);
       expect(harness.lines).toContain(tEn("uninstall.step_daemon_stopped", { pid: DAEMON_PID }));
       expect(harness.lines).toContain(
@@ -335,7 +393,116 @@ describe("runtime/uninstall/run", () => {
       expect(code).toBe(0);
       expect(await exists(path.join(appLogs, "opencode-telegram-bot-2026-11-12.log"))).toBe(true);
       expect(harness.lines).toContain(tEn("uninstall.plan_logs_stay", { path: appLogs }));
+      expect(harness.lines).toContain(tEn("uninstall.home_kept_logs", { path: defaultHome }));
+    });
+
+    it("keeps a home with other files without claiming logs stay", async () => {
+      await fs.writeFile(path.join(defaultHome, ".env"), "X=1\n");
+      await fs.writeFile(path.join(defaultHome, "notes.txt"), "mine");
+      const harness = createHarness();
+
+      const code = await runUninstall(YES, harness.deps);
+
+      expect(code).toBe(0);
+      expect(await exists(path.join(defaultHome, "notes.txt"))).toBe(true);
       expect(harness.lines).toContain(tEn("uninstall.home_kept", { path: defaultHome }));
+    });
+
+    it("prints an absent line for a missing default home and never creates it", async () => {
+      await fs.rm(defaultHome, { recursive: true });
+      const harness = createHarness();
+
+      const code = await runUninstall(YES, harness.deps);
+
+      expect(code).toBe(0);
+      expect(await exists(defaultHome)).toBe(false);
+      expect(harness.lines).toContain(tEn("uninstall.step_absent", { path: defaultHome }));
+    });
+
+    it("routes a log-location warning through the translator", async () => {
+      const harness = createHarness({
+        resolveLogsDir: vi.fn(async (warn: (message: string) => void) => {
+          warn("LOG_LOCATION is invalid\n");
+          return path.join(tempRoot, "canonical-logs");
+        }),
+      });
+
+      await runUninstall(YES, harness.deps);
+
+      expect(harness.lines).toContain(
+        tEn("uninstall.step_logs_warning", { message: "LOG_LOCATION is invalid" }),
+      );
+    });
+
+    it("refuses first in a container even when the app home lookup throws", async () => {
+      const harness = createHarness({
+        isContainer: vi.fn(() => true),
+        getHomes: () => {
+          throw new Error("os.homedir failed");
+        },
+      });
+
+      const code = await runUninstall(YES, harness.deps);
+
+      expect(code).toBe(1);
+      expect(harness.lines).toEqual([tEn("uninstall.refused_container")]);
+    });
+
+    it("stops with a message when the app home lookup throws outside a container", async () => {
+      const harness = createHarness({
+        getHomes: () => {
+          throw new Error("os.homedir failed");
+        },
+      });
+
+      const code = await runUninstall(YES, harness.deps);
+
+      expect(code).toBe(1);
+      expect(harness.lines).toEqual([
+        tEn("uninstall.step_homes_error", { reason: "os.homedir failed" }),
+      ]);
+      expect(harness.deps.getDaemonStatus).not.toHaveBeenCalled();
+      expect(harness.deps.removeKeychain).not.toHaveBeenCalled();
+    });
+
+    it("never consults the real home when given a complete deps object", async () => {
+      await populateHome(defaultHome);
+      const homedir = vi.spyOn(os, "homedir");
+      const harness = createHarness();
+
+      const code = await runUninstall(YES, harness.deps);
+
+      expect(code).toBe(0);
+      expect(homedir).not.toHaveBeenCalled();
+      for (const call of vi.mocked(harness.deps.removeAppHome).mock.calls) {
+        expect(() => assertInsideTempRoot(call[0], tempRoot)).not.toThrow();
+      }
+    });
+
+    it("rejects a partial deps object at compile time", () => {
+      const harness = createHarness();
+      const partial: Partial<UninstallDeps> = { ...harness.deps };
+      delete partial.removeKeychain;
+      const start = (): Promise<number> =>
+        // @ts-expect-error a missing key must never fall back to real system access
+        runUninstall(YES, partial);
+
+      expect(typeof start).toBe("function");
+    });
+
+    it("fails the test instead of touching a home outside the temp root", async () => {
+      const harness = createHarness({
+        getHomes: () => ({ defaultHome: os.userInfo().homedir, overrideHome: null }),
+      });
+
+      expect(() => harness.deps.getHomes()).toThrow(/outside the temp root/);
+      await expect(harness.deps.removeAppHome(os.userInfo().homedir)).rejects.toThrow(
+        /outside the temp root/,
+      );
+      await expect(harness.deps.removePath("/")).rejects.toThrow(/outside the temp root/);
+      expect(guardViolations).toHaveLength(3);
+      // Deliberate violations: cleared so afterEach does not fail this test.
+      guardViolations.length = 0;
     });
 
     it("resolves the logs directory before anything is removed", async () => {
@@ -434,9 +601,58 @@ describe("runtime/uninstall/run", () => {
       expect(harness.deps.stopDaemon).not.toHaveBeenCalled();
       expect(harness.deps.removeKeychain).not.toHaveBeenCalled();
     });
+
+    for (const [label, answer, interactive] of [
+      ["a decline", "n", true],
+      ["end of input", null, true],
+      ["no terminal", null, false],
+    ] as const) {
+      it(`leaves a stale daemon state file in place after ${label}`, async () => {
+        await populateHome(defaultHome);
+        const stateFile = path.join(defaultHome, "run", "bot-service.json");
+        const deadPid = spawnSync(process.execPath, ["-e", ""]).pid;
+        const stale = JSON.stringify({
+          pid: deadPid,
+          startedAt: new Date().toISOString(),
+          logFilePath: "/x.log",
+          mode: "daemon",
+        });
+        await fs.writeFile(stateFile, stale);
+        const harness = createHarness({
+          isInteractive: interactive,
+          getDaemonStatus: () => readBotServiceStatus(stateFile),
+        });
+        harness.answers.push(answer);
+
+        const code = await runUninstall(NO_YES, harness.deps);
+
+        expect(code).toBe(1);
+        await expect(fs.readFile(stateFile, "utf-8")).resolves.toBe(stale);
+      });
+    }
+
+    it("leaves an invalid daemon state file in place after a decline", async () => {
+      await populateHome(defaultHome);
+      const stateFile = path.join(defaultHome, "run", "bot-service.json");
+      await fs.writeFile(stateFile, "{not json");
+      const harness = createHarness({ getDaemonStatus: () => readBotServiceStatus(stateFile) });
+      harness.answers.push("n");
+
+      await runUninstall(NO_YES, harness.deps);
+
+      await expect(fs.readFile(stateFile, "utf-8")).resolves.toBe("{not json");
+    });
   });
 
   describe("bot processes", () => {
+    it("also excludes the systemd main pid from the process scan", async () => {
+      const harness = createHarness({ findSystemdMainPid: vi.fn(async () => 3333) });
+
+      await runUninstall(YES, harness.deps);
+
+      expect(harness.deps.findBotProcesses).toHaveBeenCalledWith([DAEMON_PID, 3333]);
+    });
+
     it("passes the daemon pid as an exclusion to the process scan", async () => {
       const harness = createHarness();
 
@@ -511,7 +727,7 @@ describe("runtime/uninstall/run", () => {
       ]);
     });
 
-    it("refuses to signal when the reverification fails, and exits 1", async () => {
+    it("never signals a pid that no longer matches; it is left, not a failure", async () => {
       const harness = createHarness({
         findBotProcesses: vi.fn(async () => [botProcess(5001)]),
         reverifyProcess: vi.fn(async () => false),
@@ -521,9 +737,48 @@ describe("runtime/uninstall/run", () => {
 
       const code = await runUninstall(YES, harness.deps);
 
-      expect(code).toBe(1);
+      expect(code).toBe(0);
       expect(harness.deps.signalProcess).not.toHaveBeenCalled();
       expect(harness.lines).toContain(tEn("uninstall.step_process_refused", { pid: 5001 }));
+      expect(harness.lines).toContain(
+        tEn("uninstall.summary_left", { items: tEn("uninstall.left_process", { pid: 5001 }) }),
+      );
+    });
+
+    it("reports a process that is already gone (ESRCH on SIGTERM) as stopped", async () => {
+      const harness = createHarness({
+        findBotProcesses: vi.fn(async () => [botProcess(5001)]),
+        signalProcess: vi.fn(() => {
+          throw Object.assign(new Error("kill ESRCH"), { code: "ESRCH" });
+        }),
+      });
+      harness.answers.push("y");
+
+      const code = await runUninstall(YES, harness.deps);
+
+      expect(code).toBe(0);
+      expect(harness.lines).toContain(tEn("uninstall.step_process_stopped", { pid: 5001 }));
+    });
+
+    it("reports a signal error other than ESRCH as a failure", async () => {
+      const harness = createHarness({
+        findBotProcesses: vi.fn(async () => [botProcess(5001)]),
+        signalProcess: vi.fn(() => {
+          throw Object.assign(new Error("kill EPERM"), { code: "EPERM" });
+        }),
+      });
+      harness.answers.push("y");
+
+      const code = await runUninstall(YES, harness.deps);
+
+      expect(code).toBe(1);
+      expect(harness.lines).toContain(tEn("uninstall.step_process_failed", { pid: 5001 }));
+      expect(harness.lines).toContain(
+        tEn("uninstall.summary_failed_left", {
+          count: 1,
+          items: tEn("uninstall.left_process", { pid: 5001 }),
+        }),
+      );
     });
 
     it("refuses SIGKILL when the process changed after SIGTERM", async () => {
@@ -540,7 +795,7 @@ describe("runtime/uninstall/run", () => {
 
       const code = await runUninstall(YES, harness.deps);
 
-      expect(code).toBe(1);
+      expect(code).toBe(0);
       expect(harness.deps.signalProcess).toHaveBeenCalledTimes(1);
       expect(harness.deps.signalProcess).toHaveBeenCalledWith(5001, "SIGTERM");
       expect(harness.lines).toContain(tEn("uninstall.step_process_refused", { pid: 5001 }));
@@ -570,8 +825,12 @@ describe("runtime/uninstall/run", () => {
       expect(code).toBe(0);
       expect(harness.deps.ask).not.toHaveBeenCalled();
       expect(harness.deps.signalProcess).not.toHaveBeenCalled();
-      expect(harness.lines).toContain(tEn("uninstall.step_process_skipped", { pid: 5001 }));
-      expect(harness.lines).toContain(tEn("uninstall.step_process_skipped", { pid: 5002 }));
+      expect(harness.lines).toContain(
+        tEn("uninstall.step_process_skipped_no_terminal", { pid: 5001 }),
+      );
+      expect(harness.lines).toContain(
+        tEn("uninstall.step_process_skipped_no_terminal", { pid: 5002 }),
+      );
       expect(harness.lines).toContain(
         tEn("uninstall.summary_left", {
           items: [
@@ -609,7 +868,7 @@ describe("runtime/uninstall/run", () => {
       ]);
     });
 
-    it("reports a scan failure, still runs the other steps, and exits 1", async () => {
+    it("skips the scan step on a scan failure, lists it as left, and exits 0", async () => {
       await populateHome(defaultHome);
       const harness = createHarness({
         findBotProcesses: vi.fn(async () => {
@@ -619,8 +878,11 @@ describe("runtime/uninstall/run", () => {
 
       const code = await runUninstall(YES, harness.deps);
 
-      expect(code).toBe(1);
+      expect(code).toBe(0);
       expect(harness.lines).toContain(tEn("uninstall.step_scan_failed", { reason: "ps exploded" }));
+      expect(harness.lines).toContain(
+        tEn("uninstall.summary_left", { items: tEn("uninstall.left_scan") }),
+      );
       expect(await exists(path.join(defaultHome, ".env"))).toBe(false);
       expect(harness.secrets.size).toBe(0);
     });
@@ -652,6 +914,9 @@ describe("runtime/uninstall/run", () => {
 
       expect(code).toBe(1);
       expect(harness.lines).toContain(tEn("uninstall.step_daemon_failed", { pid: DAEMON_PID }));
+      expect(harness.lines).toContain(
+        tEn("uninstall.summary_failed_left", { count: 1, items: tEn("uninstall.left_daemon") }),
+      );
       expect(await exists(path.join(defaultHome, ".env"))).toBe(false);
       expect(harness.secrets.size).toBe(0);
     });
@@ -726,6 +991,12 @@ describe("runtime/uninstall/run", () => {
       expect(run).toHaveBeenCalledTimes(SYSTEMD_COMMANDS.length);
       expect(harness.lines).toContain(
         tEn("uninstall.step_systemd", { outcome: tEn("uninstall.systemd_outcome_removed") }),
+      );
+      expect(harness.lines).toContain(
+        tEn("uninstall.step_systemd_ran", {
+          path: SYSTEMD_UNIT_PATH,
+          commands: SYSTEMD_COMMANDS.map(formatSystemdCommand).join("\n"),
+        }),
       );
     });
 
@@ -885,7 +1156,37 @@ describe("runtime/uninstall/run", () => {
       expect(code).toBe(0);
       expect(harness.deps.ask).not.toHaveBeenCalled();
       expect(harness.deps.stopOpencode).not.toHaveBeenCalled();
-      expect(harness.lines).toContain(tEn("uninstall.step_opencode_skipped"));
+      expect(harness.lines).toContain(tEn("uninstall.step_opencode_skipped_no_terminal"));
+    });
+
+    it("refuses when the same pid now has a different command line", async () => {
+      const findOpencode = vi
+        .fn<() => Promise<OpencodeServer | null>>()
+        .mockResolvedValueOnce(server)
+        .mockResolvedValueOnce({ ...server, commandLine: "node other.js" });
+      const harness = createHarness({ findOpencode });
+      harness.answers.push("y");
+
+      const code = await runUninstall({ yes: true, stopOpencode: true }, harness.deps);
+
+      expect(code).toBe(1);
+      expect(harness.deps.stopOpencode).not.toHaveBeenCalled();
+      expect(harness.lines).toContain(tEn("uninstall.step_opencode_refused", { pid: 7001 }));
+    });
+
+    it("excludes the own process chain and the daemon pid from both lookups", async () => {
+      const harness = createHarness({
+        getOwnPidChain: vi.fn(async () => [OWN_PID, OWN_PPID, 1]),
+        findOpencode: vi.fn(async () => server),
+      });
+      harness.answers.push("y");
+
+      await runUninstall({ yes: true, stopOpencode: true }, harness.deps);
+
+      expect(vi.mocked(harness.deps.findOpencode).mock.calls).toEqual([
+        [[OWN_PID, OWN_PPID, 1, DAEMON_PID]],
+        [[OWN_PID, OWN_PPID, 1, DAEMON_PID]],
+      ]);
     });
   });
 
@@ -898,7 +1199,7 @@ describe("runtime/uninstall/run", () => {
 
     it("removes a valid override after its own yes, even with --yes", async () => {
       await populateHome(overrideHome);
-      const harness = createHarness({ homes: { defaultHome, overrideHome } });
+      const harness = createHarness({ getHomes: () => ({ defaultHome, overrideHome }) });
       harness.answers.push("y");
 
       const code = await runUninstall(YES, harness.deps);
@@ -913,36 +1214,176 @@ describe("runtime/uninstall/run", () => {
       expect(harness.secrets.size).toBe(0);
     });
 
-    it("leaves a declined override and still removes the keychain", async () => {
+    const SECRET_FILES = ["secrets.enc", "keystore_password"];
+    const KEPT_ON_DECLINE = INVENTORY.filter((name) => !SECRET_FILES.includes(name));
+
+    it("on a declined override removes only secrets.enc and keystore_password, and the keychain", async () => {
       await populateHome(overrideHome);
-      const harness = createHarness({ homes: { defaultHome, overrideHome } });
+      const harness = createHarness({ getHomes: () => ({ defaultHome, overrideHome }) });
       harness.answers.push("n");
 
       const code = await runUninstall(YES, harness.deps);
 
       expect(code).toBe(0);
-      await expectHomeUntouched(overrideHome);
+      for (const name of KEPT_ON_DECLINE) {
+        expect(await exists(path.join(overrideHome, name)), name).toBe(true);
+      }
+      for (const name of SECRET_FILES) {
+        expect(await exists(path.join(overrideHome, name)), name).toBe(false);
+        expect(harness.lines).toContain(
+          tEn("uninstall.step_removed", { path: path.join(overrideHome, name) }),
+        );
+      }
+      expect(harness.lines).toContain(
+        tEn("uninstall.plan_override_secrets", { path: overrideHome }),
+      );
       expect(harness.lines).toContain(
         tEn("uninstall.step_override_skipped", { path: overrideHome }),
       );
-      expect(harness.lines).toContain(tEn("uninstall.summary_left", { items: overrideHome }));
+      expect(harness.lines).toContain(
+        tEn("uninstall.step_override_secrets", { path: overrideHome }),
+      );
+      expect(harness.lines).toContain(
+        tEn("uninstall.summary_left", {
+          items: tEn("uninstall.left_override_kept", { path: overrideHome }),
+        }),
+      );
+      expect(harness.deps.removeAppHome).not.toHaveBeenCalledWith(overrideHome);
       expect(harness.secrets.size).toBe(0);
+      expectAllTranslated(harness.lines, en);
     });
 
-    it("skips an override without a terminal and still removes the keychain", async () => {
+    it("without a terminal removes only the two secret files of a valid override", async () => {
       await populateHome(overrideHome);
-      const harness = createHarness({ isInteractive: false, homes: { defaultHome, overrideHome } });
+      const harness = createHarness({
+        isInteractive: false,
+        getHomes: () => ({ defaultHome, overrideHome }),
+      });
 
       const code = await runUninstall(YES, harness.deps);
 
       expect(code).toBe(0);
       expect(harness.deps.ask).not.toHaveBeenCalled();
-      await expectHomeUntouched(overrideHome);
+      for (const name of KEPT_ON_DECLINE) {
+        expect(await exists(path.join(overrideHome, name)), name).toBe(true);
+      }
+      for (const name of SECRET_FILES) {
+        expect(await exists(path.join(overrideHome, name)), name).toBe(false);
+      }
+      expect(harness.lines).toContain(
+        tEn("uninstall.step_override_skipped_no_terminal", { path: overrideHome }),
+      );
       expect(harness.secrets.size).toBe(0);
     });
 
+    it.skipIf(isWindows)(
+      "on a declined override unlinks a symlinked secrets.enc and leaves its outside target",
+      async () => {
+        await populateHome(overrideHome);
+        const target = path.join(outside, "secrets.enc");
+        await fs.writeFile(target, "encrypted");
+        await fs.rm(path.join(overrideHome, "secrets.enc"));
+        await fs.symlink(target, path.join(overrideHome, "secrets.enc"));
+        const realTarget = await fs.realpath(target);
+        const harness = createHarness({ getHomes: () => ({ defaultHome, overrideHome }) });
+        harness.answers.push("n");
+
+        await runUninstall(YES, harness.deps);
+
+        expect(await exists(path.join(overrideHome, "secrets.enc"))).toBe(false);
+        expect(await exists(target)).toBe(true);
+        expect(harness.lines).toContain(tEn("uninstall.step_target_left", { path: realTarget }));
+      },
+    );
+
+    it("touches nothing in an invalid override, not even its secret files", async () => {
+      await fs.mkdir(overrideHome);
+      await fs.writeFile(path.join(overrideHome, "secrets.enc"), "encrypted");
+      await fs.writeFile(path.join(overrideHome, "keystore_password"), "pw");
+      const harness = createHarness({ getHomes: () => ({ defaultHome, overrideHome }) });
+
+      const code = await runUninstall(YES, harness.deps);
+
+      expect(code).toBe(0);
+      expect(await exists(path.join(overrideHome, "secrets.enc"))).toBe(true);
+      expect(await exists(path.join(overrideHome, "keystore_password"))).toBe(true);
+      expect(harness.deps.removePath).not.toHaveBeenCalled();
+      expect(harness.lines).not.toContain(
+        tEn("uninstall.plan_override_secrets", { path: overrideHome }),
+      );
+      expect(harness.secrets.size).toBe(0);
+    });
+
+    for (const [reason, key] of [
+      ["unreadable", "uninstall.override_reason_unreadable"],
+      ["root", "uninstall.override_reason_root"],
+      ["user-home", "uninstall.override_reason_user_home"],
+      ["not-a-directory", "uninstall.override_reason_not_a_directory"],
+    ] as const) {
+      it(`skips an override that is ${reason} with the reason and touches nothing`, async () => {
+        await populateHome(overrideHome);
+        const harness = createHarness({
+          getHomes: () => ({ defaultHome, overrideHome }),
+          validateOverride: vi.fn(async () => ({ ok: false as const, reason })),
+        });
+
+        const code = await runUninstall(YES, harness.deps);
+
+        expect(code).toBe(0);
+        expect(harness.deps.ask).not.toHaveBeenCalled();
+        await expectHomeUntouched(overrideHome);
+        expect(harness.lines).toContain(
+          tEn("uninstall.step_override_invalid", { path: overrideHome, reason: tEn(key) }),
+        );
+        expect(harness.lines).toContain(tEn("uninstall.summary_left", { items: overrideHome }));
+        expect(harness.secrets.size).toBe(0);
+      });
+    }
+
+    it("skips a real file given as the override with not-a-directory", async () => {
+      await fs.writeFile(overrideHome, "a file");
+      const harness = createHarness({ getHomes: () => ({ defaultHome, overrideHome }) });
+
+      await runUninstall(YES, harness.deps);
+
+      expect(await fs.readFile(overrideHome, "utf-8")).toBe("a file");
+      expect(harness.lines).toContain(
+        tEn("uninstall.step_override_invalid", {
+          path: overrideHome,
+          reason: tEn("uninstall.override_reason_not_a_directory"),
+        }),
+      );
+    });
+
+    it("validates the override again right after the confirmation", async () => {
+      await populateHome(overrideHome);
+      const validateOverride = vi
+        .fn<UninstallDeps["validateOverride"]>()
+        .mockResolvedValueOnce({ ok: true })
+        .mockResolvedValueOnce({ ok: true })
+        .mockResolvedValue({ ok: false, reason: "no-bot-files" });
+      const harness = createHarness({
+        getHomes: () => ({ defaultHome, overrideHome }),
+        validateOverride,
+      });
+      harness.answers.push("y");
+
+      const code = await runUninstall(YES, harness.deps);
+
+      expect(code).toBe(0);
+      expect(harness.prompts).toEqual([tEn("uninstall.confirm_override", { path: overrideHome })]);
+      await expectHomeUntouched(overrideHome);
+      expect(harness.deps.removeAppHome).not.toHaveBeenCalledWith(overrideHome);
+      expect(harness.lines).toContain(
+        tEn("uninstall.step_override_invalid", {
+          path: overrideHome,
+          reason: tEn("uninstall.override_reason_no_bot_files"),
+        }),
+      );
+    });
+
     it("skips a missing override with the reason and never creates it", async () => {
-      const harness = createHarness({ homes: { defaultHome, overrideHome } });
+      const harness = createHarness({ getHomes: () => ({ defaultHome, overrideHome }) });
 
       const code = await runUninstall(YES, harness.deps);
 
@@ -961,7 +1402,7 @@ describe("runtime/uninstall/run", () => {
     it("skips an override with no bot files with the reason", async () => {
       await fs.mkdir(overrideHome);
       await fs.writeFile(path.join(overrideHome, "notes.txt"), "mine");
-      const harness = createHarness({ homes: { defaultHome, overrideHome } });
+      const harness = createHarness({ getHomes: () => ({ defaultHome, overrideHome }) });
 
       const code = await runUninstall(YES, harness.deps);
 
@@ -981,7 +1422,7 @@ describe("runtime/uninstall/run", () => {
     it("still removes the keychain when the override removal fails", async () => {
       await populateHome(overrideHome);
       const harness = createHarness({
-        homes: { defaultHome, overrideHome },
+        getHomes: () => ({ defaultHome, overrideHome }),
         removeAppHome: vi.fn(async (home: string) =>
           home === overrideHome
             ? {
@@ -1168,6 +1609,125 @@ describe("runtime/uninstall/run", () => {
       await runUninstall(YES, harness.deps);
 
       expect(harness.lines).toEqual([de["uninstall.refused_container"]]);
+    });
+
+    it("prints left items, systemd commands, and the combined summary in German", async () => {
+      await populateHome(defaultHome);
+      const harness = createHarness({
+        env: { BOT_LOCALE: "de" },
+        isInteractive: false,
+        findBotProcesses: vi.fn(async () => [botProcess(5001)]),
+        systemd: {
+          platform: "linux",
+          unitExists: async () => true,
+          hasSudo: async () => true,
+          isInteractive: false,
+          run: vi.fn(async () => 0),
+        },
+        removeKeychain: vi.fn(async () => ({
+          available: true,
+          results: [{ account: "TELEGRAM_BOT_TOKEN", status: "failed" as const }],
+        })),
+      });
+      const tDe = createUninstallTranslator("de");
+
+      const code = await runUninstall(YES, harness.deps);
+
+      expect(code).toBe(1);
+      expect(harness.lines).toContain(
+        tDe("uninstall.step_systemd_commands", {
+          commands: SYSTEMD_COMMANDS.map(formatSystemdCommand).join("\n"),
+        }),
+      );
+      expect(harness.lines).toContain(
+        tDe("uninstall.summary_failed_left", {
+          count: 1,
+          items: [tDe("uninstall.left_process", { pid: 5001 }), SYSTEMD_UNIT_PATH].join(
+            tDe("uninstall.list_separator"),
+          ),
+        }),
+      );
+      expectAllTranslated(harness.lines, de);
+      for (const line of harness.lines) {
+        expect(line).not.toMatch(/\b(?:process|Skipped|left in place|Uninstall finished)\b/);
+      }
+    });
+
+    it("joins left items with the locale's list separator", async () => {
+      const harness = createHarness({
+        env: { BOT_LOCALE: "zh" },
+        isInteractive: false,
+        findBotProcesses: vi.fn(async () => [botProcess(5001), botProcess(5002)]),
+      });
+      const tZh = createUninstallTranslator("zh");
+      const first = tZh("uninstall.left_process", { pid: 5001 });
+      const second = tZh("uninstall.left_process", { pid: 5002 });
+
+      await runUninstall(YES, harness.deps);
+
+      expect(harness.lines).toContain(
+        tZh("uninstall.summary_left", { items: `${first}、${second}` }),
+      );
+    });
+
+    it("reports a throwing keychain removal as failed accounts and keeps going", async () => {
+      const harness = createHarness({
+        removeKeychain: vi.fn(async () => {
+          throw new Error(`keyring exploded ${SENTINEL}`);
+        }),
+      });
+
+      const code = await runUninstall(YES, harness.deps);
+
+      expect(code).toBe(1);
+      for (const account of STORED_KEYCHAIN_ACCOUNTS) {
+        expect(harness.lines).toContain(
+          tEn("uninstall.step_keychain", {
+            account,
+            status: tEn("uninstall.keychain_status_failed"),
+          }),
+        );
+      }
+      expect(harness.lines.join("\n")).not.toContain(SENTINEL);
+    });
+
+    it("never prints a secret on the error paths", async () => {
+      await populateHome(defaultHome, `TELEGRAM_BOT_TOKEN=${SENTINEL}\n`);
+      const overrideHome = path.join(tempRoot, "override-home");
+      await populateHome(overrideHome, `TELEGRAM_BOT_TOKEN=${SENTINEL}\n`);
+      const secretError = (): never => {
+        throw new Error(`boom ${SENTINEL}`);
+      };
+      const harness = createHarness({
+        getHomes: () => ({ defaultHome, overrideHome }),
+        findBotProcesses: vi.fn(async () => [
+          botProcess(5001, `node /opt/bot/dist/cli.js start --token ${SENTINEL}`),
+        ]),
+        reverifyProcess: vi.fn(async () => secretError()),
+        findOpencode: vi.fn(async () => ({
+          pid: 7001,
+          port: 4096,
+          commandLine: `opencode serve --password ${SENTINEL}`,
+        })),
+        stopOpencode: vi.fn(async () => secretError()),
+        validateOverride: vi.fn(async () => secretError()),
+        removeKeychain: vi.fn(async () => secretError()),
+        removeAppHome: vi.fn(async (home: string) => ({
+          results: [{ path: path.join(home, ".env"), status: "failed" as const, error: "EBUSY" }],
+          homeRemoved: false,
+        })),
+        stopDaemon: vi.fn(async () => {
+          throw new Error("EACCES: state file");
+        }),
+      });
+      harness.answers.push("y", "y");
+
+      const code = await runUninstall({ yes: true, stopOpencode: true }, harness.deps);
+
+      expect(code).toBe(1);
+      for (const text of [...harness.lines, ...harness.prompts]) {
+        expect(text).not.toContain(SENTINEL);
+      }
     });
   });
 });

@@ -849,7 +849,6 @@ export const de: I18nDictionary = {
     "Die gespeicherten Geheimnisse aus dem Schlüsselbund löschen (Dienst {service}).",
   "uninstall.plan_logs_stay": "Logdateien werden nie entfernt und bleiben in {path}.",
   "uninstall.plan_opencode_server": "Den OpenCode-Server beenden (wird separat bestätigt).",
-  "uninstall.plan_nothing": "Nichts zu entfernen.",
   "uninstall.confirm_plan": "Diesen Plan ausführen? [y/N] ",
   "uninstall.confirm_override": "Auch die Daten in {path} entfernen? [y/N] ",
   "uninstall.confirm_stop_process":
@@ -897,7 +896,7 @@ export const de: I18nDictionary = {
   "uninstall.step_process_failed": "Prozess {pid} konnte nicht beendet werden.",
   "uninstall.step_process_skipped": "Prozess {pid} übersprungen.",
   "uninstall.step_process_refused":
-    "Prozess {pid} übersprungen: seine Befehlszeile hat sich vor dem Beenden geändert.",
+    "Prozess {pid} wurde kein Signal gesendet: er passt nicht mehr zum Bot.",
   "uninstall.process_unverified":
     "Das Arbeitsverzeichnis von Prozess {pid} konnte nicht gelesen werden, daher ist diese Zuordnung nicht verifiziert.",
   "uninstall.started_unknown": "unbekannt",
@@ -920,7 +919,7 @@ export const de: I18nDictionary = {
   "uninstall.step_opencode_none": "Es wurde kein OpenCode-Server zum Beenden gefunden.",
   "uninstall.command_unavailable": "(Befehlszeile nicht verfügbar)",
   "uninstall.home_removed": "App-Home {path} entfernt.",
-  "uninstall.home_kept": "App-Home {path} behalten: es enthält noch Dateien (Logs bleiben).",
+  "uninstall.home_kept": "App-Home {path} behalten: es enthält noch andere Dateien.",
   "uninstall.summary_ok": "Deinstallation abgeschlossen.",
   "uninstall.left_process": "Prozess {pid}",
   "uninstall.left_opencode": "der Prozess am OpenCode-Port (PID {pid})",
@@ -929,5 +928,26 @@ export const de: I18nDictionary = {
   "uninstall.summary_left": "Deinstallation abgeschlossen; unverändert geblieben: {items}",
   "uninstall.summary_failed": "Deinstallation abgeschlossen. Fehlgeschlagene Schritte: {count}",
   "uninstall.cli_hint": "Um die CLI selbst zu entfernen, führe aus: {command}",
+  "uninstall.plan_override_secrets":
+    "secrets.enc und keystore_password in {path} entfernen, auch wenn der Rest dieses Verzeichnisses bleibt.",
+  "uninstall.step_override_secrets":
+    "Entferne secrets.enc und keystore_password aus {path}: Geheimnisse werden unabhängig vom Rest des Verzeichnisses entfernt.",
+  "uninstall.left_override_kept": "{path} (alles außer secrets.enc und keystore_password)",
+  "uninstall.left_scan": "Bot-Prozesse außerhalb des Daemons (nicht geprüft)",
+  "uninstall.left_daemon": "der Bot-Daemon (er läuft möglicherweise noch)",
+  "uninstall.summary_failed_left":
+    "Deinstallation abgeschlossen. Fehlgeschlagene Schritte: {count}. Unverändert geblieben: {items}",
+  "uninstall.list_separator": ", ",
+  "uninstall.step_systemd_ran": "systemd-Unit {path} entfernt mit:\n{commands}",
+  "uninstall.step_process_skipped_no_terminal":
+    "Prozess {pid} übersprungen: kein Terminal, um das Beenden zu bestätigen.",
+  "uninstall.step_opencode_skipped_no_terminal":
+    "Beenden des Prozesses am OpenCode-Port übersprungen: kein Terminal zum Bestätigen.",
+  "uninstall.step_override_skipped_no_terminal":
+    "OPENCODE_TELEGRAM_HOME-Verzeichnis {path} übersprungen: kein Terminal, um das Entfernen zu bestätigen.",
+  "uninstall.step_logs_warning": "Log-Speicherort: {message}",
+  "uninstall.step_homes_error":
+    "Das App-Home konnte nicht ermittelt werden: {reason}. Es wurde nichts entfernt.",
+  "uninstall.home_kept_logs": "App-Home {path} behalten: es enthält noch Dateien, darunter Logs.",
 
 };

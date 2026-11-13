@@ -821,7 +821,6 @@ export const id: I18nDictionary = {
   "uninstall.plan_keychain": "Hapus rahasia tersimpan dari keychain (layanan {service}).",
   "uninstall.plan_logs_stay": "File log tidak pernah dihapus dan tetap berada di {path}.",
   "uninstall.plan_opencode_server": "Hentikan server OpenCode (dikonfirmasi terpisah).",
-  "uninstall.plan_nothing": "Tidak ada yang perlu dihapus.",
   "uninstall.confirm_plan": "Lanjutkan dengan rencana ini? [y/N] ",
   "uninstall.confirm_override": "Hapus juga data di {path}? [y/N] ",
   "uninstall.confirm_stop_process":
@@ -865,7 +864,7 @@ export const id: I18nDictionary = {
   "uninstall.step_process_failed": "Tidak dapat menghentikan proses {pid}.",
   "uninstall.step_process_skipped": "Proses {pid} dilewati.",
   "uninstall.step_process_refused":
-    "Proses {pid} dilewati: baris perintahnya berubah sebelum dihentikan.",
+    "Tidak ada sinyal yang dikirim ke proses {pid}: proses itu tidak lagi cocok dengan bot.",
   "uninstall.process_unverified":
     "Direktori kerja proses {pid} tidak dapat dibaca, sehingga kecocokan ini tidak terverifikasi.",
   "uninstall.started_unknown": "tidak diketahui",
@@ -887,8 +886,7 @@ export const id: I18nDictionary = {
   "uninstall.step_opencode_none": "Tidak ditemukan server OpenCode yang perlu dihentikan.",
   "uninstall.command_unavailable": "(baris perintah tidak tersedia)",
   "uninstall.home_removed": "Direktori aplikasi {path} dihapus.",
-  "uninstall.home_kept":
-    "Direktori aplikasi {path} dipertahankan: masih berisi file (log tetap ada).",
+  "uninstall.home_kept": "Direktori aplikasi {path} dipertahankan: masih berisi file lain.",
   "uninstall.summary_ok": "Uninstall selesai.",
   "uninstall.left_process": "proses {pid}",
   "uninstall.left_opencode": "proses di port OpenCode (PID {pid})",
@@ -896,5 +894,27 @@ export const id: I18nDictionary = {
   "uninstall.summary_left": "Uninstall selesai; dibiarkan di tempat: {items}",
   "uninstall.summary_failed": "Uninstall selesai. Langkah yang gagal: {count}",
   "uninstall.cli_hint": "Untuk menghapus CLI itu sendiri, jalankan: {command}",
+  "uninstall.plan_override_secrets":
+    "Hapus secrets.enc dan keystore_password di {path} meskipun sisa direktori itu dipertahankan.",
+  "uninstall.step_override_secrets":
+    "Menghapus secrets.enc dan keystore_password dari {path}: rahasia dihapus apa pun yang terjadi pada sisa direktori.",
+  "uninstall.left_override_kept": "{path} (semua kecuali secrets.enc dan keystore_password)",
+  "uninstall.left_scan": "proses bot di luar daemon (tidak diperiksa)",
+  "uninstall.left_daemon": "daemon bot (mungkin masih berjalan)",
+  "uninstall.summary_failed_left":
+    "Uninstall selesai. Langkah yang gagal: {count}. Dibiarkan di tempat: {items}",
+  "uninstall.list_separator": ", ",
+  "uninstall.step_systemd_ran": "Unit systemd {path} dihapus dengan menjalankan:\n{commands}",
+  "uninstall.step_process_skipped_no_terminal":
+    "Proses {pid} dilewati: tidak ada terminal untuk mengonfirmasi penghentiannya.",
+  "uninstall.step_opencode_skipped_no_terminal":
+    "Penghentian proses di port OpenCode dilewati: tidak ada terminal untuk mengonfirmasinya.",
+  "uninstall.step_override_skipped_no_terminal":
+    "Direktori OPENCODE_TELEGRAM_HOME {path} dilewati: tidak ada terminal untuk mengonfirmasi penghapusannya.",
+  "uninstall.step_logs_warning": "Lokasi log: {message}",
+  "uninstall.step_homes_error":
+    "Tidak dapat menentukan direktori aplikasi: {reason}. Tidak ada yang dihapus.",
+  "uninstall.home_kept_logs":
+    "Direktori aplikasi {path} dipertahankan: masih berisi file, termasuk log.",
 
 };

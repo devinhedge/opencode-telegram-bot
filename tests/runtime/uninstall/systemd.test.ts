@@ -10,9 +10,11 @@ import {
   SudoUnavailableError,
   defaultSystemdDeps,
   formatSystemdCommand,
+  getSystemdMainPid,
   removeSystemdUnit,
   type SystemdDeps,
   type SystemdIo,
+  type SystemdMainPidDeps,
 } from "../../../src/runtime/uninstall/systemd.js";
 
 function createDeps(overrides: Partial<SystemdDeps> = {}): SystemdDeps {
@@ -389,5 +391,69 @@ describe("runtime/uninstall/systemd defaultSystemdDeps", () => {
     });
 
     expect(await deps.hasSudo()).toBe(false);
+  });
+});
+
+describe("runtime/uninstall/systemd getSystemdMainPid", () => {
+  function mainPidDeps(
+    stdout: string | Error,
+    overrides: Partial<SystemdMainPidDeps> = {},
+  ): SystemdMainPidDeps {
+    return {
+      platform: "linux",
+      unitExists: vi.fn(async () => true),
+      execFileText: vi.fn(async () => {
+        if (stdout instanceof Error) {
+          throw stdout;
+        }
+        return stdout;
+      }),
+      env: { PATH: "/usr/bin", SUDO_ASKPASS: "/x", HOME: "/h" },
+      ...overrides,
+    };
+  }
+
+  it("reads MainPID with systemctl show, without sudo or a shell, minimal env and a timeout", async () => {
+    const deps = mainPidDeps("4321\n");
+
+    expect(await getSystemdMainPid(deps)).toBe(4321);
+    const [file, args, options] = vi.mocked(deps.execFileText).mock.calls[0]!;
+    expect(file).toBe("systemctl");
+    expect(args).toEqual(["show", "-p", "MainPID", "--value", "opencode-telegram-bot"]);
+    expect(options.env).toEqual({ PATH: "/usr/bin" });
+    expect(options.timeout).toBeGreaterThan(0);
+    expect(options.timeout).toBeLessThanOrEqual(10_000);
+  });
+
+  for (const [label, stdout] of [
+    ["0", "0\n"],
+    ["empty output", ""],
+    ["non-numeric output", "abc"],
+    ["a negative value", "-5"],
+    ["an error", new Error("systemctl missing")],
+  ] as const) {
+    it(`returns null for ${label}`, async () => {
+      expect(await getSystemdMainPid(mainPidDeps(stdout))).toBeNull();
+    });
+  }
+
+  it("returns null off Linux without running anything", async () => {
+    const deps = mainPidDeps("4321", { platform: "darwin" });
+
+    expect(await getSystemdMainPid(deps)).toBeNull();
+    expect(deps.execFileText).not.toHaveBeenCalled();
+  });
+
+  it("returns null without the unit and when the unit check throws", async () => {
+    const absent = mainPidDeps("4321", { unitExists: vi.fn(async () => false) });
+    const throwing = mainPidDeps("4321", {
+      unitExists: vi.fn(async () => {
+        throw new Error("EACCES");
+      }),
+    });
+
+    expect(await getSystemdMainPid(absent)).toBeNull();
+    expect(await getSystemdMainPid(throwing)).toBeNull();
+    expect(absent.execFileText).not.toHaveBeenCalled();
   });
 });

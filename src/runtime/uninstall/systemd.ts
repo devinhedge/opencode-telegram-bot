@@ -1,6 +1,7 @@
 import { execFile, spawn } from "node:child_process";
 import type { ChildProcess, SpawnOptions } from "node:child_process";
 import { lstat } from "node:fs/promises";
+import { promisify } from "node:util";
 
 export const SYSTEMD_UNIT_PATH = "/etc/systemd/system/opencode-telegram-bot.service";
 
@@ -146,6 +147,69 @@ function errorCode(error: unknown): string | undefined {
   return typeof error === "object" && error !== null && "code" in error
     ? String((error as { code: unknown }).code)
     : undefined;
+}
+
+const SYSTEMCTL_SHOW_TIMEOUT_MS = 5000;
+
+/** Runs a command without a shell and resolves its stdout; rejects on any error. */
+export type ExecFileText = (
+  file: string,
+  args: readonly string[],
+  options: { env: NodeJS.ProcessEnv; timeout: number },
+) => Promise<string>;
+
+export interface SystemdMainPidDeps {
+  platform: NodeJS.Platform;
+  /** May throw; a throw gives null. */
+  unitExists(): Promise<boolean>;
+  execFileText: ExecFileText;
+  env: NodeJS.ProcessEnv;
+}
+
+/**
+ * The main pid of the documented unit, read with `systemctl show` (no sudo, no shell, minimal
+ * environment, short timeout), so a bot run by systemd is stopped through the unit and never
+ * asked about as a separate process. Null off Linux, without the unit, for 0 or empty output,
+ * and on any error.
+ */
+export async function getSystemdMainPid(deps: SystemdMainPidDeps): Promise<number | null> {
+  if (deps.platform !== "linux") {
+    return null;
+  }
+
+  try {
+    if (!(await deps.unitExists())) {
+      return null;
+    }
+    const stdout = await deps.execFileText(
+      "systemctl",
+      ["show", "-p", "MainPID", "--value", SYSTEMD_SERVICE_NAME],
+      { env: minimalEnv(deps.env), timeout: SYSTEMCTL_SHOW_TIMEOUT_MS },
+    );
+    const text = stdout.trim();
+    if (!/^\d+$/.test(text)) {
+      return null;
+    }
+    const pid = Number.parseInt(text, 10);
+    return Number.isSafeInteger(pid) && pid > 0 ? pid : null;
+  } catch {
+    return null;
+  }
+}
+
+const realExecFileText: ExecFileText = async (file, args, options) =>
+  (await promisify(execFile)(file, [...args], options)).stdout;
+
+/** Real dependencies for getSystemdMainPid; tests inject their own. */
+export function defaultSystemdMainPidDeps(
+  systemd: Pick<SystemdDeps, "unitExists">,
+): SystemdMainPidDeps {
+  return {
+    platform: process.platform,
+    unitExists: () => systemd.unitExists(),
+    execFileText: realExecFileText,
+    env: process.env,
+  };
 }
 
 export function defaultSystemdDeps(overrides: Partial<SystemdIo> = {}): SystemdDeps {

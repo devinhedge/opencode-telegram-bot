@@ -137,7 +137,7 @@ function parseProcessRow(line: string, withStartTime: boolean): RawProcess | nul
  * The own pid, its ancestors, and the own parent. Fails closed: a listing without the own pid
  * throws, because the chain cannot be known and nothing may be listed.
  */
-function collectOwnChain(
+export function collectOwnChain(
   processes: readonly RawProcess[],
   ownPid: number,
   ownPpid: number,
