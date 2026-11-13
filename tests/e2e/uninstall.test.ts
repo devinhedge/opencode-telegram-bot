@@ -11,7 +11,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir, userInfo } from "node:os";
-import { join, relative } from "node:path";
+import { isAbsolute, join, relative } from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { isContainerRuntime } from "../../src/runtime/container.js";
 import {
@@ -20,6 +20,7 @@ import {
 } from "../../src/runtime/stored-data.js";
 import { SYSTEMD_UNIT_PATH } from "../../src/runtime/uninstall/systemd.js";
 import { buildProjectToTempDir, type E2eBuild } from "../helpers/e2e-build.js";
+import { getRealEnvBeforeTestSetup, getTestUserHome } from "../helpers/test-environment.js";
 
 // Real-process check of the built CLI (dist/cli.js). The uninstaller really deletes data, calls
 // the OS keychain, runs sudo and systemctl, scans processes and stops daemons, so every run is
@@ -35,8 +36,9 @@ import { buildProjectToTempDir, type E2eBuild } from "../helpers/e2e-build.js";
 //     is intact;
 //   - the destructive --yes run is the only one that can reach the keychain, so it runs only on a
 //     disposable machine: CI=true in the real environment of the test process, Linux, not a
-//     container, not root, no real systemd unit and no real installed home. It cannot run on a
-//     developer machine; CI executes it.
+//     container, not root, no real systemd unit and no real installed home. Residual risk: CI=true
+//     set by hand on such a workstation would run removeSecret against that user's real keyutils
+//     keyring. Container detection relies on /.dockerenv only.
 // The afterAll check of the real app home's mtime is detective only; the CI-only guard above is
 // the protection.
 
@@ -45,6 +47,9 @@ const isWindows = process.platform === "win32";
 const APP_DIR_NAME = "opencode-telegram-bot";
 const SEED_UUID = "123e4567-e89b-42d3-a456-426614174000";
 const LOG_NAME = "opencode-telegram-bot-2026-01-01.log";
+// summary_ok ("Uninstall finished.") or summary_left ("Uninstall finished; left in place: ..."),
+// never the failure summaries ("Uninstall finished. Failed steps: ...").
+const SUCCESS_SUMMARY_LINE = /^Uninstall finished(?:\.|; left in place: .+)$/m;
 
 let build: E2eBuild | undefined;
 let cliPath = "";
@@ -52,22 +57,25 @@ const tempRoots: string[] = [];
 const liveChildren = new Set<ChildProcess>();
 
 // The real default app homes of the machine running the test, computed from the account's home
-// directory and the REAL process environment, never from the stubbed child environment.
+// directory and the environment as the process received it. tests/setup.ts has already pointed
+// the live variables at temp directories, so the originals come from the capture it keeps.
+const realEnv = getRealEnvBeforeTestSetup();
+
 function realDefaultAppHomes(): string[] {
   const home = userInfo().homedir;
   const homes: string[] = [];
   if (process.platform === "darwin") {
     homes.push(join(home, "Library", "Application Support", APP_DIR_NAME));
   } else if (isWindows) {
-    homes.push(join(process.env.APPDATA ?? join(home, "AppData", "Roaming"), APP_DIR_NAME));
+    homes.push(join(realEnv.APPDATA ?? join(home, "AppData", "Roaming"), APP_DIR_NAME));
   } else {
     homes.push(join(home, ".config", APP_DIR_NAME));
-    if (process.env.XDG_CONFIG_HOME) {
-      homes.push(join(process.env.XDG_CONFIG_HOME, APP_DIR_NAME));
+    if (realEnv.XDG_CONFIG_HOME) {
+      homes.push(join(realEnv.XDG_CONFIG_HOME, APP_DIR_NAME));
     }
   }
-  if (process.env.OPENCODE_TELEGRAM_HOME) {
-    homes.push(process.env.OPENCODE_TELEGRAM_HOME);
+  if (realEnv.OPENCODE_TELEGRAM_HOME) {
+    homes.push(realEnv.OPENCODE_TELEGRAM_HOME);
   }
   return homes;
 }
@@ -272,6 +280,23 @@ function seedAppHome(root: string, appHome: string): SeededHome {
 }
 
 describe("built uninstall CLI", () => {
+  // Guards the real-home checks: if the test setup ever changed so that the captured values were
+  // the isolated temp ones, the guards would silently look at the wrong directories.
+  it("reads the real environment, not the values the test setup pointed at temp directories", () => {
+    const isolatedRoots = [getTestUserHome(), ...tempRoots];
+    const isUnder = (target: string, base: string): boolean => {
+      const relativePath = relative(base, target);
+      return relativePath === "" || (!relativePath.startsWith("..") && !isAbsolute(relativePath));
+    };
+    for (const [key, value] of Object.entries(realEnv)) {
+      if (value === undefined) continue;
+      for (const base of isolatedRoots) {
+        expect(isUnder(value, base), `${key} is under ${base}`).toBe(false);
+      }
+    }
+    expect(realEnv.HOME).not.toBe(process.env.HOME);
+  });
+
   it("prints the usage for uninstall --help and exits 0 without touching the home", async () => {
     const root = makeRoot();
     const appHome = join(root, "app-home");
@@ -360,7 +385,7 @@ describe("built uninstall CLI", () => {
   );
 
   // Needs a disposable machine (CI=true): it can reach the keychain, which HOME does not protect.
-  // It cannot run on a developer machine; CI executes it.
+  // See the header for the residual risk of setting CI=true by hand.
   it.skipIf(destructiveUnsafe)(
     "removes the inventory, keeps logs, prints the CLI hint and exits 0 on --yes, and again on a rerun",
     async () => {
@@ -377,7 +402,10 @@ describe("built uninstall CLI", () => {
       expect(first.stderr).toBe("");
       expect(first.stdout).toContain(`Removed ${join(appHome, ".env")}`);
       expect(first.stdout).toContain("systemd unit: not installed");
-      expect(first.stdout).toMatch(/Uninstall finished/);
+      expect(first.stdout).toContain(
+        `Removed link ${join(appHome, "secrets.enc")} (pointed to ${seeded.outsideTarget})`,
+      );
+      expect(first.stdout).toMatch(SUCCESS_SUMMARY_LINE);
       expect(first.stdout).toContain("To remove the CLI itself, run: npm uninstall -g");
       // Bot processes found on the host are skipped without a terminal: never signaled.
       expect(first.stdout).not.toContain("Stopped process");
@@ -393,7 +421,7 @@ describe("built uninstall CLI", () => {
 
       expect(second.code).toBe(0);
       expect(second.stderr).toBe("");
-      expect(second.stdout).toMatch(/Uninstall finished/);
+      expect(second.stdout).toMatch(SUCCESS_SUMMARY_LINE);
       expect(second.stdout).toContain("To remove the CLI itself, run: npm uninstall -g");
       expect(existsSync(seeded.logFile)).toBe(true);
     },

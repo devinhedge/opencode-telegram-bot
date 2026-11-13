@@ -3,10 +3,44 @@ import os from "node:os";
 import path from "node:path";
 import type { RuntimePaths } from "../../src/runtime/paths.js";
 
+const REAL_ENV_KEYS = [
+  "HOME",
+  "USERPROFILE",
+  "XDG_CONFIG_HOME",
+  "XDG_STATE_HOME",
+  "APPDATA",
+  "LOCALAPPDATA",
+  "OPENCODE_TELEGRAM_HOME",
+] as const;
+
+export type RealEnvBeforeTestSetup = Readonly<
+  Record<(typeof REAL_ENV_KEYS)[number], string | undefined>
+>;
+
 const state = globalThis as typeof globalThis & {
   __opencodeTestHomes?: { defaultHome: string; homes: Set<string> };
   __opencodeTestUserHome?: { root: string };
+  __opencodeRealEnvBeforeTestSetup?: RealEnvBeforeTestSetup;
 };
+
+// Captured once, when this module first loads: tests/setup.ts imports it before it calls
+// ensureTestEnvironment, so nothing has overwritten the variables yet. Module resets reuse the
+// stored copy instead of capturing the already isolated values.
+state.__opencodeRealEnvBeforeTestSetup ??= Object.freeze(
+  Object.fromEntries(REAL_ENV_KEYS.map((key) => [key, process.env[key]])) as Record<
+    (typeof REAL_ENV_KEYS)[number],
+    string | undefined
+  >,
+);
+
+/**
+ * The home-related environment variables as the test process received them, before the test
+ * setup pointed them at temp directories. Only for guards that must know the developer's real
+ * locations (never to read or write there).
+ */
+export function getRealEnvBeforeTestSetup(): RealEnvBeforeTestSetup {
+  return state.__opencodeRealEnvBeforeTestSetup as RealEnvBeforeTestSetup;
+}
 
 // Every variable from which a user home or an OS default directory is derived. They all point
 // inside a temp user home for the whole test file, so os.homedir(), getInstalledAppHome() and the

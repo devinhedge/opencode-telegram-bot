@@ -7,6 +7,7 @@ import {
   USER_HOME_ENV_KEYS,
   createTestHome,
   ensureTestEnvironment,
+  getRealEnvBeforeTestSetup,
   getTestUserHome,
   releaseTestUserHome,
 } from "./test-environment.js";
@@ -48,6 +49,25 @@ describe("test user-home isolation", () => {
       expect(isUnder(os.homedir(), realHome)).toBe(false);
       expect(isUnder(getInstalledAppHome(), realHome)).toBe(false);
     }
+  });
+
+  it("keeps the environment captured before the setup mutated it", () => {
+    const real = getRealEnvBeforeTestSetup();
+    const userHome = getTestUserHome();
+
+    // The setup already overwrote the live variables; the capture still holds the originals.
+    expect(process.env.HOME).toBe(userHome);
+    for (const key of Object.keys(real) as (keyof typeof real)[]) {
+      const value = real[key];
+      if (value !== undefined) {
+        expect(isUnder(value, userHome), key).toBe(false);
+      }
+    }
+    expect(real.HOME).not.toBe(userHome);
+    expect(Object.isFrozen(real)).toBe(true);
+
+    ensureTestEnvironment();
+    expect(getRealEnvBeforeTestSetup()).toBe(real);
   });
 
   it("puts the canonical log directory inside the temp user home", async () => {
