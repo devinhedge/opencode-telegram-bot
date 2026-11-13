@@ -1,7 +1,6 @@
 import { EventEmitter } from "node:events";
 import type { ChildProcess } from "node:child_process";
-import { mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
-import { lstat } from "node:fs/promises";
+import { lstat, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -361,7 +360,25 @@ describe("runtime/uninstall/systemd defaultSystemdDeps", () => {
     const [file, args, options] = execFileFn.mock.calls[0]!;
     expect(file).toBe("sudo");
     expect(args).toEqual(["--version"]);
+    expect(options.env).toEqual({
+      PATH: "/usr/bin",
+      TERM: "xterm",
+      LANG: "en_US.UTF-8",
+      LC_ALL: "C",
+    });
     expect(options.env).not.toHaveProperty("SUDO_ASKPASS");
+    expect(options.env).not.toHaveProperty("SUDO_PROMPT");
+  });
+
+  it("settles a run once when the child emits both error and close", async () => {
+    const child = fakeChild();
+    const deps = defaultSystemdDeps({ spawn: () => child, env: {} });
+
+    const pending = deps.run(["rm", "-f", "x"]);
+    child.emit("error", Object.assign(new Error("denied"), { code: "EACCES" }));
+    child.emit("close", 0);
+
+    expect(await pending).toBe(1);
   });
 
   it("reports no sudo when the probe fails", async () => {
