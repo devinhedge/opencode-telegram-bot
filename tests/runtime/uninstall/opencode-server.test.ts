@@ -122,6 +122,15 @@ describe("runtime/uninstall/opencode-server", () => {
       expect(await portOf("http://0.0.0.0:4096")).toBe(4096);
     });
 
+    it("normalizes short and decimal IPv4 loopback forms", async () => {
+      expect(await portOf("http://127.1:4096")).toBe(4096);
+      expect(await portOf("http://2130706433:4096")).toBe(4096);
+    });
+
+    it("refuses an IPv4-mapped IPv6 loopback", async () => {
+      expect(await portOf("http://[::ffff:127.0.0.1]:4096")).toBeNull();
+    });
+
     it("refuses localhost with a trailing dot", async () => {
       expect(await portOf("http://localhost.:4096")).toBeNull();
     });

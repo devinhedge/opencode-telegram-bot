@@ -34,7 +34,7 @@ export interface LocalOpencodeTarget {
   port: number;
 }
 
-function isLocalHostname(hostname: string): boolean {
+export function isLocalHostname(hostname: string): boolean {
   return ["localhost", "127.0.0.1", "::1", "0.0.0.0"].includes(hostname.toLowerCase());
 }
 

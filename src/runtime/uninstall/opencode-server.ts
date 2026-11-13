@@ -4,13 +4,13 @@ import {
   DEFAULT_OPENCODE_API_URLS,
   findServerPid,
   getProcessCommandLine,
+  isLocalHostname,
   killServerProcess,
 } from "../../opencode/process-control.js";
 
 // This module must not import config.js: it loads .env into process.env and can throw at
 // import. The environment keys are read here from the real environment, then from .env.
 
-const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1", "0.0.0.0"]);
 const MAX_PORT = 65535;
 
 export interface OpencodeServer {
@@ -34,7 +34,7 @@ function pickValue(
   env: NodeJS.ProcessEnv,
   fileValues: Record<string, string>,
 ): string {
-  return (env[key]?.trim() || fileValues[key]?.trim() || "").trim();
+  return env[key]?.trim() || fileValues[key]?.trim() || "";
 }
 
 // The port of a local http(s) URL: the explicit port, else the scheme default (80 or 443).
@@ -53,7 +53,7 @@ function resolveLocalPort(apiUrl: string): number | null {
 
   // URL.hostname keeps the brackets of an IPv6 literal.
   const hostname = parsedUrl.hostname.replace(/^\[(.*)\]$/, "$1").toLowerCase();
-  if (!LOCAL_HOSTNAMES.has(hostname)) {
+  if (!isLocalHostname(hostname)) {
     return null;
   }
 
