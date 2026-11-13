@@ -186,13 +186,7 @@ export function defaultSystemdDeps(overrides: Partial<SystemdIo> = {}): SystemdD
           stdio: "inherit",
           env: minimalEnv(io.env),
         });
-        // A child can emit both `error` and `close`; only the first event settles the run.
-        let settled = false;
         child.on("error", (error) => {
-          if (settled) {
-            return;
-          }
-          settled = true;
           if (errorCode(error) === "ENOENT") {
             reject(new SudoUnavailableError());
           } else {
@@ -200,13 +194,7 @@ export function defaultSystemdDeps(overrides: Partial<SystemdIo> = {}): SystemdD
           }
         });
         // A null code means the child was killed by a signal: treated as failed.
-        child.on("close", (code) => {
-          if (settled) {
-            return;
-          }
-          settled = true;
-          resolve(code ?? 1);
-        });
+        child.on("close", (code) => resolve(code ?? 1));
       }),
   };
 }

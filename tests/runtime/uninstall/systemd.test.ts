@@ -375,6 +375,7 @@ describe("runtime/uninstall/systemd defaultSystemdDeps", () => {
     const deps = defaultSystemdDeps({ spawn: () => child, env: {} });
 
     const pending = deps.run(["rm", "-f", "x"]);
+    // A promise settles once, so the first event wins.
     child.emit("error", Object.assign(new Error("denied"), { code: "EACCES" }));
     child.emit("close", 0);
 
