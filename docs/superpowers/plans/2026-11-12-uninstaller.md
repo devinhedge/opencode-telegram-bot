@@ -1,9 +1,9 @@
 ---
 title: Uninstaller Implementation Plan
 status: draft
-version: 0.1.6
-last_updated: 2026-11-12
-review_date: 2027-05-12
+version: 0.1.7
+last_updated: 2026-11-13
+review_date: 2027-05-13
 spec: docs/superpowers/specs/2026-11-11-uninstaller-design.md
 ---
 
@@ -41,7 +41,7 @@ spec: docs/superpowers/specs/2026-11-11-uninstaller-design.md
 - Nothing in `<appHome>/logs` or the canonical log directory is ever removed, even with `LOG_LOCATION=app` and with legacy logs present (Task 3, Task 10).
 - A symlinked `.env` or `secrets.enc` loses its link only; an outside target is reported, never deleted (Task 3).
 - The process scan never lists the uninstaller's own process chain, never kills without a per-process confirmation, and tolerates a launcher symlink, a relative script path, and a dangling link (Task 6).
-- No test can reach the real keychain; the end-to-end test with `--yes` runs only on Linux with no session bus in the child environment (Task 13).
+- No test can reach the real keychain; the end-to-end test with `--yes` runs only on a disposable CI machine (`CI=true`, Linux, not a container, not root), because the Linux keyring library falls back to the kernel keyutils keyring (keyed by user and session, not by `HOME`) when no session bus is reachable (Task 13).
 - A declined confirmation, no terminal without `--yes`, a container, and root each remove nothing and exit 1 (Task 10).
 
 ---
@@ -226,7 +226,7 @@ Order: (1) container refusal; (2) root refusal (`getUid() === 0`); (3) resolve t
 
 **Files:** Create `tests/helpers/e2e-build.ts` (extract the temp-directory `tsc` build, `package.json` and `.env.example` copy, and `node_modules` link from `tests/e2e/log-location.test.ts`) and update that test to use it; Create `tests/e2e/uninstall.test.ts`.
 
-- [ ] **Step 1: Write the tests** (spawn the built `dist/cli.js` with a minimal environment allow-list plus `HOME`, `USERPROFILE`, `XDG_CONFIG_HOME`, `APPDATA`, `LOCALAPPDATA`, `OPENCODE_TELEGRAM_HOME` under a temp root; 20 s kill timeout; temp directories removed in `afterAll`): `uninstall --help` and the flag validation exit with 0 and 2; with no terminal and no `--yes` the plan is printed, nothing is removed, exit 1 (runs on every OS, never reaches the keychain); the full `--yes` run on a temp home removes the inventory, keeps `logs/`, prints the hint, exits 0 and a rerun exits 0: guarded `it.skipIf(process.platform !== "linux" || hostIsContainer)` because only Linux with no `DBUS_SESSION_BUS_ADDRESS` in the child environment cannot reach a real keychain (macOS and Windows would delete the developer's real secrets). `hostIsContainer` is `isContainerRuntime({ env: {} })`.
+- [ ] **Step 1: Write the tests** (spawn the built `dist/cli.js` with a minimal environment allow-list plus `HOME`, `USERPROFILE`, `XDG_CONFIG_HOME`, `APPDATA`, `LOCALAPPDATA`, `OPENCODE_TELEGRAM_HOME` under a temp root; 20 s kill timeout; temp directories removed in `afterAll`): `uninstall --help` and the flag validation exit with 0 and 2; with no terminal and no `--yes` the plan is printed, nothing is removed, exit 1 (runs on every OS, never reaches the keychain); the full `--yes` run on a temp home removes the inventory, keeps `logs/`, prints the hint, exits 0 and a rerun exits 0: guarded `it.skipIf(...)` so it runs only when `process.env.CI === "true"` (read from the real process environment), the platform is Linux, the host is not a container (`isContainerRuntime({ env: {} })`) and not root, no real systemd unit file exists, and no real installed home holds an inventory entry. Removing `DBUS_SESSION_BUS_ADDRESS` is not enough: `@napi-rs/keyring` on Linux falls back to the kernel keyutils keyring, which is keyed by user and session rather than by `HOME`, and macOS and Windows reach the real keychain through the OS. Redirecting `HOME` protects only the app home.
 - [ ] **Step 2:** `npx vitest run tests/e2e/uninstall.test.ts tests/e2e/log-location.test.ts --testTimeout=60000`. Expected: PASS.
 - [ ] **Step 3: Commit** `test(uninstall): end-to-end coverage with the built CLI`.
 
@@ -249,7 +249,7 @@ Order: (1) container refusal; (2) root refusal (`getUid() === 0`); (3) resolve t
 - Process-control code moves to a side-effect-free module because importing `src/opencode/process.ts` loads `.env` and can throw.
 - Without `--yes` and without a terminal the plan is printed and nothing is removed; a declined confirmation exits 1.
 - `LOG_LEVEL` is set to `silent` in-process for the uninstall command.
-- The end-to-end run with `--yes` is Linux-only to protect the developer's real keychain.
+- The end-to-end run with `--yes` is CI-only (`CI=true`, Linux) to protect the developer's real keychain, including the keyutils fallback.
 
 ## Self-Review
 
