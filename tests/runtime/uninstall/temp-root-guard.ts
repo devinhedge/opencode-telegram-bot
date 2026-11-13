@@ -25,22 +25,28 @@ function exists(target: string): boolean {
 }
 
 /**
- * The real location of `target`: the realpath of its nearest existing ancestor joined with the
- * rest, so an ancestor that is a symlink (for example into the real home) is resolved even when
- * the target itself does not exist yet.
+ * The real location of `target`: the realpath of the nearest existing ancestor of its parent,
+ * joined with the rest, so an ancestor that is a symlink (for example into the real home) is
+ * resolved even when the target does not exist yet. The target itself is not followed: removing
+ * a symlink acts on the link, which lives in the parent. Null (fail closed) when that ancestor
+ * cannot be resolved, for example a dangling symlink.
  */
-function realLocation(target: string): string {
-  let existing = target;
-  const rest: string[] = [];
+function realLocation(target: string): string | null {
+  let existing = path.dirname(target);
+  const rest: string[] = [path.basename(target)];
   while (!exists(existing)) {
     const parent = path.dirname(existing);
     if (parent === existing) {
-      return target;
+      return null;
     }
     rest.unshift(path.basename(existing));
     existing = parent;
   }
-  return path.join(realpathOrSelf(existing), ...rest);
+  try {
+    return path.join(realpathSync.native(existing), ...rest);
+  } catch {
+    return null;
+  }
 }
 
 function isAllowed(target: string, roots: readonly string[], realHome: string): boolean {
@@ -60,10 +66,8 @@ export function assertInsideTempRoot(target: string, root: string = os.tmpdir())
   const resolved = path.resolve(target);
   const roots = [path.resolve(root), realpathOrSelf(path.resolve(root))];
   const realHome = os.userInfo().homedir;
-  if (
-    !isAllowed(resolved, roots, realHome) ||
-    !isAllowed(realLocation(resolved), roots, realHome)
-  ) {
+  const real = realLocation(resolved);
+  if (real === null || !isAllowed(resolved, roots, realHome) || !isAllowed(real, roots, realHome)) {
     throw new Error(`Test touched a path outside the temp root: ${resolved}`);
   }
 }

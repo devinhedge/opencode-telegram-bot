@@ -90,34 +90,52 @@ export async function resolveOpencodePort(
 }
 
 /**
+ * The outcome of a lookup. `not-listening` is the only definite "nothing is there": the port is
+ * known and the pid lookup found no listener. `unknown` means the answer cannot be trusted: the
+ * port could not be resolved (unreadable .env, remote or invalid URL), the pid lookup threw, or
+ * the listener is this process, its parent, or an excluded pid.
+ */
+export type OpencodeLookup =
+  { kind: "found"; server: OpencodeServer } | { kind: "not-listening" } | { kind: "unknown" };
+
+/**
  * The process listening on the port. findServerPid returns only the first listener pid, so
  * callers word their output "the process found", never "the OpenCode server". A listener that
  * is this process, its parent, or in `excludePids` (the caller passes the own process chain and
- * the bot daemon) is refused (null). On win32 the command line is always null:
+ * the bot daemon) is never offered (unknown). On win32 the command line is always null:
  * the caller must print the pid, say the command line is unavailable, and mention in the
  * prompt that stopping kills the whole process tree (taskkill /T).
+ *
+ * findServerPid itself returns null both when nothing listens and when lsof and ss cannot run, so
+ * a null pid is reported as not-listening (the residual limit of that helper).
  */
 export async function findOpencodeServer(deps: {
   port: number | null;
   findPid: typeof findServerPid;
   commandLine: typeof getProcessCommandLine;
   excludePids?: readonly number[];
-}): Promise<OpencodeServer | null> {
+}): Promise<OpencodeLookup> {
   if (deps.port === null) {
-    return null;
+    return { kind: "unknown" };
   }
 
-  const pid = await deps.findPid(deps.port);
-  if (
-    pid === null ||
-    pid === process.pid ||
-    pid === process.ppid ||
-    (deps.excludePids ?? []).includes(pid)
-  ) {
-    return null;
+  let pid: number | null;
+  try {
+    pid = await deps.findPid(deps.port);
+  } catch {
+    return { kind: "unknown" };
+  }
+  if (pid === null) {
+    return { kind: "not-listening" };
+  }
+  if (pid === process.pid || pid === process.ppid || (deps.excludePids ?? []).includes(pid)) {
+    return { kind: "unknown" };
   }
 
-  return { pid, port: deps.port, commandLine: await deps.commandLine(pid) };
+  return {
+    kind: "found",
+    server: { pid, port: deps.port, commandLine: await deps.commandLine(pid) },
+  };
 }
 
 /**

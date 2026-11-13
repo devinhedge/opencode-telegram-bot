@@ -12,9 +12,22 @@ import { KEYCHAIN_SERVICE, STORED_KEYCHAIN_ACCOUNTS } from "../../../src/runtime
 import { removeKeychainAccounts } from "../../../src/runtime/uninstall/keychain.js";
 import type { KeychainRemovalStore } from "../../../src/runtime/uninstall/keychain.js";
 import { createUninstallTranslator } from "../../../src/runtime/uninstall/messages.js";
-import type { OpencodeServer } from "../../../src/runtime/uninstall/opencode-server.js";
+import {
+  findOpencodeServer,
+  resolveOpencodePort,
+  type OpencodeLookup,
+  type OpencodeServer,
+} from "../../../src/runtime/uninstall/opencode-server.js";
+
+function found(server: OpencodeServer): OpencodeLookup {
+  return { kind: "found", server };
+}
 import type { BotProcess } from "../../../src/runtime/uninstall/processes.js";
-import { readBotServiceStatus } from "../../../src/runtime/service/manager.js";
+import {
+  getServiceStateFilePath,
+  readBotServiceStatus,
+  stopBotDaemon,
+} from "../../../src/runtime/service/manager.js";
 import { validateOverrideHome } from "../../../src/runtime/uninstall/homes.js";
 import { removeAppHomeData, removePath } from "../../../src/runtime/uninstall/remove-path.js";
 import { assertInsideTempRoot } from "./temp-root-guard.js";
@@ -249,7 +262,7 @@ describe("runtime/uninstall/run", () => {
         return true;
       }),
       systemd,
-      findOpencode: vi.fn(async () => null),
+      findOpencode: vi.fn(async (): Promise<OpencodeLookup> => ({ kind: "not-listening" })),
       stopOpencode: vi.fn(async () => true),
       validateOverride: (target: string) => validateOverrideHome(target),
       removePath: (target: string) => removePath(target),
@@ -1092,7 +1105,7 @@ describe("runtime/uninstall/run", () => {
     };
 
     it("never looks up the server without the flag", async () => {
-      const harness = createHarness({ findOpencode: vi.fn(async () => server) });
+      const harness = createHarness({ findOpencode: vi.fn(async () => found(server)) });
 
       await runUninstall(YES, harness.deps);
 
@@ -1101,7 +1114,7 @@ describe("runtime/uninstall/run", () => {
     });
 
     it("asks separately even with --yes, re-finds the server, and stops it on yes", async () => {
-      const harness = createHarness({ findOpencode: vi.fn(async () => server) });
+      const harness = createHarness({ findOpencode: vi.fn(async () => found(server)) });
       harness.answers.push("y");
 
       const code = await runUninstall({ yes: true, stopOpencode: true }, harness.deps);
@@ -1121,7 +1134,7 @@ describe("runtime/uninstall/run", () => {
     });
 
     it("does not stop the server on no and lists it as left", async () => {
-      const harness = createHarness({ findOpencode: vi.fn(async () => server) });
+      const harness = createHarness({ findOpencode: vi.fn(async () => found(server)) });
       harness.answers.push("n");
 
       const code = await runUninstall({ yes: true, stopOpencode: true }, harness.deps);
@@ -1136,9 +1149,9 @@ describe("runtime/uninstall/run", () => {
 
     it("refuses when the fresh lookup finds a different pid", async () => {
       const findOpencode = vi
-        .fn<() => Promise<OpencodeServer | null>>()
-        .mockResolvedValueOnce(server)
-        .mockResolvedValueOnce({ ...server, pid: 7002 });
+        .fn<() => Promise<OpencodeLookup>>()
+        .mockResolvedValueOnce(found(server))
+        .mockResolvedValueOnce(found({ ...server, pid: 7002 }));
       const harness = createHarness({ findOpencode });
       harness.answers.push("y");
 
@@ -1157,9 +1170,9 @@ describe("runtime/uninstall/run", () => {
 
     it("reports a listener that is gone at the fresh lookup: not a failure, not left", async () => {
       const findOpencode = vi
-        .fn<() => Promise<OpencodeServer | null>>()
-        .mockResolvedValueOnce(server)
-        .mockResolvedValueOnce(null);
+        .fn<() => Promise<OpencodeLookup>>()
+        .mockResolvedValueOnce(found(server))
+        .mockResolvedValueOnce({ kind: "not-listening" });
       const harness = createHarness({ findOpencode });
       harness.answers.push("y");
 
@@ -1172,10 +1185,92 @@ describe("runtime/uninstall/run", () => {
       expect(harness.lines).toContain(tEn("uninstall.summary_ok"));
     });
 
+    for (const [label, fresh] of [
+      ["throws", "throw"],
+      ["is unknown (unreadable .env, unknown port, or an excluded pid)", "unknown"],
+    ] as const) {
+      it(`refuses, fails, and lists the server as left when the fresh lookup ${label}`, async () => {
+        const findOpencode = vi
+          .fn<() => Promise<OpencodeLookup>>()
+          .mockResolvedValueOnce(found(server))
+          .mockImplementationOnce(async () => {
+            if (fresh === "throw") {
+              throw new Error(`lookup ${SENTINEL}`);
+            }
+            return { kind: "unknown" };
+          });
+        const harness = createHarness({ findOpencode });
+        harness.answers.push("y");
+
+        const code = await runUninstall({ yes: true, stopOpencode: true }, harness.deps);
+
+        expect(code).toBe(1);
+        expect(harness.deps.stopOpencode).not.toHaveBeenCalled();
+        expect(harness.lines).toContain(tEn("uninstall.step_opencode_unknown", { pid: 7001 }));
+        expect(harness.lines).not.toContain(tEn("uninstall.step_opencode_gone", { pid: 7001 }));
+        expect(harness.lines).toContain(
+          tEn("uninstall.summary_failed_left", {
+            count: 1,
+            items: tEn("uninstall.left_opencode", { pid: 7001 }),
+          }),
+        );
+        expect(harness.lines.join("\n")).not.toContain(SENTINEL);
+      });
+    }
+
+    it("treats a fresh listener that is now an excluded pid as unknown (real lookup)", async () => {
+      const findPid = vi
+        .fn<(port: number) => Promise<number | null>>()
+        .mockResolvedValueOnce(7001)
+        .mockResolvedValueOnce(OWN_PPID);
+      const harness = createHarness({
+        findOpencode: (excludePids) =>
+          findOpencodeServer({
+            port: 4096,
+            findPid,
+            commandLine: async () => "opencode serve --port 4096",
+            excludePids,
+          }),
+      });
+      harness.answers.push("y");
+
+      const code = await runUninstall({ yes: true, stopOpencode: true }, harness.deps);
+
+      expect(code).toBe(1);
+      expect(harness.deps.stopOpencode).not.toHaveBeenCalled();
+      expect(harness.lines).toContain(tEn("uninstall.step_opencode_unknown", { pid: 7001 }));
+    });
+
+    it("treats an unreadable .env at the fresh lookup as unknown (real lookup)", async () => {
+      const envFile = path.join(tempRoot, "env-dir");
+      let call = 0;
+      const harness = createHarness({
+        findOpencode: async (excludePids) => {
+          call += 1;
+          if (call === 2) {
+            await fs.mkdir(envFile);
+          }
+          return findOpencodeServer({
+            port: await resolveOpencodePort({ OPENCODE_API_URL: "" }, envFile),
+            findPid: async () => 7001,
+            commandLine: async () => "opencode serve --port 4096",
+            excludePids,
+          });
+        },
+      });
+      harness.answers.push("y");
+
+      const code = await runUninstall({ yes: true, stopOpencode: true }, harness.deps);
+
+      expect(code).toBe(1);
+      expect(harness.deps.stopOpencode).not.toHaveBeenCalled();
+      expect(harness.lines).toContain(tEn("uninstall.step_opencode_unknown", { pid: 7001 }));
+    });
+
     it("shows the unavailable command line and, on Windows, the tree warning", async () => {
       const harness = createHarness({
         platform: "win32",
-        findOpencode: vi.fn(async () => ({ ...server, commandLine: null })),
+        findOpencode: vi.fn(async () => found({ ...server, commandLine: null })),
       });
       harness.answers.push("n");
 
@@ -1193,7 +1288,7 @@ describe("runtime/uninstall/run", () => {
 
     it("reports a failed stop and exits 1", async () => {
       const harness = createHarness({
-        findOpencode: vi.fn(async () => server),
+        findOpencode: vi.fn(async () => found(server)),
         stopOpencode: vi.fn(async () => false),
       });
       harness.answers.push("y");
@@ -1217,7 +1312,7 @@ describe("runtime/uninstall/run", () => {
     it("skips the server without a terminal", async () => {
       const harness = createHarness({
         isInteractive: false,
-        findOpencode: vi.fn(async () => server),
+        findOpencode: vi.fn(async () => found(server)),
       });
 
       const code = await runUninstall({ yes: true, stopOpencode: true }, harness.deps);
@@ -1230,9 +1325,9 @@ describe("runtime/uninstall/run", () => {
 
     it("refuses when the same pid now has a different command line", async () => {
       const findOpencode = vi
-        .fn<() => Promise<OpencodeServer | null>>()
-        .mockResolvedValueOnce(server)
-        .mockResolvedValueOnce({ ...server, commandLine: "node other.js" });
+        .fn<() => Promise<OpencodeLookup>>()
+        .mockResolvedValueOnce(found(server))
+        .mockResolvedValueOnce(found({ ...server, commandLine: "node other.js" }));
       const harness = createHarness({ findOpencode });
       harness.answers.push("y");
 
@@ -1252,7 +1347,7 @@ describe("runtime/uninstall/run", () => {
     it("excludes the own process chain and the daemon pid from both lookups", async () => {
       const harness = createHarness({
         getOwnPidChain: vi.fn(async () => [OWN_PID, OWN_PPID, 1]),
-        findOpencode: vi.fn(async () => server),
+        findOpencode: vi.fn(async () => found(server)),
       });
       harness.answers.push("y");
 
@@ -1428,6 +1523,43 @@ describe("runtime/uninstall/run", () => {
           reason: tEn("uninstall.override_reason_not_a_directory"),
         }),
       );
+    });
+
+    it("without a terminal validates once at execution and removes nothing if it fails", async () => {
+      await populateHome(overrideHome);
+      const validateOverride = vi
+        .fn<UninstallDeps["validateOverride"]>()
+        .mockResolvedValueOnce({ ok: true })
+        .mockResolvedValue({ ok: false, reason: "no-bot-files" });
+      const harness = createHarness({
+        isInteractive: false,
+        getHomes: () => ({ defaultHome, overrideHome }),
+        validateOverride,
+      });
+
+      await runUninstall(YES, harness.deps);
+
+      expect(validateOverride).toHaveBeenCalledTimes(2);
+      await expectHomeUntouched(overrideHome);
+      expect(harness.deps.removePath).not.toHaveBeenCalled();
+    });
+
+    it("without a terminal does not repeat a check that just passed", async () => {
+      await populateHome(overrideHome);
+      const validateOverride = vi.fn<UninstallDeps["validateOverride"]>(async () => ({
+        ok: true,
+      }));
+      const harness = createHarness({
+        isInteractive: false,
+        getHomes: () => ({ defaultHome, overrideHome }),
+        validateOverride,
+      });
+
+      await runUninstall(YES, harness.deps);
+
+      // One check for the plan, one at execution right before the secret files are removed.
+      expect(validateOverride).toHaveBeenCalledTimes(2);
+      expect(harness.deps.removePath).toHaveBeenCalledTimes(2);
     });
 
     it("validates the override again before removing its secret files after a decline", async () => {
@@ -1706,11 +1838,9 @@ describe("runtime/uninstall/run", () => {
         findBotProcesses: vi.fn(async () => [
           botProcess(5001, `node /opt/bot/dist/cli.js start --token ${SENTINEL}`),
         ]),
-        findOpencode: vi.fn(async () => ({
-          pid: 7001,
-          port: 4096,
-          commandLine: `opencode serve --password=${SENTINEL}`,
-        })),
+        findOpencode: vi.fn(async () =>
+          found({ pid: 7001, port: 4096, commandLine: `opencode serve --password=${SENTINEL}` }),
+        ),
       });
       harness.answers.push("y", "y");
 
@@ -1918,6 +2048,122 @@ describe("runtime/uninstall/run", () => {
       expect(plainHarness.lines).toEqual([tEn("uninstall.step_homes_error", { reason: "ERROR" })]);
     });
 
+    it("prints only codes for removal throws and override secret-file failures", async () => {
+      await populateHome(defaultHome);
+      const overrideHome = path.join(tempRoot, "override-home");
+      await populateHome(overrideHome);
+      const harness = createHarness({
+        getHomes: () => ({ defaultHome, overrideHome }),
+        removeAppHome: vi.fn(async () => {
+          throw Object.assign(new Error(`removeAppHome ${SENTINEL}`), { code: "EIO" });
+        }),
+        removePath: vi.fn(async (target: string) => {
+          if (target.endsWith("secrets.enc")) {
+            throw new Error(`removePath ${SENTINEL}`);
+          }
+          return {
+            path: target,
+            status: "failed" as const,
+            error: `failed ${SENTINEL}`,
+            code: "EBUSY",
+          };
+        }),
+      });
+      harness.answers.push("n");
+
+      const code = await runUninstall(YES, harness.deps);
+
+      expect(code).toBe(1);
+      expect(harness.lines.filter((line) => line.includes(SENTINEL))).toEqual([]);
+      expect(harness.lines).toContain(
+        tEn("uninstall.step_home_error", { path: defaultHome, reason: "EIO" }),
+      );
+      expect(harness.lines).toContain(
+        tEn("uninstall.step_failed", {
+          path: path.join(overrideHome, "secrets.enc"),
+          reason: "ERROR",
+        }),
+      );
+      expect(harness.lines).toContain(
+        tEn("uninstall.step_failed", {
+          path: path.join(overrideHome, "keystore_password"),
+          reason: "EBUSY",
+        }),
+      );
+    });
+
+    describe.skipIf(process.platform === "win32")("real daemon stop under LOG_LEVEL", () => {
+      let stateFile: string;
+
+      beforeEach(async () => {
+        stateFile = getServiceStateFilePath();
+        assertInsideTempRoot(stateFile);
+        await fs.mkdir(path.dirname(stateFile), { recursive: true });
+        await fs.writeFile(
+          stateFile,
+          JSON.stringify({
+            pid: 424242,
+            startedAt: new Date(Date.now() + 86_400_000).toISOString(),
+            logFilePath: "/x.log",
+            mode: "daemon",
+          }),
+        );
+        // The fake pid is alive for signal 0; SIGTERM throws an error carrying the sentinel.
+        vi.spyOn(process, "kill").mockImplementation((_pid, signal) => {
+          if (signal === 0) {
+            return true;
+          }
+          throw new Error(`kill failed ${SENTINEL}`);
+        });
+      });
+
+      afterEach(async () => {
+        await fs.rm(stateFile, { force: true });
+      });
+
+      function consoleSpies(): ReturnType<typeof vi.spyOn>[] {
+        return [
+          vi.spyOn(console, "log").mockImplementation(() => undefined),
+          vi.spyOn(console, "warn").mockImplementation(() => undefined),
+          vi.spyOn(console, "error").mockImplementation(() => undefined),
+        ];
+      }
+
+      function printed(spies: ReturnType<typeof vi.spyOn>[]): string {
+        return spies.flatMap((spy) => spy.mock.calls.flat().map(String)).join("\n");
+      }
+
+      it("prints no sentinel anywhere with LOG_LEVEL=silent", async () => {
+        vi.stubEnv("LOG_LEVEL", "silent");
+        const spies = consoleSpies();
+        const harness = createHarness({
+          getDaemonStatus: () => readBotServiceStatus(),
+          stopDaemon: () => stopBotDaemon(50),
+        });
+
+        const code = await runUninstall(YES, harness.deps);
+
+        expect(code).toBe(1);
+        expect(harness.lines).toContain(tEn("uninstall.step_daemon_failed", { pid: 424242 }));
+        expect(printed(spies)).toBe("");
+        expect(harness.lines.join("\n")).not.toContain(SENTINEL);
+      });
+
+      it("keeps the manager's existing error log when not silent", async () => {
+        vi.stubEnv("LOG_LEVEL", "error");
+        const spies = consoleSpies();
+        const harness = createHarness({
+          getDaemonStatus: () => readBotServiceStatus(),
+          stopDaemon: () => stopBotDaemon(50),
+        });
+
+        await runUninstall(YES, harness.deps);
+
+        expect(printed(spies)).toContain("Daemon stop error");
+        expect(harness.lines.join("\n")).not.toContain(SENTINEL);
+      });
+    });
+
     it("prints ERROR for a failed daemon stop result, never its error text", async () => {
       const harness = createHarness({
         getDaemonStatus: vi.fn(async () => {
@@ -1950,11 +2196,9 @@ describe("runtime/uninstall/run", () => {
           botProcess(5001, `node /opt/bot/dist/cli.js start --token ${SENTINEL}`),
         ]),
         reverifyProcess: vi.fn(async () => secretError()),
-        findOpencode: vi.fn(async () => ({
-          pid: 7001,
-          port: 4096,
-          commandLine: `opencode serve --password ${SENTINEL}`,
-        })),
+        findOpencode: vi.fn(async () =>
+          found({ pid: 7001, port: 4096, commandLine: `opencode serve --password ${SENTINEL}` }),
+        ),
         stopOpencode: vi.fn(async () => secretError()),
         validateOverride: vi.fn(async () => secretError()),
         removeKeychain: vi.fn(async () => secretError()),

@@ -894,6 +894,8 @@ export const id: I18nDictionary = {
   "uninstall.summary_left": "Uninstall selesai; dibiarkan di tempat: {items}",
   "uninstall.summary_failed": "Uninstall selesai. Langkah yang gagal: {count}",
   "uninstall.cli_hint": "Untuk menghapus CLI itu sendiri, jalankan: {command}",
+  "uninstall.step_opencode_unknown":
+    "Proses yang ditemukan di port OpenCode (PID {pid}) tidak dihentikan: port tidak dapat diperiksa ulang.",
   "uninstall.step_process_already_exited":
     "Proses {pid} sudah berhenti; tidak ada sinyal yang dikirim.",
   "uninstall.step_opencode_gone":
@@ -916,7 +918,7 @@ export const id: I18nDictionary = {
   "uninstall.step_override_skipped_no_terminal":
     "Direktori OPENCODE_TELEGRAM_HOME {path} dilewati: tidak ada terminal untuk mengonfirmasi penghapusannya.",
   "uninstall.step_logs_warning":
-    "Pengaturan LOG_LOCATION tidak dapat digunakan sebagaimana adanya; lokasi log pada rencana di bawah yang berlaku.",
+    "LOG_LOCATION yang dikonfigurasi tidak dapat digunakan sebagaimana adanya.",
   "uninstall.step_homes_error":
     "Tidak dapat menentukan direktori aplikasi: {reason}. Tidak ada yang dihapus.",
   "uninstall.home_kept_logs":

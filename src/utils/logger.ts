@@ -16,15 +16,18 @@ import {
 } from "./log-files.js";
 
 type LogLevel = "debug" | "info" | "warn" | "error";
+// `silent` is a configured threshold only, above every message level: nothing is logged.
+type ConfiguredLogLevel = LogLevel | "silent";
 
 const DEFAULT_LOG_LEVEL: LogLevel = "info";
 const LOGGER_ERROR_PREFIX = "[LOGGER]";
 
-const LOG_LEVELS: Record<LogLevel, number> = {
+const LOG_LEVELS: Record<ConfiguredLogLevel, number> = {
   debug: 0,
   info: 1,
   warn: 2,
   error: 3,
+  silent: 4,
 };
 
 let logStream: fs.WriteStream | null = null;
@@ -36,15 +39,15 @@ let streamErrorReported = false;
 let initializeFailed = false;
 const CONSOLE_BROKEN_KEY = "__opencodeTelegramBotConsoleOutputBroken";
 
-function normalizeLogLevel(value: string): LogLevel {
+function normalizeLogLevel(value: string): ConfiguredLogLevel {
   if (value in LOG_LEVELS) {
-    return value as LogLevel;
+    return value as ConfiguredLogLevel;
   }
 
   return DEFAULT_LOG_LEVEL;
 }
 
-function getConfiguredLogLevel(): LogLevel {
+function getConfiguredLogLevel(): ConfiguredLogLevel {
   return normalizeLogLevel(process.env.LOG_LEVEL ?? DEFAULT_LOG_LEVEL);
 }
 

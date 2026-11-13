@@ -182,11 +182,11 @@ describe("runtime/uninstall/opencode-server", () => {
           commandLine: vi.fn().mockResolvedValue("x"),
         });
 
-        expect(server).toBeNull();
+        expect(server).toEqual({ kind: "unknown" });
       }
     });
 
-    it("refuses a listener in the excluded pids and never reads its command line", async () => {
+    it("reports a listener in the excluded pids as unknown and never reads its command line", async () => {
       const commandLine = vi.fn().mockResolvedValue("x");
 
       const server = await findOpencodeServer({
@@ -196,7 +196,7 @@ describe("runtime/uninstall/opencode-server", () => {
         excludePids: [111, 555],
       });
 
-      expect(server).toBeNull();
+      expect(server).toEqual({ kind: "unknown" });
       expect(commandLine).not.toHaveBeenCalled();
     });
 
@@ -208,7 +208,10 @@ describe("runtime/uninstall/opencode-server", () => {
         excludePids: [555],
       });
 
-      expect(server?.pid).toBe(556);
+      expect(server).toEqual({
+        kind: "found",
+        server: { pid: 556, port: 4096, commandLine: "opencode serve" },
+      });
     });
   });
 
@@ -219,7 +222,10 @@ describe("runtime/uninstall/opencode-server", () => {
 
       const server = await findOpencodeServer({ port: 4096, findPid, commandLine });
 
-      expect(server).toEqual({ pid: 4242, port: 4096, commandLine: "opencode serve --port 4096" });
+      expect(server).toEqual({
+        kind: "found",
+        server: { pid: 4242, port: 4096, commandLine: "opencode serve --port 4096" },
+      });
       expect(findPid).toHaveBeenCalledWith(4096);
       expect(commandLine).toHaveBeenCalledWith(4242);
     });
@@ -231,10 +237,10 @@ describe("runtime/uninstall/opencode-server", () => {
         commandLine: vi.fn().mockResolvedValue(null),
       });
 
-      expect(server).toEqual({ pid: 7, port: 4096, commandLine: null });
+      expect(server).toEqual({ kind: "found", server: { pid: 7, port: 4096, commandLine: null } });
     });
 
-    it("returns null when no process listens on the port", async () => {
+    it("reports not-listening only when the lookup found no listener on the port", async () => {
       const commandLine = vi.fn();
 
       const server = await findOpencodeServer({
@@ -243,16 +249,41 @@ describe("runtime/uninstall/opencode-server", () => {
         commandLine,
       });
 
-      expect(server).toBeNull();
+      expect(server).toEqual({ kind: "not-listening" });
       expect(commandLine).not.toHaveBeenCalled();
     });
 
-    it("returns null without looking for a pid when there is no port", async () => {
+    it("reports unknown without looking for a pid when the port is unknown", async () => {
       const findPid = vi.fn();
 
       const server = await findOpencodeServer({ port: null, findPid, commandLine: vi.fn() });
 
-      expect(server).toBeNull();
+      expect(server).toEqual({ kind: "unknown" });
+      expect(findPid).not.toHaveBeenCalled();
+    });
+
+    it("reports unknown when the pid lookup throws", async () => {
+      const server = await findOpencodeServer({
+        port: 4096,
+        findPid: vi.fn().mockRejectedValue(new Error("lsof exploded")),
+        commandLine: vi.fn(),
+      });
+
+      expect(server).toEqual({ kind: "unknown" });
+    });
+
+    it("reports unknown for an unreadable .env (the port cannot be resolved)", async () => {
+      const envFile = path.join(tempDir, ".env");
+      await mkdir(envFile);
+      const findPid = vi.fn();
+
+      const server = await findOpencodeServer({
+        port: await resolveOpencodePort({}, envFile),
+        findPid,
+        commandLine: vi.fn(),
+      });
+
+      expect(server).toEqual({ kind: "unknown" });
       expect(findPid).not.toHaveBeenCalled();
     });
   });

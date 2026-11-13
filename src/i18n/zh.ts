@@ -829,6 +829,8 @@ export const zh: I18nDictionary = {
   "uninstall.summary_left": "卸载完成；保留未动的项目：{items}",
   "uninstall.summary_failed": "卸载完成。失败的步骤：{count}",
   "uninstall.cli_hint": "要删除 CLI 本身，请运行：{command}",
+  "uninstall.step_opencode_unknown":
+    "未停止在 OpenCode 端口上找到的进程（PID {pid}）：无法再次检查该端口。",
   "uninstall.step_process_already_exited": "进程 {pid} 已经退出；未发送任何信号。",
   "uninstall.step_opencode_gone":
     "在 OpenCode 端口上找到的进程（PID {pid}）已不再监听；未停止任何进程。",
@@ -847,7 +849,7 @@ export const zh: I18nDictionary = {
     "已跳过停止 OpenCode 端口上的进程：没有终端可进行确认。",
   "uninstall.step_override_skipped_no_terminal":
     "已跳过 OPENCODE_TELEGRAM_HOME 目录 {path}：没有终端可确认删除。",
-  "uninstall.step_logs_warning": "无法按原样使用 LOG_LOCATION 设置；以下计划中显示的日志位置适用。",
+  "uninstall.step_logs_warning": "无法按原样使用所配置的 LOG_LOCATION。",
   "uninstall.step_homes_error": "无法确定应用主目录：{reason}。未删除任何内容。",
   "uninstall.home_kept_logs": "已保留应用主目录 {path}：其中仍有文件，包括日志。",
 

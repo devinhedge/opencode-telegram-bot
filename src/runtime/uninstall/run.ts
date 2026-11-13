@@ -27,6 +27,7 @@ import {
   findOpencodeServer,
   resolveOpencodePort,
   stopOpencodeServer,
+  type OpencodeLookup,
   type OpencodeServer,
 } from "./opencode-server.js";
 import {
@@ -104,7 +105,7 @@ export interface UninstallDeps {
   /** Resolves true when the process has exited within the timeout. */
   waitForExit(pid: number, timeoutMs: number): Promise<boolean>;
   systemd: SystemdDeps;
-  findOpencode(excludePids: readonly number[]): Promise<OpencodeServer | null>;
+  findOpencode(excludePids: readonly number[]): Promise<OpencodeLookup>;
   stopOpencode(pid: number): Promise<boolean>;
   validateOverride(overrideHome: string): Promise<OverrideValidation>;
   removePath(target: string): Promise<RemoveResult>;
@@ -238,15 +239,25 @@ async function detectSystemdUnit(systemd: SystemdDeps): Promise<boolean> {
   }
 }
 
+/** A lookup that throws is unknown, never "not listening". */
+async function lookupOpencode(
+  deps: UninstallDeps,
+  exclude: readonly number[],
+): Promise<OpencodeLookup> {
+  try {
+    return await deps.findOpencode(exclude);
+  } catch {
+    return { kind: "unknown" };
+  }
+}
+
+/** For the plan only: anything but a found listener means there is nothing to offer. */
 async function detectOpencode(
   deps: UninstallDeps,
   exclude: readonly number[],
 ): Promise<OpencodeServer | null> {
-  try {
-    return await deps.findOpencode(exclude);
-  } catch {
-    return null;
-  }
+  const lookup = await lookupOpencode(deps, exclude);
+  return lookup.kind === "found" ? lookup.server : null;
 }
 
 async function validate(
@@ -491,13 +502,20 @@ async function opencodeStep(
 
   // Time of check to time of use: the listener is looked up again right before the kill, and a
   // different pid or command line means the confirmed process is not the one listening now.
-  const fresh = await detectOpencode(deps, exclude);
-  if (fresh === null) {
-    // Nothing listens any more: there is nothing to stop and nothing left running.
+  const fresh = await lookupOpencode(deps, exclude);
+  if (fresh.kind === "not-listening") {
+    // Definitely nothing listens any more: nothing to stop and nothing left running.
     say("uninstall.step_opencode_gone", { pid: server.pid });
     return;
   }
-  if (fresh.pid !== server.pid || fresh.commandLine !== server.commandLine) {
+  if (fresh.kind === "unknown") {
+    // The port could not be checked again: never kill blind, and never claim it is gone.
+    say("uninstall.step_opencode_unknown", { pid: server.pid });
+    ctx.failures += 1;
+    leftRunning();
+    return;
+  }
+  if (fresh.server.pid !== server.pid || fresh.server.commandLine !== server.commandLine) {
     say("uninstall.step_opencode_refused", { pid: server.pid });
     ctx.failures += 1;
     leftRunning();
@@ -568,16 +586,13 @@ async function removeHomeStep(ctx: Context, appHome: string): Promise<void> {
   try {
     removal = await ctx.deps.removeAppHome(appHome);
   } catch (error) {
-    removal = {
-      results: [],
-      homeRemoved: false,
-      homeError: "",
-      homeErrorCode: reasonCode(error),
-    };
+    removal = { results: [], homeRemoved: false, homeErrorCode: reasonCode(error) };
   }
 
   await reportRemovals(ctx, removal.results, appHome, realHome);
 
+  // removeAppHomeData sets homeError for every home failure, with homeErrorCode only when the
+  // error carried a code; either one means the step failed. Only the code is printed.
   if (removal.homeError !== undefined || removal.homeErrorCode !== undefined) {
     ctx.say("uninstall.step_home_error", {
       path: appHome,
@@ -620,12 +635,19 @@ function reportInvalidOverride(
 }
 
 /** The kept override still loses its secret files: only these two names, links unlinked only. */
-async function removeOverrideSecrets(ctx: Context, overrideHome: string): Promise<void> {
-  // Time passed since the earlier check (the question): the directory must still qualify.
-  const reason = await validate(ctx.deps, overrideHome);
-  if (reason !== null) {
-    reportInvalidOverride(ctx, overrideHome, reason);
-    return;
+async function removeOverrideSecrets(
+  ctx: Context,
+  overrideHome: string,
+  revalidate: boolean,
+): Promise<void> {
+  // After a question time has passed since the earlier check, so the directory must still
+  // qualify. Without a question the check just ran, so a second one would only repeat it.
+  if (revalidate) {
+    const reason = await validate(ctx.deps, overrideHome);
+    if (reason !== null) {
+      reportInvalidOverride(ctx, overrideHome, reason);
+      return;
+    }
   }
   ctx.say("uninstall.step_override_secrets", { path: overrideHome });
   const realHome = await realpathOrSelf(overrideHome);
@@ -651,14 +673,15 @@ async function overrideStep(ctx: Context, overrideHome: string): Promise<void> {
 
   if (!ctx.deps.isInteractive) {
     ctx.say("uninstall.step_override_skipped_no_terminal", { path: overrideHome });
-    await removeOverrideSecrets(ctx, overrideHome);
+    // `before` was checked a moment ago with nothing in between: no second check.
+    await removeOverrideSecrets(ctx, overrideHome, false);
     return;
   }
 
   const question = ctx.translate("uninstall.confirm_override", { path: overrideHome });
   if (!(await confirm(ctx.deps, question))) {
     ctx.say("uninstall.step_override_skipped", { path: overrideHome });
-    await removeOverrideSecrets(ctx, overrideHome);
+    await removeOverrideSecrets(ctx, overrideHome, true);
     return;
   }
 

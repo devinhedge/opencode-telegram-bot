@@ -918,6 +918,8 @@ export const pt: I18nDictionary = {
   "uninstall.summary_left": "Desinstalação concluída; deixado no lugar: {items}",
   "uninstall.summary_failed": "Desinstalação concluída. Etapas com falha: {count}",
   "uninstall.cli_hint": "Para remover a própria CLI, execute: {command}",
+  "uninstall.step_opencode_unknown":
+    "O processo encontrado na porta do OpenCode (PID {pid}) não foi parado: não foi possível verificar a porta novamente.",
   "uninstall.step_process_already_exited":
     "O processo {pid} já havia terminado; nenhum sinal foi enviado.",
   "uninstall.step_opencode_gone":
@@ -939,8 +941,7 @@ export const pt: I18nDictionary = {
     "A parada do processo na porta do OpenCode foi ignorada: não há terminal para confirmá-la.",
   "uninstall.step_override_skipped_no_terminal":
     "Diretório OPENCODE_TELEGRAM_HOME {path} ignorado: não há terminal para confirmar a remoção.",
-  "uninstall.step_logs_warning":
-    "Não foi possível usar a configuração LOG_LOCATION como informada; vale o local dos logs indicado no plano abaixo.",
+  "uninstall.step_logs_warning": "Não foi possível usar o LOG_LOCATION configurado como informado.",
   "uninstall.step_homes_error":
     "Não foi possível determinar o diretório do aplicativo: {reason}. Nada foi removido.",
   "uninstall.home_kept_logs":

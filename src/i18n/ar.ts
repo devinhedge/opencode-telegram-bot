@@ -869,6 +869,8 @@ export const ar: I18nDictionary = {
   "uninstall.summary_left": "اكتملت الإزالة؛ تُرك في مكانه: {items}",
   "uninstall.summary_failed": "اكتملت الإزالة. الخطوات الفاشلة: {count}",
   "uninstall.cli_hint": "لإزالة واجهة سطر الأوامر نفسها، شغّل: {command}",
+  "uninstall.step_opencode_unknown":
+    "لم يتم إيقاف العملية الموجودة على منفذ OpenCode (PID {pid}): تعذّر فحص المنفذ مرة أخرى.",
   "uninstall.step_process_already_exited": "كانت العملية {pid} قد انتهت بالفعل؛ لم تُرسل أي إشارة.",
   "uninstall.step_opencode_gone":
     "العملية الموجودة على منفذ OpenCode (PID {pid}) لم تعد تستمع؛ لم يتم إيقاف أي شيء.",
@@ -889,8 +891,7 @@ export const ar: I18nDictionary = {
     "تم تخطي إيقاف العملية على منفذ OpenCode: لا توجد طرفية للتأكيد.",
   "uninstall.step_override_skipped_no_terminal":
     "تم تخطي المجلد OPENCODE_TELEGRAM_HOME ‏{path}: لا توجد طرفية لتأكيد إزالته.",
-  "uninstall.step_logs_warning":
-    "تعذّر استخدام إعداد LOG_LOCATION كما هو؛ يُطبَّق موقع السجلات المعروض في الخطة أدناه.",
+  "uninstall.step_logs_warning": "تعذّر استخدام قيمة LOG_LOCATION المُعدّة كما هي.",
   "uninstall.step_homes_error": "تعذّر تحديد مجلد التطبيق: {reason}. لم تتم إزالة أي شيء.",
   "uninstall.home_kept_logs":
     "تم الإبقاء على مجلد التطبيق {path}: ما زال يحتوي على ملفات، منها السجلات.",

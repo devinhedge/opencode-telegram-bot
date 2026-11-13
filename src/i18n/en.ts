@@ -902,6 +902,8 @@ export const en = {
   "uninstall.summary_left": "Uninstall finished; left in place: {items}",
   "uninstall.summary_failed": "Uninstall finished. Failed steps: {count}",
   "uninstall.cli_hint": "To remove the CLI itself, run: {command}",
+  "uninstall.step_opencode_unknown":
+    "Did not stop the process found on the OpenCode port (PID {pid}): the port could not be checked again.",
   "uninstall.step_process_already_exited": "Process {pid} had already exited; no signal was sent.",
   "uninstall.step_opencode_gone":
     "The process found on the OpenCode port (PID {pid}) is no longer listening; nothing was stopped.",
@@ -922,8 +924,7 @@ export const en = {
     "Skipped stopping the process on the OpenCode port: no terminal to confirm it.",
   "uninstall.step_override_skipped_no_terminal":
     "Skipped the OPENCODE_TELEGRAM_HOME directory {path}: no terminal to confirm its removal.",
-  "uninstall.step_logs_warning":
-    "The LOG_LOCATION setting could not be used as given; the log location in the plan below applies.",
+  "uninstall.step_logs_warning": "The configured LOG_LOCATION could not be used as given.",
   "uninstall.step_homes_error": "Could not determine the app home: {reason}. Nothing was removed.",
   "uninstall.home_kept_logs": "Kept the app home {path}: it still contains files, including logs.",
 } as const;

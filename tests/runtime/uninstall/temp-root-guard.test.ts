@@ -48,6 +48,26 @@ describe("assertInsideTempRoot", () => {
     },
   );
 
+  it.skipIf(process.platform === "win32")(
+    "fails closed when an ancestor is a dangling symlink, but accepts a dangling link itself",
+    async () => {
+      const root = await fs.mkdtemp(path.join(os.tmpdir(), "uninstall-guard-dangling-"));
+      const dangling = path.join(root, "dangling");
+      try {
+        await fs.symlink(path.join(root, "missing-target"), dangling);
+
+        expect(() => assertInsideTempRoot(path.join(dangling, "home", ".env"), root)).toThrow(
+          /outside the temp root/,
+        );
+        // The link itself lives in root; removing it acts on the link, not its target.
+        expect(() => assertInsideTempRoot(dangling, root)).not.toThrow();
+      } finally {
+        await fs.unlink(dangling).catch(() => undefined);
+        await fs.rm(root, { recursive: true, force: true });
+      }
+    },
+  );
+
   it("accepts a path inside a temp directory", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "uninstall-guard-"));
     try {

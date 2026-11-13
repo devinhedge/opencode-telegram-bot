@@ -893,6 +893,8 @@ export const tr: I18nDictionary = {
   "uninstall.summary_left": "Kaldırma tamamlandı; yerinde bırakılanlar: {items}",
   "uninstall.summary_failed": "Kaldırma tamamlandı. Başarısız adımlar: {count}",
   "uninstall.cli_hint": "CLI'nin kendisini kaldırmak için şunu çalıştırın: {command}",
+  "uninstall.step_opencode_unknown":
+    "OpenCode portunda bulunan işlem (PID {pid}) durdurulmadı: port yeniden denetlenemedi.",
   "uninstall.step_process_already_exited": "{pid} işlemi zaten sonlanmıştı; sinyal gönderilmedi.",
   "uninstall.step_opencode_gone":
     "OpenCode portunda bulunan işlem (PID {pid}) artık dinlemiyor; hiçbir şey durdurulmadı.",
@@ -913,8 +915,7 @@ export const tr: I18nDictionary = {
     "OpenCode portundaki işlemin durdurulması atlandı: onaylamak için terminal yok.",
   "uninstall.step_override_skipped_no_terminal":
     "OPENCODE_TELEGRAM_HOME dizini {path} atlandı: kaldırmayı onaylamak için terminal yok.",
-  "uninstall.step_logs_warning":
-    "LOG_LOCATION ayarı verildiği gibi kullanılamadı; aşağıdaki plandaki günlük konumu geçerlidir.",
+  "uninstall.step_logs_warning": "Yapılandırılan LOG_LOCATION verildiği gibi kullanılamadı.",
   "uninstall.step_homes_error": "Uygulama dizini belirlenemedi: {reason}. Hiçbir şey kaldırılmadı.",
   "uninstall.home_kept_logs":
     "{path} uygulama dizini korundu: günlükler dahil hâlâ dosya içeriyor.",

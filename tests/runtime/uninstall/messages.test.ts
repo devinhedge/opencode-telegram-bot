@@ -114,6 +114,7 @@ const PLACEHOLDERS: Record<string, string[]> = {
   home_kept_logs: ["path"],
   step_process_already_exited: ["pid"],
   step_opencode_gone: ["pid"],
+  step_opencode_unknown: ["pid"],
 };
 
 const REQUIRED_KEYS = Object.keys(PLACEHOLDERS);

@@ -897,6 +897,8 @@ export const ko: I18nDictionary = {
   "uninstall.summary_left": "제거를 완료했습니다. 그대로 남긴 항목: {items}",
   "uninstall.summary_failed": "제거를 완료했습니다. 실패한 단계: {count}",
   "uninstall.cli_hint": "CLI 자체를 제거하려면 다음을 실행하세요: {command}",
+  "uninstall.step_opencode_unknown":
+    "OpenCode 포트에서 찾은 프로세스 (PID {pid})를 중지하지 않았습니다: 포트를 다시 확인할 수 없습니다.",
   "uninstall.step_process_already_exited":
     "프로세스 {pid}은(는) 이미 종료되었습니다. 신호를 보내지 않았습니다.",
   "uninstall.step_opencode_gone":
@@ -919,8 +921,7 @@ export const ko: I18nDictionary = {
     "OpenCode 포트의 프로세스 중지를 건너뛰었습니다: 확인할 터미널이 없습니다.",
   "uninstall.step_override_skipped_no_terminal":
     "OPENCODE_TELEGRAM_HOME 디렉터리 {path}을(를) 건너뛰었습니다: 제거를 확인할 터미널이 없습니다.",
-  "uninstall.step_logs_warning":
-    "LOG_LOCATION 설정을 그대로 사용할 수 없어 아래 계획에 표시된 로그 위치가 적용됩니다.",
+  "uninstall.step_logs_warning": "설정된 LOG_LOCATION을 그대로 사용할 수 없습니다.",
   "uninstall.step_homes_error":
     "앱 홈을 확인할 수 없습니다: {reason}. 아무것도 제거하지 않았습니다.",
   "uninstall.home_kept_logs": "앱 홈 {path}에 로그를 포함한 파일이 남아 있어 유지했습니다.",

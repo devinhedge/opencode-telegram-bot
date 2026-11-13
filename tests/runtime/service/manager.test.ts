@@ -445,7 +445,8 @@ describe("runtime/service/manager", () => {
             command: string,
             callback: (error: Error | null, stdout: string, stderr: string) => void,
           ) => {
-            callback(null, command.includes("lstart") ? "Sun Jul 19 09:55:42 2026\n" : "", "");
+            // Local time without a zone: five days after the stored start in every time zone.
+            callback(null, command.includes("lstart") ? "Thu Jul 23 09:55:42 2026\n" : "", "");
             return {};
           },
         );

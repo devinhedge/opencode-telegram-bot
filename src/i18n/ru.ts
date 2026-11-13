@@ -915,6 +915,8 @@ export const ru: I18nDictionary = {
   "uninstall.summary_left": "Удаление завершено; оставлено на месте: {items}",
   "uninstall.summary_failed": "Удаление завершено. Шаги с ошибками: {count}",
   "uninstall.cli_hint": "Чтобы удалить саму CLI, выполните: {command}",
+  "uninstall.step_opencode_unknown":
+    "Процесс, найденный на порту OpenCode (PID {pid}), не остановлен: порт не удалось проверить повторно.",
   "uninstall.step_process_already_exited": "Процесс {pid} уже завершился; сигнал не отправлялся.",
   "uninstall.step_opencode_gone":
     "Процесс, найденный на порту OpenCode (PID {pid}), больше не слушает порт; ничего не остановлено.",
@@ -935,8 +937,7 @@ export const ru: I18nDictionary = {
     "Остановка процесса на порту OpenCode пропущена: нет терминала для подтверждения.",
   "uninstall.step_override_skipped_no_terminal":
     "Каталог OPENCODE_TELEGRAM_HOME {path} пропущен: нет терминала, чтобы подтвердить удаление.",
-  "uninstall.step_logs_warning":
-    "Настройку LOG_LOCATION не удалось использовать как есть; действует расположение журналов из плана ниже.",
+  "uninstall.step_logs_warning": "Заданное значение LOG_LOCATION не удалось использовать как есть.",
   "uninstall.step_homes_error":
     "Не удалось определить каталог приложения: {reason}. Ничего не удалено.",
   "uninstall.home_kept_logs":
