@@ -163,8 +163,18 @@ describe("runtime/uninstall/messages", () => {
     }
   });
 
-  it("puts a left-to-right mark before [y/N] in the Arabic prompts", () => {
-    expect(ar["uninstall.confirm_plan"]).toContain("‎[y/N] ");
+  it("puts a left-to-right mark (U+200E) before [y/N] in every Arabic prompt", () => {
+    const keys = [
+      "uninstall.confirm_plan",
+      "uninstall.confirm_override",
+      "uninstall.confirm_stop_process",
+      "uninstall.confirm_stop_opencode",
+    ] as const;
+
+    for (const key of keys) {
+      expect(ar[key], key).toContain(" ‎[y/N] ");
+      expect(ar[key], key).toMatch(/\[y\/N\] $/);
+    }
   });
 
   describe("resolveUninstallLocale", () => {
@@ -252,56 +262,92 @@ describe("runtime/uninstall/messages", () => {
   });
 
   describe("redactCommandLine", () => {
+    const SECRET = "S3CR3T";
+
+    // input -> exact output; every input carries SECRET in the value position.
+    const CASES: Array<[string, string]> = [
+      [`--token ${SECRET}`, "--token ***"],
+      [`--token=${SECRET}`, "--token=***"],
+      [`TOKEN=${SECRET} cmd`, "TOKEN=*** cmd"],
+      [`export API_KEY=${SECRET}`, "export API_KEY=***"],
+      [`--password "my ${SECRET}"`, "--password ***"],
+      [`--password='a ${SECRET}'`, "--password=***"],
+      [`Authorization: Bearer ${SECRET} ${SECRET}`, "Authorization: *** *** ***"],
+      [`-H "Authorization: Bearer ${SECRET} ${SECRET}"`, '-H "Authorization:***'],
+      [`Authorization: Basic ${SECRET}`, "Authorization: *** ***"],
+      [`Proxy-Authorization: Basic ${SECRET}`, "Proxy-Authorization: *** ***"],
+      [`Cookie: a=${SECRET}; b=${SECRET}`, "Cookie: *** ***"],
+      [`https://user:${SECRET}@host/x`, "https://***@host/x"],
+      [`http://user@h:${SECRET}@x`, "http://***@x"],
+      [`postgres://u:${SECRET}%40ss@h/db`, "postgres://***@h/db"],
+      [`--api-key ${SECRET}`, "--api-key ***"],
+      [`--apikey ${SECRET}`, "--apikey ***"],
+      [`--client_secret=${SECRET}`, "--client_secret=***"],
+      [`--TOKEN ${SECRET}`, "--TOKEN ***"],
+      [`--pass ${SECRET}`, "--pass ***"],
+      [`--pwd ${SECRET}`, "--pwd ***"],
+      [`--passphrase ${SECRET}`, "--passphrase ***"],
+      [`--pw=${SECRET}=b,c`, "--pw=***"],
+      [`-p ${SECRET}`, "-p ***"],
+      [`-P ${SECRET}`, "-P ***"],
+      [`--auth Bearer ${SECRET}`, "--auth *** ***"],
+      [`'TOKEN=a ${SECRET}'`, "'TOKEN=***"],
+      [`"--password=a ${SECRET}"`, '"--password=***'],
+      [`--token=a'b ${SECRET}'`, "--token=***"],
+      [`--token "a\\" ${SECRET}" tail`, "--token *** tail"],
+      [`--token=${SECRET}\\ def`, "--token=***"],
+      [`--token='${SECRET}`, "***"],
+      [`--token "${SECRET}`, "--token ***"],
+      [`--password: ${SECRET}`, "--password: ***"],
+      [`--token -${SECRET}`, "--token ***"],
+      [`--token --${SECRET}`, "--token ***"],
+      [`--token ${SECRET} --token ${SECRET} x`, "--token *** --token *** x"],
+      ["run --token", "run --token"],
+    ];
+
     it("leaves an ordinary command line unchanged", () => {
-      const line = "/usr/bin/node /app/dist/cli.js start --port 4096 --verbose";
+      const line = "node /opt/x/dist/cli.js start --daemon --mode installed";
 
       expect(redactCommandLine(line)).toBe(line);
     });
 
-    it("redacts the value of --name value", () => {
-      expect(redactCommandLine("opencode serve --api-token abc123 --port 4096")).toBe(
-        "opencode serve --api-token *** --port 4096",
-      );
+    for (const [input, expected] of CASES) {
+      it(`masks ${input}`, () => {
+        const out = redactCommandLine(input);
+
+        expect(out).toBe(expected);
+        expect(out).not.toContain(SECRET);
+      });
+    }
+
+    it("caps the input at 4096 characters and marks the cut", () => {
+      const out = redactCommandLine(`--token ${SECRET} ${"x".repeat(10000)}`);
+
+      expect(out.length).toBeLessThanOrEqual(4096 + 3);
+      expect(out.endsWith("...")).toBe(true);
+      expect(out).not.toContain(SECRET);
     });
 
-    it("redacts the value of --name=value", () => {
-      expect(redactCommandLine("bot --password=hunter2 --port 1")).toBe(
-        "bot --password=*** --port 1",
-      );
-    });
+    describe("ReDoS", () => {
+      const HOSTILE: Array<[string, string]> = [
+        ["token repeated", "token".repeat(20000)],
+        ["a-token- repeated", "a-token-".repeat(20000)],
+        ["--token repeated", "--token ".repeat(20000)],
+        ["a= repeated", "a=".repeat(50000)],
+        ["one letter", "a".repeat(1_000_000)],
+      ];
 
-    it("redacts NAME=value assignments", () => {
-      expect(redactCommandLine("TELEGRAM_BOT_TOKEN=123:abc node dist/index.js")).toBe(
-        "TELEGRAM_BOT_TOKEN=*** node dist/index.js",
-      );
-      expect(redactCommandLine("env MY_SECRET=x API_KEY=y node a.js")).toBe(
-        "env MY_SECRET=*** API_KEY=*** node a.js",
-      );
-    });
+      for (const [label, junk] of HOSTILE) {
+        it(`finishes fast on ${label} and leaks nothing`, () => {
+          const input = `--token ${SECRET} TOKEN=${SECRET} ${junk}`;
+          const started = performance.now();
+          const out = redactCommandLine(input);
+          const elapsed = performance.now() - started;
 
-    it("redacts quoted values with spaces", () => {
-      expect(redactCommandLine('bot --secret "two words" --port 1')).toBe(
-        "bot --secret *** --port 1",
-      );
-      expect(redactCommandLine("bot PASSWD='a b' x")).toBe("bot PASSWD=*** x");
-    });
-
-    it("redacts an Authorization header value", () => {
-      expect(redactCommandLine("tool -H Authorization: Bearer abc.def")).toBe(
-        "tool -H Authorization: Bearer ***",
-      );
-    });
-
-    it("redacts URL userinfo", () => {
-      expect(redactCommandLine("node a.js --url https://user:pa55@host:8080/path")).toBe(
-        "node a.js --url https://***@host:8080/path",
-      );
-    });
-
-    it("never leaves a secret value in the output", () => {
-      const out = redactCommandLine("x --credential s3cr3t AUTH=s3cr3t --key=s3cr3t");
-
-      expect(out).not.toContain("s3cr3t");
+          expect(elapsed).toBeLessThan(500);
+          expect(out).not.toContain(SECRET);
+        });
+      }
     });
   });
 });
