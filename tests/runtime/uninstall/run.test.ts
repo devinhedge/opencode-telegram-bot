@@ -1758,6 +1758,48 @@ describe("runtime/uninstall/run", () => {
       });
     }
 
+    for (const [reason, key] of [
+      ["no-bot-files", "uninstall.override_reason_no_bot_files"],
+      ["root", "uninstall.override_reason_root"],
+      ["user-home", "uninstall.override_reason_user_home"],
+      ["missing", "uninstall.override_reason_missing"],
+    ] as const) {
+      it(`plans an override that is ${reason} with the invalid line, not plan_override`, async () => {
+        await populateHome(overrideHome);
+        const harness = createHarness({
+          getHomes: () => ({ defaultHome, overrideHome }),
+          validateOverride: vi.fn(async () => ({ ok: false as const, reason })),
+        });
+        const invalidLine = tEn("uninstall.step_override_invalid", {
+          path: overrideHome,
+          reason: tEn(key),
+        });
+
+        await runUninstall(NO_YES, harness.deps);
+
+        const planEnd = harness.lines.indexOf(
+          tEn("uninstall.plan_keychain", { service: KEYCHAIN_SERVICE }),
+        );
+        const plan = harness.lines.slice(0, planEnd);
+        expect(plan).toContain(invalidLine);
+        expect(plan).not.toContain(tEn("uninstall.plan_override", { path: overrideHome }));
+        expect(plan).not.toContain(tEn("uninstall.plan_override_secrets", { path: overrideHome }));
+      });
+    }
+
+    it("plans a valid override with plan_override and plan_override_secrets", async () => {
+      await populateHome(overrideHome);
+      const harness = createHarness({ getHomes: () => ({ defaultHome, overrideHome }) });
+
+      await runUninstall(NO_YES, harness.deps);
+
+      expect(harness.lines).toContain(tEn("uninstall.plan_override", { path: overrideHome }));
+      expect(harness.lines).toContain(
+        tEn("uninstall.plan_override_secrets", { path: overrideHome }),
+      );
+      expect(harness.lines.some((line) => line.startsWith("Skipped the OPENCODE"))).toBe(false);
+    });
+
     it("skips a real file given as the override with not-a-directory", async () => {
       await fs.writeFile(overrideHome, "a file");
       const harness = createHarness({ getHomes: () => ({ defaultHome, overrideHome }) });

@@ -836,7 +836,7 @@ export async function runUninstall(
   const opencode: OpencodeLookup = options.stopOpencode
     ? await lookupOpencode(deps, opencodeExclude)
     : { kind: "not-listening" };
-  const overrideValid = overrideHome !== null && (await validate(deps, overrideHome)) === null;
+  const overrideInvalid = overrideHome === null ? null : await validate(deps, overrideHome);
 
   say("uninstall.plan_header");
   if (daemon.kind === "running") {
@@ -859,9 +859,16 @@ export async function runUninstall(
     say("uninstall.plan_home", { path: defaultHome });
   }
   if (overrideHome !== null) {
-    say("uninstall.plan_override", { path: overrideHome });
-    if (overrideValid) {
+    if (overrideInvalid === null) {
+      say("uninstall.plan_override", { path: overrideHome });
       say("uninstall.plan_override_secrets", { path: overrideHome });
+    } else {
+      // Shown now so that a declined or plan-only run sees the true state: an invalid override
+      // is never removed. The execution step prints the same line again and does the accounting.
+      say("uninstall.step_override_invalid", {
+        path: overrideHome,
+        reason: translate(OVERRIDE_REASON_KEYS[overrideInvalid]),
+      });
     }
   }
   say("uninstall.plan_keychain", { service: KEYCHAIN_SERVICE });

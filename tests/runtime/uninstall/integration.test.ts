@@ -488,10 +488,10 @@ describe("runtime/uninstall integration", () => {
       }
     }
 
-    // An invalid override gets no secret-files plan line. The generic plan_override line IS
-    // printed for any configured override (run.ts prints it before the verdict is applied), so it
-    // is deliberately not asserted either way here.
+    // An invalid override is never advertised for removal: the plan prints the invalid line
+    // instead of plan_override and plan_override_secrets.
     function expectNoOverridePlan(): void {
+      expect(lines).not.toContain(tEn("uninstall.plan_override", { path: overrideHome }));
       expect(lines).not.toContain(tEn("uninstall.plan_override_secrets", { path: overrideHome }));
     }
 
@@ -520,6 +520,10 @@ describe("runtime/uninstall integration", () => {
 
       expect(code).toBe(0);
       expect(prompts).toEqual([tEn("uninstall.confirm_override", { path: overrideHome })]);
+      // A valid override is advertised in the plan and not reported invalid.
+      expect(lines).toContain(tEn("uninstall.plan_override", { path: overrideHome }));
+      expect(lines).toContain(tEn("uninstall.plan_override_secrets", { path: overrideHome }));
+      expect(lines.some((line) => line.startsWith("Skipped the OPENCODE"))).toBe(false);
       expect(presentAtPrompt).toEqual(INVENTORY_NAMES.map(() => true));
       for (const name of INVENTORY_NAMES) {
         expect(await exists(path.join(overrideHome, name)), name).toBe(false);
