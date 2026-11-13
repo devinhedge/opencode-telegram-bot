@@ -917,7 +917,8 @@ export const de: I18nDictionary = {
   "uninstall.step_opencode_refused":
     "Der am OpenCode-Port gefundene Prozess (PID {pid}) wurde übersprungen: jetzt lauscht dort ein anderer Prozess.",
   "uninstall.step_opencode_none": "Es wurde kein OpenCode-Server zum Beenden gefunden.",
-  "uninstall.step_opencode_unchecked": "Der OpenCode-Port konnte nicht geprüft werden; es wurde nichts beendet.",
+  "uninstall.step_opencode_unchecked":
+    "Der OpenCode-Port konnte nicht geprüft werden; es wurde nichts beendet.",
   "uninstall.command_unavailable": "(Befehlszeile nicht verfügbar)",
   "uninstall.home_removed": "App-Home {path} entfernt.",
   "uninstall.home_kept": "App-Home {path} behalten: es enthält noch andere Dateien.",

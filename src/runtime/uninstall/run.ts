@@ -850,6 +850,10 @@ export async function runUninstall(
   }
   if (opencode.kind === "found") {
     say("uninstall.plan_opencode_server");
+  } else if (opencode.kind === "unknown" || opencode.kind === "excluded") {
+    // Shown now so that a declined or plan-only run also learns the port was not checked; the
+    // step prints it again and does the failure accounting.
+    say("uninstall.step_opencode_unchecked");
   }
   if (await hasHomeTargets(defaultHome)) {
     say("uninstall.plan_home", { path: defaultHome });

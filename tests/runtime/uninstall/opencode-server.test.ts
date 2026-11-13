@@ -4,7 +4,6 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   findOpencodeServer,
-  resolveOpencodePort,
   resolveOpencodeTarget,
   stopOpencodeServer,
 } from "../../../src/runtime/uninstall/opencode-server.js";
@@ -22,9 +21,9 @@ describe("runtime/uninstall/opencode-server", () => {
     await rm(tempDir, { recursive: true, force: true });
   });
 
-  describe("resolveOpencodePort", () => {
+  describe("resolveOpencodeTarget", () => {
     it("reads the port from OPENCODE_API_URL in the real environment", async () => {
-      const port = await resolveOpencodePort(
+      const port = await resolveOpencodeTarget(
         { OPENCODE_API_URL: "http://localhost:5000" },
         envFilePath,
       );
@@ -35,13 +34,13 @@ describe("runtime/uninstall/opencode-server", () => {
     it("reads the port from .env when the environment lacks the URL", async () => {
       await writeFile(envFilePath, "OPENCODE_API_URL=http://127.0.0.1:6000\n");
 
-      expect(await resolveOpencodePort({}, envFilePath)).toBe(6000);
+      expect(await resolveOpencodeTarget({}, envFilePath)).toBe(6000);
     });
 
     it("lets the real environment win over .env", async () => {
       await writeFile(envFilePath, "OPENCODE_API_URL=http://127.0.0.1:6000\n");
 
-      const port = await resolveOpencodePort(
+      const port = await resolveOpencodeTarget(
         { OPENCODE_API_URL: "http://localhost:5000" },
         envFilePath,
       );
@@ -52,59 +51,67 @@ describe("runtime/uninstall/opencode-server", () => {
     it("treats an empty environment value as unset", async () => {
       await writeFile(envFilePath, "OPENCODE_API_URL=http://127.0.0.1:6000\n");
 
-      expect(await resolveOpencodePort({ OPENCODE_API_URL: "  " }, envFilePath)).toBe(6000);
+      expect(await resolveOpencodeTarget({ OPENCODE_API_URL: "  " }, envFilePath)).toBe(6000);
     });
 
     it("uses the v1 default port when the URL is unset", async () => {
-      expect(await resolveOpencodePort({}, envFilePath)).toBe(4096);
-      expect(await resolveOpencodePort({ OPENCODE_SERVER_VERSION: "v1" }, envFilePath)).toBe(4096);
+      expect(await resolveOpencodeTarget({}, envFilePath)).toBe(4096);
+      expect(await resolveOpencodeTarget({ OPENCODE_SERVER_VERSION: "v1" }, envFilePath)).toBe(
+        4096,
+      );
     });
 
     it("uses the v2 default port for OPENCODE_SERVER_VERSION=v2 from the environment", async () => {
-      expect(await resolveOpencodePort({ OPENCODE_SERVER_VERSION: "v2" }, envFilePath)).toBe(49374);
+      expect(await resolveOpencodeTarget({ OPENCODE_SERVER_VERSION: "v2" }, envFilePath)).toBe(
+        49374,
+      );
     });
 
     it("uses the v2 default port for OPENCODE_SERVER_VERSION=v2 from .env", async () => {
       await writeFile(envFilePath, "OPENCODE_SERVER_VERSION=v2\n");
 
-      expect(await resolveOpencodePort({}, envFilePath)).toBe(49374);
+      expect(await resolveOpencodeTarget({}, envFilePath)).toBe(49374);
     });
 
     it("falls back to v1 for an unknown version", async () => {
-      expect(await resolveOpencodePort({ OPENCODE_SERVER_VERSION: "v9" }, envFilePath)).toBe(4096);
+      expect(await resolveOpencodeTarget({ OPENCODE_SERVER_VERSION: "v9" }, envFilePath)).toBe(
+        4096,
+      );
     });
 
-    it("returns null for a remote host", async () => {
-      const port = await resolveOpencodePort(
+    it("returns not-local for a remote host", async () => {
+      const port = await resolveOpencodeTarget(
         { OPENCODE_API_URL: "http://opencode.example.com:4096" },
         envFilePath,
       );
 
-      expect(port).toBeNull();
+      expect(port).toBe("not-local");
     });
 
-    it("returns null for a remote host in .env", async () => {
+    it("returns not-local for a remote host in .env", async () => {
       await writeFile(envFilePath, "OPENCODE_API_URL=https://10.0.0.5:4096\n");
 
-      expect(await resolveOpencodePort({}, envFilePath)).toBeNull();
+      expect(await resolveOpencodeTarget({}, envFilePath)).toBe("not-local");
     });
 
-    it("returns null for an unparseable URL", async () => {
-      expect(await resolveOpencodePort({ OPENCODE_API_URL: "not a url" }, envFilePath)).toBeNull();
+    it("returns not-local for an unparseable URL", async () => {
+      expect(await resolveOpencodeTarget({ OPENCODE_API_URL: "not a url" }, envFilePath)).toBe(
+        "not-local",
+      );
     });
   });
 
-  describe("resolveOpencodePort edge cases", () => {
-    const portOf = (url: string) => resolveOpencodePort({ OPENCODE_API_URL: url }, envFilePath);
+  describe("resolveOpencodeTarget edge cases", () => {
+    const portOf = (url: string) => resolveOpencodeTarget({ OPENCODE_API_URL: url }, envFilePath);
 
     it("returns null when .env cannot be read for a reason other than ENOENT", async () => {
       await mkdir(envFilePath);
 
-      expect(await resolveOpencodePort({}, envFilePath)).toBeNull();
+      expect(await resolveOpencodeTarget({}, envFilePath)).toBeNull();
     });
 
     it("falls back to the defaults when .env does not exist", async () => {
-      expect(await resolveOpencodePort({}, envFilePath)).toBe(4096);
+      expect(await resolveOpencodeTarget({}, envFilePath)).toBe(4096);
     });
 
     it("resolves a URL without a port to the scheme default", async () => {
@@ -129,21 +136,21 @@ describe("runtime/uninstall/opencode-server", () => {
     });
 
     it("refuses an IPv4-mapped IPv6 loopback", async () => {
-      expect(await portOf("http://[::ffff:127.0.0.1]:4096")).toBeNull();
+      expect(await portOf("http://[::ffff:127.0.0.1]:4096")).toBe("not-local");
     });
 
     it("refuses localhost with a trailing dot", async () => {
-      expect(await portOf("http://localhost.:4096")).toBeNull();
+      expect(await portOf("http://localhost.:4096")).toBe("not-local");
     });
 
     it("refuses the userinfo trick and accepts a local host behind userinfo", async () => {
-      expect(await portOf("http://localhost@evil.com:4096")).toBeNull();
+      expect(await portOf("http://localhost@evil.com:4096")).toBe("not-local");
       expect(await portOf("http://evil.com@localhost:5000")).toBe(5000);
     });
 
     it("refuses port 0 and a port above 65535", async () => {
-      expect(await portOf("http://localhost:0")).toBeNull();
-      expect(await portOf("http://localhost:65536")).toBeNull();
+      expect(await portOf("http://localhost:0")).toBe("not-local");
+      expect(await portOf("http://localhost:65536")).toBe("not-local");
     });
 
     it("accepts https and an uppercase host", async () => {
@@ -152,25 +159,27 @@ describe("runtime/uninstall/opencode-server", () => {
     });
 
     it("refuses a scheme other than http and https", async () => {
-      expect(await portOf("ftp://localhost:21")).toBeNull();
+      expect(await portOf("ftp://localhost:21")).toBe("not-local");
     });
 
     it("lets the real environment version win over .env", async () => {
       await writeFile(envFilePath, "OPENCODE_SERVER_VERSION=v2\n");
 
-      expect(await resolveOpencodePort({ OPENCODE_SERVER_VERSION: "v1" }, envFilePath)).toBe(4096);
+      expect(await resolveOpencodeTarget({ OPENCODE_SERVER_VERSION: "v1" }, envFilePath)).toBe(
+        4096,
+      );
     });
 
     it("falls to the default for a blank .env value", async () => {
       await writeFile(envFilePath, "OPENCODE_API_URL=\n");
 
-      expect(await resolveOpencodePort({}, envFilePath)).toBe(4096);
+      expect(await resolveOpencodeTarget({}, envFilePath)).toBe(4096);
     });
 
     it("lets a remote URL in the real environment beat a local one in .env", async () => {
       await writeFile(envFilePath, "OPENCODE_API_URL=http://localhost:6000\n");
 
-      expect(await portOf("http://opencode.example.com:4096")).toBeNull();
+      expect(await portOf("http://opencode.example.com:4096")).toBe("not-local");
     });
   });
 
@@ -304,7 +313,7 @@ describe("runtime/uninstall/opencode-server", () => {
       const findPid = vi.fn();
 
       const server = await findOpencodeServer({
-        port: await resolveOpencodePort({}, envFile),
+        port: await resolveOpencodeTarget({}, envFile),
         findPid,
         commandLine: vi.fn(),
       });

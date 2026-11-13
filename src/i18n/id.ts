@@ -884,7 +884,8 @@ export const id: I18nDictionary = {
   "uninstall.step_opencode_refused":
     "Proses yang ditemukan di port OpenCode (PID {pid}) dilewati: kini proses lain yang mendengarkan port itu.",
   "uninstall.step_opencode_none": "Tidak ditemukan server OpenCode yang perlu dihentikan.",
-  "uninstall.step_opencode_unchecked": "Port OpenCode tidak dapat diperiksa; tidak ada yang dihentikan.",
+  "uninstall.step_opencode_unchecked":
+    "Port OpenCode tidak dapat diperiksa; tidak ada yang dihentikan.",
   "uninstall.command_unavailable": "(baris perintah tidak tersedia)",
   "uninstall.home_removed": "Direktori aplikasi {path} dihapus.",
   "uninstall.home_kept": "Direktori aplikasi {path} dipertahankan: masih berisi file lain.",

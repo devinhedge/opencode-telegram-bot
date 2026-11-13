@@ -93,15 +93,6 @@ export async function resolveOpencodeTarget(
   return resolveLocalPort(configuredUrl || DEFAULT_OPENCODE_API_URLS[version]) ?? NOT_LOCAL;
 }
 
-/** The local port, or null for a remote URL and for an unreadable .env (see resolveOpencodeTarget). */
-export async function resolveOpencodePort(
-  env: NodeJS.ProcessEnv,
-  envFilePath: string,
-): Promise<number | null> {
-  const target = await resolveOpencodeTarget(env, envFilePath);
-  return typeof target === "number" ? target : null;
-}
-
 /**
  * The outcome of a lookup. `not-listening` is the only definite "nothing is there": the port is
  * known and the pid lookup found no listener. `not-local` means the configured URL is remote (or

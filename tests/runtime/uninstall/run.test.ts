@@ -14,7 +14,6 @@ import type { KeychainRemovalStore } from "../../../src/runtime/uninstall/keycha
 import { createUninstallTranslator } from "../../../src/runtime/uninstall/messages.js";
 import {
   findOpencodeServer,
-  resolveOpencodePort,
   resolveOpencodeTarget,
   type OpencodeLookup,
   type OpencodeServer,
@@ -1223,6 +1222,7 @@ describe("runtime/uninstall/run", () => {
       const code = await runUninstall({ yes: true, stopOpencode: true }, harness.deps);
 
       expect(code).toBe(0);
+      expect(harness.deps.waitForExit).toHaveBeenCalledWith(7001, 0);
       expect(harness.deps.stopOpencode).not.toHaveBeenCalled();
       expect(harness.lines).toContain(tEn("uninstall.step_opencode_gone", { pid: 7001 }));
       expect(harness.lines).not.toContain(tEn("uninstall.step_opencode_refused", { pid: 7001 }));
@@ -1349,7 +1349,7 @@ describe("runtime/uninstall/run", () => {
             await fs.mkdir(envFile);
           }
           return findOpencodeServer({
-            port: await resolveOpencodePort({ OPENCODE_API_URL: "" }, envFile),
+            port: await resolveOpencodeTarget({ OPENCODE_API_URL: "" }, envFile),
             findPid: async () => 7001,
             commandLine: async () => "opencode serve --port 4096",
             excludePids,
@@ -1363,6 +1363,70 @@ describe("runtime/uninstall/run", () => {
       expect(code).toBe(1);
       expect(harness.deps.stopOpencode).not.toHaveBeenCalled();
       expect(harness.lines).toContain(tEn("uninstall.step_opencode_unknown", { pid: 7001 }));
+    });
+
+    for (const [label, exited, expectedCode] of [
+      ["is gone when the pid has exited", true, 0],
+      ["is unknown while the pid is alive", false, 1],
+    ] as const) {
+      it(`a remote URL at the fresh lookup (not-local) ${label} (real lookup)`, async () => {
+        let call = 0;
+        const harness = createHarness({
+          waitForExit: vi.fn(async () => exited),
+          findOpencode: async (excludePids) => {
+            call += 1;
+            return findOpencodeServer({
+              port: await resolveOpencodeTarget(
+                { OPENCODE_API_URL: call === 1 ? "" : "http://opencode.example.com:4096" },
+                path.join(tempRoot, "no-such.env"),
+              ),
+              findPid: async () => 7001,
+              commandLine: async () => "opencode serve --port 4096",
+              excludePids,
+            });
+          },
+        });
+        harness.answers.push("y");
+
+        const code = await runUninstall({ yes: true, stopOpencode: true }, harness.deps);
+
+        expect(code).toBe(expectedCode);
+        expect(harness.deps.waitForExit).toHaveBeenCalledWith(7001, 0);
+        expect(harness.deps.stopOpencode).not.toHaveBeenCalled();
+        expect(harness.lines).toContain(
+          tEn(exited ? "uninstall.step_opencode_gone" : "uninstall.step_opencode_unknown", {
+            pid: 7001,
+          }),
+        );
+      });
+    }
+
+    it("shows the unchecked line in the plan of a plan-only run (no terminal)", async () => {
+      const harness = createHarness({
+        isInteractive: false,
+        findOpencode: vi.fn(async (): Promise<OpencodeLookup> => ({ kind: "unknown" })),
+      });
+
+      const code = await runUninstall({ yes: false, stopOpencode: true }, harness.deps);
+
+      expect(code).toBe(1);
+      expect(harness.lines).toContain(tEn("uninstall.step_opencode_unchecked"));
+      expect(harness.lines.indexOf(tEn("uninstall.step_opencode_unchecked"))).toBeLessThan(
+        harness.lines.indexOf(tEn("uninstall.no_terminal_plan_only")),
+      );
+    });
+
+    it("shows the unchecked line in the plan when the user declines the plan", async () => {
+      const harness = createHarness({
+        findOpencode: vi.fn(async (): Promise<OpencodeLookup> => ({ kind: "excluded" })),
+      });
+      harness.answers.push("n");
+
+      const code = await runUninstall({ yes: false, stopOpencode: true }, harness.deps);
+
+      expect(code).toBe(1);
+      expect(harness.lines).toContain(tEn("uninstall.step_opencode_unchecked"));
+      expect(harness.lines).toContain(tEn("uninstall.aborted"));
     });
 
     it("shows the unavailable command line and, on Windows, the tree warning", async () => {

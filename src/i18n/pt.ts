@@ -908,7 +908,8 @@ export const pt: I18nDictionary = {
   "uninstall.step_opencode_refused":
     "O processo encontrado na porta do OpenCode (PID {pid}) foi ignorado: agora outro processo está escutando.",
   "uninstall.step_opencode_none": "Nenhum servidor OpenCode para parar foi encontrado.",
-  "uninstall.step_opencode_unchecked": "Não foi possível verificar a porta do OpenCode; nada foi parado.",
+  "uninstall.step_opencode_unchecked":
+    "Não foi possível verificar a porta do OpenCode; nada foi parado.",
   "uninstall.command_unavailable": "(linha de comando indisponível)",
   "uninstall.home_removed": "Diretório do aplicativo {path} removido.",
   "uninstall.home_kept": "Diretório do aplicativo {path} mantido: ainda contém outros arquivos.",

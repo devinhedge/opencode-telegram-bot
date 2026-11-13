@@ -914,7 +914,8 @@ export const fr: I18nDictionary = {
   "uninstall.step_opencode_refused":
     "Processus trouvé sur le port OpenCode (PID {pid}) ignoré : un autre processus écoute désormais.",
   "uninstall.step_opencode_none": "Aucun serveur OpenCode à arrêter n'a été trouvé.",
-  "uninstall.step_opencode_unchecked": "Le port OpenCode n'a pas pu être vérifié ; rien n'a été arrêté.",
+  "uninstall.step_opencode_unchecked":
+    "Le port OpenCode n'a pas pu être vérifié ; rien n'a été arrêté.",
   "uninstall.command_unavailable": "(ligne de commande indisponible)",
   "uninstall.home_removed": "Répertoire de l'application {path} supprimé.",
   "uninstall.home_kept":

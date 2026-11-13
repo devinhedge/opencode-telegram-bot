@@ -887,7 +887,8 @@ export const ko: I18nDictionary = {
   "uninstall.step_opencode_refused":
     "OpenCode 포트에서 찾은 프로세스 (PID {pid})를 건너뛰었습니다: 이제 다른 프로세스가 포트를 수신 대기하고 있습니다.",
   "uninstall.step_opencode_none": "중지할 OpenCode 서버를 찾지 못했습니다.",
-  "uninstall.step_opencode_unchecked": "OpenCode 포트를 확인할 수 없습니다. 아무것도 중지하지 않았습니다.",
+  "uninstall.step_opencode_unchecked":
+    "OpenCode 포트를 확인할 수 없습니다. 아무것도 중지하지 않았습니다.",
   "uninstall.command_unavailable": "(명령줄을 사용할 수 없음)",
   "uninstall.home_removed": "앱 홈 {path}을(를) 제거했습니다.",
   "uninstall.home_kept": "앱 홈 {path}에 다른 파일이 남아 있어 유지했습니다.",
