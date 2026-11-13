@@ -1,5 +1,5 @@
-import { beforeEach, afterEach, vi } from "vitest";
-import { ensureTestEnvironment } from "./helpers/test-environment.js";
+import { afterAll, beforeEach, afterEach, vi } from "vitest";
+import { ensureTestEnvironment, releaseTestUserHome } from "./helpers/test-environment.js";
 import { resetSingletonState } from "./helpers/reset-singleton-state.js";
 
 vi.mock("../src/runtime/paths.js", async (importOriginal) => {
@@ -22,4 +22,8 @@ afterEach(async () => {
   vi.unstubAllGlobals();
   vi.useRealTimers();
   ensureTestEnvironment();
+});
+
+afterAll(() => {
+  releaseTestUserHome();
 });

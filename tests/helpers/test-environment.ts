@@ -5,7 +5,68 @@ import type { RuntimePaths } from "../../src/runtime/paths.js";
 
 const state = globalThis as typeof globalThis & {
   __opencodeTestHomes?: { defaultHome: string; homes: Set<string> };
+  __opencodeTestUserHome?: { root: string; original: Record<string, string | undefined> };
 };
+
+// Every variable from which a user home or an OS default directory is derived. They all point
+// inside a temp user home for the whole test file, so os.homedir(), getInstalledAppHome() and the
+// canonical log directory can never resolve to the developer's real home.
+export const USER_HOME_ENV_KEYS = [
+  "HOME",
+  "USERPROFILE",
+  "XDG_CONFIG_HOME",
+  "XDG_STATE_HOME",
+  "APPDATA",
+  "LOCALAPPDATA",
+] as const;
+
+function userHomeEnv(root: string): Record<(typeof USER_HOME_ENV_KEYS)[number], string> {
+  return {
+    HOME: root,
+    USERPROFILE: root,
+    XDG_CONFIG_HOME: path.join(root, ".config"),
+    XDG_STATE_HOME: path.join(root, ".local", "state"),
+    APPDATA: path.join(root, "AppData", "Roaming"),
+    LOCALAPPDATA: path.join(root, "AppData", "Local"),
+  };
+}
+
+function getUserHome(): { root: string; original: Record<string, string | undefined> } {
+  if (!state.__opencodeTestUserHome) {
+    const original: Record<string, string | undefined> = {};
+    for (const key of USER_HOME_ENV_KEYS) {
+      original[key] = process.env[key];
+    }
+    state.__opencodeTestUserHome = {
+      root: fs.mkdtempSync(path.join(os.tmpdir(), "opencode-telegram-user-home-")),
+      original,
+    };
+  }
+  return state.__opencodeTestUserHome;
+}
+
+/** The temp directory that stands in for the user's home during this test file. */
+export function getTestUserHome(): string {
+  return getUserHome().root;
+}
+
+/** Removes the temp user home and restores the variables it replaced (setup afterAll). */
+export function releaseTestUserHome(): void {
+  const userHome = state.__opencodeTestUserHome;
+  if (!userHome) {
+    return;
+  }
+  for (const key of USER_HOME_ENV_KEYS) {
+    const value = userHome.original[key];
+    if (value === undefined) {
+      delete process.env[key];
+    } else {
+      process.env[key] = value;
+    }
+  }
+  fs.rmSync(userHome.root, { recursive: true, force: true });
+  delete state.__opencodeTestUserHome;
+}
 // Module resets must not forget ownership or adopt a restored user environment.
 const homes = (state.__opencodeTestHomes ??= {
   defaultHome: fs.mkdtempSync(path.join(os.tmpdir(), "opencode-telegram-tests-")),
@@ -48,6 +109,10 @@ const TEST_ENV_DEFAULTS: Record<string, string> = {
 
 export function ensureTestEnvironment(): void {
   process.env.OPENCODE_TELEGRAM_HOME = homes.defaultHome;
+  // Always reset: a test that deleted or restored one of these must not reach the real home.
+  for (const [key, value] of Object.entries(userHomeEnv(getUserHome().root))) {
+    process.env[key] = value;
+  }
   for (const [key, value] of Object.entries(TEST_ENV_DEFAULTS)) {
     if (!process.env[key]) {
       process.env[key] = value;

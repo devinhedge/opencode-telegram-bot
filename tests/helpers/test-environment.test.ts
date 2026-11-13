@@ -2,7 +2,12 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { createTestHome, ensureTestEnvironment } from "./test-environment.js";
+import {
+  USER_HOME_ENV_KEYS,
+  createTestHome,
+  ensureTestEnvironment,
+  getTestUserHome,
+} from "./test-environment.js";
 
 async function snapshot(directory: string): Promise<Record<string, string>> {
   const result: Record<string, string> = {};
@@ -19,6 +24,49 @@ async function snapshot(directory: string): Promise<Record<string, string>> {
   }
   return result;
 }
+
+describe("test user-home isolation", () => {
+  function isUnder(target: string, root: string): boolean {
+    const relative = path.relative(root, target);
+    return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+  }
+
+  it("resolves os.homedir() and the installed app home inside the temp user home", async () => {
+    const userHome = getTestUserHome();
+    const realHome = os.userInfo().homedir;
+    const { getInstalledAppHome } = await import("../../src/runtime/paths.js");
+
+    expect(isUnder(userHome, os.tmpdir())).toBe(true);
+    expect(os.homedir()).toBe(userHome);
+    expect(isUnder(getInstalledAppHome(), userHome)).toBe(true);
+    for (const key of USER_HOME_ENV_KEYS) {
+      expect(isUnder(process.env[key] ?? "", userHome), key).toBe(true);
+    }
+    if (!isUnder(os.tmpdir(), realHome)) {
+      expect(isUnder(os.homedir(), realHome)).toBe(false);
+      expect(isUnder(getInstalledAppHome(), realHome)).toBe(false);
+    }
+  });
+
+  it("puts the canonical log directory inside the temp user home", async () => {
+    const { resolveCanonicalLogsDir } = await import("../../src/runtime/log-location.js");
+
+    expect(
+      isUnder(
+        resolveCanonicalLogsDir(process.platform, process.env, os.homedir()),
+        getTestUserHome(),
+      ),
+    ).toBe(true);
+  });
+
+  it("restores the temp user home after a test deletes HOME", () => {
+    delete process.env.HOME;
+    delete process.env.USERPROFILE;
+    ensureTestEnvironment();
+
+    expect(os.homedir()).toBe(getTestUserHome());
+  });
+});
 
 describe("test app-home isolation", () => {
   it("replaces inherited homes, admits only owned homes, and survives module resets", async () => {
