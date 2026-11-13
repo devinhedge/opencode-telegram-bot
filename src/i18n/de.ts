@@ -949,7 +949,8 @@ export const de: I18nDictionary = {
     "Beenden des Prozesses am OpenCode-Port übersprungen: kein Terminal zum Bestätigen.",
   "uninstall.step_override_skipped_no_terminal":
     "OPENCODE_TELEGRAM_HOME-Verzeichnis {path} übersprungen: kein Terminal, um das Entfernen zu bestätigen.",
-  "uninstall.step_logs_warning": "Log-Speicherort: {message}",
+  "uninstall.step_logs_warning":
+    "Die Einstellung LOG_LOCATION konnte nicht wie angegeben verwendet werden; es gilt der Log-Speicherort im Plan unten.",
   "uninstall.step_homes_error":
     "Das App-Home konnte nicht ermittelt werden: {reason}. Es wurde nichts entfernt.",
   "uninstall.home_kept_logs": "App-Home {path} behalten: es enthält noch Dateien, darunter Logs.",

@@ -939,7 +939,8 @@ export const pt: I18nDictionary = {
     "A parada do processo na porta do OpenCode foi ignorada: não há terminal para confirmá-la.",
   "uninstall.step_override_skipped_no_terminal":
     "Diretório OPENCODE_TELEGRAM_HOME {path} ignorado: não há terminal para confirmar a remoção.",
-  "uninstall.step_logs_warning": "Local dos logs: {message}",
+  "uninstall.step_logs_warning":
+    "Não foi possível usar a configuração LOG_LOCATION como informada; vale o local dos logs indicado no plano abaixo.",
   "uninstall.step_homes_error":
     "Não foi possível determinar o diretório do aplicativo: {reason}. Nada foi removido.",
   "uninstall.home_kept_logs":

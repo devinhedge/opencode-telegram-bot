@@ -889,7 +889,8 @@ export const ar: I18nDictionary = {
     "تم تخطي إيقاف العملية على منفذ OpenCode: لا توجد طرفية للتأكيد.",
   "uninstall.step_override_skipped_no_terminal":
     "تم تخطي المجلد OPENCODE_TELEGRAM_HOME ‏{path}: لا توجد طرفية لتأكيد إزالته.",
-  "uninstall.step_logs_warning": "موقع السجلات: {message}",
+  "uninstall.step_logs_warning":
+    "تعذّر استخدام إعداد LOG_LOCATION كما هو؛ يُطبَّق موقع السجلات المعروض في الخطة أدناه.",
   "uninstall.step_homes_error": "تعذّر تحديد مجلد التطبيق: {reason}. لم تتم إزالة أي شيء.",
   "uninstall.home_kept_logs":
     "تم الإبقاء على مجلد التطبيق {path}: ما زال يحتوي على ملفات، منها السجلات.",

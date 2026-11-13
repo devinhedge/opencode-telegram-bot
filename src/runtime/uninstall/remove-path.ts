@@ -9,7 +9,10 @@ export interface RemoveResult {
   path: string;
   status: RemoveStatus;
   linkTarget?: string | undefined;
+  /** Diagnostic text; never printed by the uninstaller (it prints `code` only). */
   error?: string | undefined;
+  /** The errno code of a failure (for example EACCES), when the error carried one. */
+  code?: string | undefined;
 }
 
 export interface RemoveAppHomeResult {
@@ -17,6 +20,8 @@ export interface RemoveAppHomeResult {
   homeRemoved: boolean;
   // Set when the app home could not be listed or its empty directory could not be removed.
   homeError?: string | undefined;
+  /** The errno code that goes with `homeError`, when the error carried one. */
+  homeErrorCode?: string | undefined;
 }
 
 function errorCode(error: unknown): string | undefined {
@@ -25,6 +30,13 @@ function errorCode(error: unknown): string | undefined {
 
 function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function failed(target: string, error: unknown): RemoveResult {
+  const code = errorCode(error);
+  return code === undefined
+    ? { path: target, status: "failed", error: errorText(error) }
+    : { path: target, status: "failed", error: errorText(error), code };
 }
 
 function endsWithSeparator(target: string): boolean {
@@ -79,7 +91,7 @@ export async function removePath(target: string): Promise<RemoveResult> {
     if (code === "ENOENT" || code === "ENOTDIR") {
       return { path: target, status: "absent" };
     }
-    return { path: target, status: "failed", error: errorText(error) };
+    return failed(target, error);
   }
 
   let linkTarget: string | undefined;
@@ -98,7 +110,7 @@ export async function removePath(target: string): Promise<RemoveResult> {
     if (errorCode(error) === "ENOENT") {
       return { path: target, status: "absent" };
     }
-    return { path: target, status: "failed", error: errorText(error) };
+    return failed(target, error);
   }
 
   return linkTarget === undefined
@@ -106,9 +118,16 @@ export async function removePath(target: string): Promise<RemoveResult> {
     : { path: target, status: "removed", linkTarget };
 }
 
+function homeFailure(error: unknown): { homeError: string; homeErrorCode?: string } {
+  const code = errorCode(error);
+  return code === undefined
+    ? { homeError: errorText(error) }
+    : { homeError: errorText(error), homeErrorCode: code };
+}
+
 async function removeHomeIfEmpty(
   appHome: string,
-): Promise<{ homeRemoved: boolean; homeError?: string }> {
+): Promise<{ homeRemoved: boolean; homeError?: string; homeErrorCode?: string }> {
   try {
     // A symlinked home is never removed or followed.
     if (!(await fs.lstat(appHome)).isDirectory()) {
@@ -125,7 +144,7 @@ async function removeHomeIfEmpty(
     if (code === "ENOENT" || code === "ENOTDIR" || code === "ENOTEMPTY" || code === "EEXIST") {
       return { homeRemoved: false };
     }
-    return { homeRemoved: false, homeError: errorText(error) };
+    return { homeRemoved: false, ...homeFailure(error) };
   }
 }
 
@@ -138,7 +157,7 @@ export async function removeAppHomeData(appHome: string): Promise<RemoveAppHomeR
   try {
     targets = await listAppHomeTargets(appHome);
   } catch (error) {
-    return { results: [], homeRemoved: false, homeError: errorText(error) };
+    return { results: [], homeRemoved: false, ...homeFailure(error) };
   }
 
   const results: RemoveResult[] = [];

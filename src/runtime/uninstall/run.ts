@@ -132,15 +132,23 @@ type ScanState =
   | { kind: "unsupported" }
   | { kind: "failed"; reason: string };
 
-// Error reasons are raw OS and library diagnostics (English, for example "EACCES: permission
-// denied, rm '<path>'"): they carry paths and codes, never a secret value, and are not translated.
-// The same holds for the `ps` start time (LC_ALL=C day and month names) and account names.
-function errorText(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
+const REASON_CODE_PATTERN = /^[A-Z][A-Z0-9_]{1,30}$/;
+const UNKNOWN_REASON = "ERROR";
 
 function errorCode(error: unknown): string | undefined {
   return (error as NodeJS.ErrnoException | undefined)?.code;
+}
+
+/**
+ * The only form in which an error reaches the output: its `code` when that is a short
+ * upper-case identifier (EACCES, ENOENT, EPERM, ...), else the fixed word ERROR. An error message
+ * is free text that could carry anything, so it is never printed (fail closed); codes are also
+ * language-neutral.
+ */
+export function reasonCode(error: unknown): string {
+  const code =
+    typeof error === "object" && error !== null ? (error as { code?: unknown }).code : undefined;
+  return typeof code === "string" && REASON_CODE_PATTERN.test(code) ? code : UNKNOWN_REASON;
 }
 
 /** Only y, Y, or yes (any case, trimmed) is yes; everything else and end of input is no. */
@@ -213,7 +221,7 @@ async function detectBots(deps: UninstallDeps, exclude: readonly number[]): Prom
   try {
     return { kind: "found", processes: await deps.findBotProcesses(exclude) };
   } catch (error) {
-    return { kind: "failed", reason: errorText(error) };
+    return { kind: "failed", reason: reasonCode(error) };
   }
 }
 
@@ -285,11 +293,12 @@ async function stopDaemonStep(ctx: Context, daemon: DaemonState): Promise<void> 
       ctx.say("uninstall.step_daemon_failed", { pid });
       failed();
     } else {
-      ctx.say("uninstall.step_daemon_error", { reason: result.error ?? "" });
+      // The result carries free text only, never a code.
+      ctx.say("uninstall.step_daemon_error", { reason: UNKNOWN_REASON });
       failed();
     }
   } catch (error) {
-    ctx.say("uninstall.step_daemon_error", { reason: errorText(error) });
+    ctx.say("uninstall.step_daemon_error", { reason: reasonCode(error) });
     failed();
   }
 }
@@ -433,7 +442,7 @@ async function systemdStep(ctx: Context): Promise<void> {
     }
     commands = result.commands;
   } catch (error) {
-    ctx.say("uninstall.step_systemd_failed", { reason: errorText(error) });
+    ctx.say("uninstall.step_systemd_failed", { reason: reasonCode(error) });
     ctx.failures += 1;
     commands = SYSTEMD_COMMANDS;
   }
@@ -521,7 +530,10 @@ async function reportRemovals(
   const linkTargets: string[] = [];
   for (const result of results) {
     if (result.status === "failed") {
-      ctx.say("uninstall.step_failed", { path: result.path, reason: result.error ?? "" });
+      ctx.say("uninstall.step_failed", {
+        path: result.path,
+        reason: reasonCode({ code: result.code }),
+      });
       ctx.failures += 1;
     } else if (result.status === "absent") {
       ctx.say("uninstall.step_absent", { path: result.path });
@@ -556,13 +568,21 @@ async function removeHomeStep(ctx: Context, appHome: string): Promise<void> {
   try {
     removal = await ctx.deps.removeAppHome(appHome);
   } catch (error) {
-    removal = { results: [], homeRemoved: false, homeError: errorText(error) };
+    removal = {
+      results: [],
+      homeRemoved: false,
+      homeError: "",
+      homeErrorCode: reasonCode(error),
+    };
   }
 
   await reportRemovals(ctx, removal.results, appHome, realHome);
 
-  if (removal.homeError !== undefined) {
-    ctx.say("uninstall.step_home_error", { path: appHome, reason: removal.homeError });
+  if (removal.homeError !== undefined || removal.homeErrorCode !== undefined) {
+    ctx.say("uninstall.step_home_error", {
+      path: appHome,
+      reason: reasonCode({ code: removal.homeErrorCode }),
+    });
     ctx.failures += 1;
   }
 
@@ -615,7 +635,7 @@ async function removeOverrideSecrets(ctx: Context, overrideHome: string): Promis
     try {
       results.push(await ctx.deps.removePath(target));
     } catch (error) {
-      results.push({ path: target, status: "failed", error: errorText(error) });
+      results.push({ path: target, status: "failed", code: reasonCode(error) });
     }
   }
   await reportRemovals(ctx, results, overrideHome, realHome);
@@ -717,7 +737,7 @@ export async function runUninstall(
   try {
     homes = deps.getHomes();
   } catch (error) {
-    homesError = errorText(error);
+    homesError = reasonCode(error);
   }
 
   // Read-only: the locale comes from the environment or the .env of the app home the bot uses,
@@ -744,10 +764,16 @@ export async function runUninstall(
   const { defaultHome, overrideHome } = homes;
 
   let logsDir: string | null;
+  let logsWarned = false;
   try {
-    logsDir = await deps.resolveLogsDir((message) =>
-      say("uninstall.step_logs_warning", { message: message.trimEnd() }),
-    );
+    // The warning text names the raw LOG_LOCATION value and read errors (free text): it is never
+    // printed; one fixed line says the setting could not be used as given.
+    logsDir = await deps.resolveLogsDir(() => {
+      if (!logsWarned) {
+        logsWarned = true;
+        say("uninstall.step_logs_warning");
+      }
+    });
   } catch {
     logsDir = null;
   }

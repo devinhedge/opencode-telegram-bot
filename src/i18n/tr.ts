@@ -913,7 +913,8 @@ export const tr: I18nDictionary = {
     "OpenCode portundaki işlemin durdurulması atlandı: onaylamak için terminal yok.",
   "uninstall.step_override_skipped_no_terminal":
     "OPENCODE_TELEGRAM_HOME dizini {path} atlandı: kaldırmayı onaylamak için terminal yok.",
-  "uninstall.step_logs_warning": "Günlük konumu: {message}",
+  "uninstall.step_logs_warning":
+    "LOG_LOCATION ayarı verildiği gibi kullanılamadı; aşağıdaki plandaki günlük konumu geçerlidir.",
   "uninstall.step_homes_error": "Uygulama dizini belirlenemedi: {reason}. Hiçbir şey kaldırılmadı.",
   "uninstall.home_kept_logs":
     "{path} uygulama dizini korundu: günlükler dahil hâlâ dosya içeriyor.",

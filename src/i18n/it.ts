@@ -930,7 +930,8 @@ export const it: I18nDictionary = {
     "Arresto del processo sulla porta OpenCode saltato: nessun terminale per confermarlo.",
   "uninstall.step_override_skipped_no_terminal":
     "Directory OPENCODE_TELEGRAM_HOME {path} saltata: nessun terminale per confermarne la rimozione.",
-  "uninstall.step_logs_warning": "Posizione dei log: {message}",
+  "uninstall.step_logs_warning":
+    "Non è stato possibile usare l'impostazione LOG_LOCATION così com'è; vale la posizione dei log indicata nel piano qui sotto.",
   "uninstall.step_homes_error":
     "Impossibile determinare la directory dell'applicazione: {reason}. Non è stato rimosso nulla.",
   "uninstall.home_kept_logs":

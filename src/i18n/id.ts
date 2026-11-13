@@ -915,7 +915,8 @@ export const id: I18nDictionary = {
     "Penghentian proses di port OpenCode dilewati: tidak ada terminal untuk mengonfirmasinya.",
   "uninstall.step_override_skipped_no_terminal":
     "Direktori OPENCODE_TELEGRAM_HOME {path} dilewati: tidak ada terminal untuk mengonfirmasi penghapusannya.",
-  "uninstall.step_logs_warning": "Lokasi log: {message}",
+  "uninstall.step_logs_warning":
+    "Pengaturan LOG_LOCATION tidak dapat digunakan sebagaimana adanya; lokasi log pada rencana di bawah yang berlaku.",
   "uninstall.step_homes_error":
     "Tidak dapat menentukan direktori aplikasi: {reason}. Tidak ada yang dihapus.",
   "uninstall.home_kept_logs":

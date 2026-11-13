@@ -109,7 +109,7 @@ const PLACEHOLDERS: Record<string, string[]> = {
   step_process_skipped_no_terminal: ["pid"],
   step_opencode_skipped_no_terminal: [],
   step_override_skipped_no_terminal: ["path"],
-  step_logs_warning: ["message"],
+  step_logs_warning: [],
   step_homes_error: ["reason"],
   home_kept_logs: ["path"],
   step_process_already_exited: ["pid"],

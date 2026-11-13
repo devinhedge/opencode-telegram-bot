@@ -922,7 +922,8 @@ export const en = {
     "Skipped stopping the process on the OpenCode port: no terminal to confirm it.",
   "uninstall.step_override_skipped_no_terminal":
     "Skipped the OPENCODE_TELEGRAM_HOME directory {path}: no terminal to confirm its removal.",
-  "uninstall.step_logs_warning": "Log location: {message}",
+  "uninstall.step_logs_warning":
+    "The LOG_LOCATION setting could not be used as given; the log location in the plan below applies.",
   "uninstall.step_homes_error": "Could not determine the app home: {reason}. Nothing was removed.",
   "uninstall.home_kept_logs": "Kept the app home {path}: it still contains files, including logs.",
 } as const;

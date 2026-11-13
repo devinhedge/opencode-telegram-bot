@@ -935,7 +935,8 @@ export const ru: I18nDictionary = {
     "Остановка процесса на порту OpenCode пропущена: нет терминала для подтверждения.",
   "uninstall.step_override_skipped_no_terminal":
     "Каталог OPENCODE_TELEGRAM_HOME {path} пропущен: нет терминала, чтобы подтвердить удаление.",
-  "uninstall.step_logs_warning": "Расположение журналов: {message}",
+  "uninstall.step_logs_warning":
+    "Настройку LOG_LOCATION не удалось использовать как есть; действует расположение журналов из плана ниже.",
   "uninstall.step_homes_error":
     "Не удалось определить каталог приложения: {reason}. Ничего не удалено.",
   "uninstall.home_kept_logs":

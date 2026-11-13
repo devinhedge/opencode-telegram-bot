@@ -214,6 +214,7 @@ describe("runtime/uninstall/remove-path", () => {
 
       expect(result.status).toBe("failed");
       expect(result.error).toContain("EPERM");
+      expect(result.code).toBe("EPERM");
       expect(rmSpy).toHaveBeenCalledTimes(2);
       rmSpy.mockRestore();
       expect(await exists(file)).toBe(true);
@@ -228,7 +229,28 @@ describe("runtime/uninstall/remove-path", () => {
 
       expect(result.status).toBe("failed");
       expect(result.error).toContain("EBUSY");
+      expect(result.code).toBe("EBUSY");
       expect(rmSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it("carries the code of an lstat failure other than ENOENT", async () => {
+      const file = path.join(appHome, ".env");
+      vi.spyOn(fs, "lstat").mockRejectedValueOnce(errnoError("EACCES"));
+
+      const result = await removePath(file);
+
+      expect(result).toMatchObject({ status: "failed", code: "EACCES" });
+    });
+
+    it("gives a failure without an errno code no code", async () => {
+      const file = path.join(appHome, ".env");
+      await fs.writeFile(file, "x");
+      vi.spyOn(fs, "rm").mockRejectedValue(new Error("plain failure"));
+
+      const result = await removePath(file);
+
+      expect(result.status).toBe("failed");
+      expect(result.code).toBeUndefined();
     });
   });
 
@@ -314,10 +336,11 @@ describe("runtime/uninstall/remove-path", () => {
     it("reports a homeError when rmdir of the empty home fails", async () => {
       vi.spyOn(fs, "rmdir").mockRejectedValue(errnoError("EACCES"));
 
-      const { homeRemoved, homeError } = await removeAppHomeData(appHome);
+      const { homeRemoved, homeError, homeErrorCode } = await removeAppHomeData(appHome);
 
       expect(homeRemoved).toBe(false);
       expect(homeError).toContain("EACCES");
+      expect(homeErrorCode).toBe("EACCES");
     });
 
     it("treats ENOTEMPTY from rmdir as not empty, without a homeError", async () => {
@@ -337,6 +360,7 @@ describe("runtime/uninstall/remove-path", () => {
       expect(result.results).toEqual([]);
       expect(result.homeRemoved).toBe(false);
       expect(result.homeError).toContain("EACCES");
+      expect(result.homeErrorCode).toBe("EACCES");
     });
 
     it.skipIf(isWindows)("leaves a symlinked logs entry untouched and keeps the home", async () => {

@@ -847,7 +847,7 @@ export const zh: I18nDictionary = {
     "已跳过停止 OpenCode 端口上的进程：没有终端可进行确认。",
   "uninstall.step_override_skipped_no_terminal":
     "已跳过 OPENCODE_TELEGRAM_HOME 目录 {path}：没有终端可确认删除。",
-  "uninstall.step_logs_warning": "日志位置：{message}",
+  "uninstall.step_logs_warning": "无法按原样使用 LOG_LOCATION 设置；以下计划中显示的日志位置适用。",
   "uninstall.step_homes_error": "无法确定应用主目录：{reason}。未删除任何内容。",
   "uninstall.home_kept_logs": "已保留应用主目录 {path}：其中仍有文件，包括日志。",
 

@@ -19,6 +19,7 @@ import { validateOverrideHome } from "../../../src/runtime/uninstall/homes.js";
 import { removeAppHomeData, removePath } from "../../../src/runtime/uninstall/remove-path.js";
 import { assertInsideTempRoot } from "./temp-root-guard.js";
 import {
+  reasonCode,
   runUninstall,
   type UninstallDeps,
   type UninstallOptions,
@@ -418,19 +419,21 @@ describe("runtime/uninstall/run", () => {
       expect(harness.lines).toContain(tEn("uninstall.step_absent", { path: defaultHome }));
     });
 
-    it("routes a log-location warning through the translator", async () => {
+    it("prints one fixed translated line for log-location warnings, never their text", async () => {
       const harness = createHarness({
         resolveLogsDir: vi.fn(async (warn: (message: string) => void) => {
-          warn("LOG_LOCATION is invalid\n");
+          warn(`LOG_LOCATION is invalid: ${SENTINEL}\n`);
+          warn(`cannot read .env: ${SENTINEL}\n`);
           return path.join(tempRoot, "canonical-logs");
         }),
       });
 
       await runUninstall(YES, harness.deps);
 
-      expect(harness.lines).toContain(
-        tEn("uninstall.step_logs_warning", { message: "LOG_LOCATION is invalid" }),
-      );
+      expect(
+        harness.lines.filter((line) => line === tEn("uninstall.step_logs_warning")),
+      ).toHaveLength(1);
+      expect(harness.lines.join("\n")).not.toContain(SENTINEL);
     });
 
     it("refuses first in a container even when the app home lookup throws", async () => {
@@ -457,9 +460,7 @@ describe("runtime/uninstall/run", () => {
       const code = await runUninstall(YES, harness.deps);
 
       expect(code).toBe(1);
-      expect(harness.lines).toEqual([
-        tEn("uninstall.step_homes_error", { reason: "os.homedir failed" }),
-      ]);
+      expect(harness.lines).toEqual([tEn("uninstall.step_homes_error", { reason: "ERROR" })]);
       expect(harness.deps.getDaemonStatus).not.toHaveBeenCalled();
       expect(harness.deps.removeKeychain).not.toHaveBeenCalled();
     });
@@ -942,7 +943,7 @@ describe("runtime/uninstall/run", () => {
       const code = await runUninstall(YES, harness.deps);
 
       expect(code).toBe(0);
-      expect(harness.lines).toContain(tEn("uninstall.step_scan_failed", { reason: "ps exploded" }));
+      expect(harness.lines).toContain(tEn("uninstall.step_scan_failed", { reason: "ERROR" }));
       expect(harness.lines).toContain(
         tEn("uninstall.summary_left", { items: tEn("uninstall.left_scan") }),
       );
@@ -999,9 +1000,7 @@ describe("runtime/uninstall/run", () => {
 
       expect(code).toBe(1);
       expect(harness.deps.findBotProcesses).toHaveBeenCalledWith([]);
-      expect(harness.lines).toContain(
-        tEn("uninstall.step_daemon_error", { reason: "EACCES: state file" }),
-      );
+      expect(harness.lines).toContain(tEn("uninstall.step_daemon_error", { reason: "ERROR" }));
       expect(await exists(path.join(defaultHome, ".env"))).toBe(false);
     });
   });
@@ -1080,9 +1079,7 @@ describe("runtime/uninstall/run", () => {
       const code = await runUninstall(YES, harness.deps);
 
       expect(code).toBe(1);
-      expect(harness.lines).toContain(
-        tEn("uninstall.step_systemd_failed", { reason: "EACCES: unit" }),
-      );
+      expect(harness.lines).toContain(tEn("uninstall.step_systemd_failed", { reason: "ERROR" }));
       expect(await exists(path.join(defaultHome, ".env"))).toBe(false);
     });
   });
@@ -1557,7 +1554,14 @@ describe("runtime/uninstall/run", () => {
       const failedPath = path.join(defaultHome, "settings.json");
       const harness = createHarness({
         removeAppHome: vi.fn(async () => ({
-          results: [{ path: failedPath, status: "failed" as const, error: "EBUSY: busy" }],
+          results: [
+            {
+              path: failedPath,
+              status: "failed" as const,
+              error: `EBUSY: busy ${SENTINEL}`,
+              code: "EBUSY",
+            },
+          ],
           homeRemoved: false,
         })),
       });
@@ -1566,8 +1570,9 @@ describe("runtime/uninstall/run", () => {
 
       expect(code).toBe(1);
       expect(harness.lines).toContain(
-        tEn("uninstall.step_failed", { path: failedPath, reason: "EBUSY: busy" }),
+        tEn("uninstall.step_failed", { path: failedPath, reason: "EBUSY" }),
       );
+      expect(harness.lines.join("\n")).not.toContain(SENTINEL);
       expect(harness.secrets.size).toBe(0);
       expect(harness.lines).toContain(tEn("uninstall.summary_failed", { count: 1 }));
       expect(harness.lines.at(-1)).toBe(tEn("uninstall.cli_hint", { command: CLI_COMMAND }));
@@ -1578,7 +1583,8 @@ describe("runtime/uninstall/run", () => {
         removeAppHome: vi.fn(async () => ({
           results: [],
           homeRemoved: false,
-          homeError: "EACCES",
+          homeError: `EACCES: permission denied ${SENTINEL}`,
+          homeErrorCode: "EACCES",
         })),
       });
 
@@ -1588,6 +1594,37 @@ describe("runtime/uninstall/run", () => {
       expect(harness.lines).toContain(
         tEn("uninstall.step_home_error", { path: defaultHome, reason: "EACCES" }),
       );
+      expect(harness.lines.join("\n")).not.toContain(SENTINEL);
+    });
+
+    it("prints ERROR for a removal failure without a code or with a malformed one", async () => {
+      const harness = createHarness({
+        removeAppHome: vi.fn(async (home: string) => ({
+          results: [
+            { path: path.join(home, ".env"), status: "failed" as const, error: "no code" },
+            {
+              path: path.join(home, "settings.json"),
+              status: "failed" as const,
+              error: "bad code",
+              code: `E ${SENTINEL}`,
+            },
+          ],
+          homeRemoved: false,
+        })),
+      });
+
+      await runUninstall(YES, harness.deps);
+
+      expect(harness.lines).toContain(
+        tEn("uninstall.step_failed", { path: path.join(defaultHome, ".env"), reason: "ERROR" }),
+      );
+      expect(harness.lines).toContain(
+        tEn("uninstall.step_failed", {
+          path: path.join(defaultHome, "settings.json"),
+          reason: "ERROR",
+        }),
+      );
+      expect(harness.lines.join("\n")).not.toContain(SENTINEL);
     });
 
     it.skipIf(isWindows)(
@@ -1796,6 +1833,107 @@ describe("runtime/uninstall/run", () => {
           }),
         );
       }
+      expect(harness.lines.join("\n")).not.toContain(SENTINEL);
+    });
+
+    it("reasonCode keeps only short upper-case codes and is ERROR otherwise", () => {
+      expect(reasonCode(Object.assign(new Error("x"), { code: "EACCES" }))).toBe("EACCES");
+      expect(reasonCode({ code: "ERR_INVALID_ARG_TYPE" })).toBe("ERR_INVALID_ARG_TYPE");
+      for (const input of [
+        new Error(SENTINEL),
+        { code: "eacces" },
+        { code: "E" },
+        { code: `E${"X".repeat(31)}` },
+        { code: `EACCES ${SENTINEL}` },
+        { code: 13 },
+        SENTINEL,
+        null,
+        undefined,
+      ]) {
+        expect(reasonCode(input)).toBe("ERROR");
+      }
+    });
+
+    it("prints only error codes for printed reasons, never the error message", async () => {
+      await populateHome(defaultHome);
+      const coded = (code: string, where: string): Error =>
+        Object.assign(new Error(`${where} ${SENTINEL}`), { code });
+      const harness = createHarness({
+        stopDaemon: vi.fn(async () => {
+          throw coded("EACCES", "stopDaemon");
+        }),
+        findBotProcesses: vi.fn(async () => {
+          throw coded("ETIMEDOUT", "findBotProcesses");
+        }),
+        systemd: {
+          platform: "linux",
+          unitExists: async () => {
+            throw coded("EPERM", "unitExists");
+          },
+          hasSudo: async () => true,
+          isInteractive: true,
+          run: vi.fn(async () => 0),
+        },
+        removeAppHome: vi.fn(async (home: string) => ({
+          results: [
+            {
+              path: path.join(home, ".env"),
+              status: "failed" as const,
+              error: `rm ${SENTINEL}`,
+              code: "EBUSY",
+            },
+          ],
+          homeRemoved: false,
+          homeError: `home ${SENTINEL}`,
+          homeErrorCode: "ENOTDIR",
+        })),
+      });
+      const homesHarness = createHarness({
+        getHomes: () => {
+          throw coded("ENOENT", "getHomes");
+        },
+      });
+      const plainHarness = createHarness({
+        getHomes: () => {
+          throw new Error(`plain ${SENTINEL}`);
+        },
+      });
+
+      await runUninstall(YES, harness.deps);
+      await runUninstall(YES, homesHarness.deps);
+      await runUninstall(YES, plainHarness.deps);
+
+      const lines = [...harness.lines, ...homesHarness.lines, ...plainHarness.lines];
+      expect(lines.filter((line) => line.includes(SENTINEL))).toEqual([]);
+      expect(harness.lines).toContain(tEn("uninstall.step_daemon_error", { reason: "EACCES" }));
+      expect(harness.lines).toContain(tEn("uninstall.step_scan_failed", { reason: "ETIMEDOUT" }));
+      expect(harness.lines).toContain(tEn("uninstall.step_systemd_failed", { reason: "EPERM" }));
+      expect(harness.lines).toContain(
+        tEn("uninstall.step_failed", { path: path.join(defaultHome, ".env"), reason: "EBUSY" }),
+      );
+      expect(harness.lines).toContain(
+        tEn("uninstall.step_home_error", { path: defaultHome, reason: "ENOTDIR" }),
+      );
+      expect(homesHarness.lines).toEqual([tEn("uninstall.step_homes_error", { reason: "ENOENT" })]);
+      expect(plainHarness.lines).toEqual([tEn("uninstall.step_homes_error", { reason: "ERROR" })]);
+    });
+
+    it("prints ERROR for a failed daemon stop result, never its error text", async () => {
+      const harness = createHarness({
+        getDaemonStatus: vi.fn(async () => {
+          throw new Error("status");
+        }),
+        stopDaemon: vi.fn(async () => ({
+          success: false,
+          service: null,
+          cleanupReason: null,
+          error: `Failed ${SENTINEL}`,
+        })),
+      });
+
+      await runUninstall(YES, harness.deps);
+
+      expect(harness.lines).toContain(tEn("uninstall.step_daemon_error", { reason: "ERROR" }));
       expect(harness.lines.join("\n")).not.toContain(SENTINEL);
     });
 
