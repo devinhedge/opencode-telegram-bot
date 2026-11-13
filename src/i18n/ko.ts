@@ -813,5 +813,87 @@ export const ko: I18nDictionary = {
   "goal.reason.no_paused": "No paused goal to resume.",
   "goal.reason.none_set": "No goal is set.",
   "goal.reason.objective_limit": "A goal objective is limited to {limit} characters (got {count}).",
+  "uninstall.refused_container":
+    "컨테이너 내부에서는 실행을 거부합니다. 아무것도 제거되지 않았습니다. 컨테이너를 다시 빌드하여 재배포하거나 삭제하세요.",
+  "uninstall.refused_root":
+    "root로는 실행을 거부합니다. 봇을 설치한 사용자로 제거 프로그램을 실행하세요. sudo는 필요한 곳에서만 요청합니다.",
+  "uninstall.plan_header": "제거 프로그램이 다음 작업을 수행합니다:",
+  "uninstall.plan_daemon": "분리된 봇 데몬을 중지합니다 (PID {pid}).",
+  "uninstall.plan_terminal_bots":
+    "데몬 밖에서 실행 중인 봇을 중지합니다 (각각 별도로 확인합니다).",
+  "uninstall.plan_systemd": "systemd 유닛 {path}을(를) sudo로 제거합니다.",
+  "uninstall.plan_home": "{path}의 앱 데이터를 제거합니다.",
+  "uninstall.plan_override":
+    "OPENCODE_TELEGRAM_HOME 디렉터리 {path}의 데이터를 제거합니다 (별도로 묻습니다).",
+  "uninstall.plan_keychain": "키체인에 저장된 비밀 정보를 삭제합니다 (서비스 {service}).",
+  "uninstall.plan_logs_stay": "로그 파일은 제거되지 않으며 {path}에 남습니다.",
+  "uninstall.plan_opencode_server": "OpenCode 서버를 중지합니다 (별도로 확인합니다).",
+  "uninstall.plan_nothing": "제거할 항목이 없습니다.",
+  "uninstall.confirm_plan": "이 계획대로 진행할까요? [y/N] ",
+  "uninstall.confirm_override": "{path}의 데이터도 제거할까요? [y/N] ",
+  "uninstall.confirm_stop_process":
+    "프로세스 {pid}을(를) 중지할까요 (사용자 {user}, 시작 {started}): {command}? [y/N] ",
+  "uninstall.confirm_stop_opencode":
+    "OpenCode 서버를 중지할까요 (PID {pid}, 포트 {port}): {command}? [y/N] ",
+  "uninstall.confirm_stop_opencode_tree":
+    "Windows에서는 서버의 전체 프로세스 트리가 중지됩니다.",
+  "uninstall.no_terminal_plan_only":
+    "사용 가능한 터미널이 없습니다. 계획은 위에 표시되었고 아무것도 제거되지 않았습니다. 터미널에서 다시 실행하거나 --yes를 지정하세요.",
+  "uninstall.aborted": "중단되었습니다. 아무것도 제거되지 않았습니다.",
+  "uninstall.step_daemon_stopped": "봇 데몬을 중지했습니다 (PID {pid}).",
+  "uninstall.step_daemon_failed": "봇 데몬을 중지하지 못했습니다 (PID {pid}).",
+  "uninstall.step_daemon_absent": "실행 중인 분리된 봇 데몬이 없습니다.",
+  "uninstall.step_removed": "제거됨: {path}",
+  "uninstall.step_absent": "이미 없음: {path}",
+  "uninstall.step_failed": "{path}을(를) 제거하지 못했습니다: {reason}",
+  "uninstall.step_link_removed": "링크 {path}을(를) 제거했습니다 ({target}을(를) 가리켰음)",
+  "uninstall.step_target_left":
+    "링크 대상 {path}은(는) 홈 디렉터리 밖에 있어 그대로 두었습니다.",
+  "uninstall.step_home_error": "앱 홈 {path}을(를) 처리하지 못했습니다: {reason}",
+  "uninstall.step_keychain": "키체인 비밀 정보 {account}: {status}",
+  "uninstall.step_keychain_unavailable":
+    "키체인을 사용할 수 없어 비밀 정보를 건드리지 않았습니다.",
+  "uninstall.keychain_status_removed": "제거됨",
+  "uninstall.keychain_status_absent": "찾을 수 없음",
+  "uninstall.keychain_status_failed": "실패",
+  "uninstall.step_systemd": "systemd 유닛: {outcome}",
+  "uninstall.step_systemd_failed": "systemd 유닛을 제거하지 못했습니다: {reason}",
+  "uninstall.step_systemd_commands": "완료하려면 다음 명령을 직접 실행하세요:\n{commands}",
+  "uninstall.systemd_outcome_removed": "제거됨",
+  "uninstall.systemd_outcome_absent": "설치되어 있지 않음",
+  "uninstall.systemd_outcome_not_applicable": "이 시스템에는 해당 없음",
+  "uninstall.systemd_outcome_skipped_no_terminal": "건너뜀 (sudo용 터미널 없음)",
+  "uninstall.systemd_outcome_skipped_no_sudo": "건너뜀 (sudo를 사용할 수 없음)",
+  "uninstall.systemd_outcome_failed": "실패",
+  "uninstall.step_scan_failed": "실행 중인 봇 프로세스를 검색하지 못했습니다: {reason}",
+  "uninstall.step_scan_unsupported":
+    "데몬 밖의 봇 찾기는 Windows에서 지원되지 않아 건너뜁니다.",
+  "uninstall.step_process_stopped": "프로세스 {pid}을(를) 중지했습니다.",
+  "uninstall.step_process_failed": "프로세스 {pid}을(를) 중지하지 못했습니다.",
+  "uninstall.step_process_skipped": "프로세스 {pid}을(를) 건너뛰었습니다.",
+  "uninstall.step_process_refused":
+    "프로세스 {pid}을(를) 건너뛰었습니다: 중지하기 전에 명령줄이 바뀌었습니다.",
+  "uninstall.step_override_invalid":
+    "OPENCODE_TELEGRAM_HOME 디렉터리 {path}을(를) 건너뛰었습니다: {reason}",
+  "uninstall.step_override_skipped": "OPENCODE_TELEGRAM_HOME 디렉터리 {path}을(를) 건너뛰었습니다.",
+  "uninstall.override_reason_missing": "디렉터리가 존재하지 않습니다",
+  "uninstall.override_reason_unreadable": "디렉터리를 읽을 수 없습니다",
+  "uninstall.override_reason_not_a_directory": "디렉터리가 아닙니다",
+  "uninstall.override_reason_root": "파일 시스템의 루트입니다",
+  "uninstall.override_reason_user_home": "사용자의 홈 디렉터리입니다",
+  "uninstall.override_reason_no_bot_files": "봇 파일이 없습니다",
+  "uninstall.step_opencode_stopped": "OpenCode 서버를 중지했습니다 (PID {pid}).",
+  "uninstall.step_opencode_failed": "OpenCode 서버를 중지하지 못했습니다 (PID {pid}).",
+  "uninstall.step_opencode_skipped": "OpenCode 서버 중지를 건너뛰었습니다.",
+  "uninstall.step_opencode_refused":
+    "OpenCode 서버 (PID {pid})를 건너뛰었습니다: 중지하기 전에 명령줄이 바뀌었습니다.",
+  "uninstall.step_opencode_none": "중지할 OpenCode 서버를 찾지 못했습니다.",
+  "uninstall.command_unavailable": "(명령줄을 사용할 수 없음)",
+  "uninstall.home_removed": "앱 홈 {path}을(를) 제거했습니다.",
+  "uninstall.home_kept": "앱 홈 {path}은(는) 파일이 남아 있어 유지했습니다 (로그는 남습니다).",
+  "uninstall.summary_ok": "제거를 완료했습니다.",
+  "uninstall.summary_left": "제거를 완료했습니다. 그대로 남긴 항목: {items}",
+  "uninstall.summary_failed": "제거를 완료했지만 실패한 단계가 있습니다: {count}.",
+  "uninstall.cli_hint": "CLI 자체를 제거하려면 다음을 실행하세요: {command}",
 
 };

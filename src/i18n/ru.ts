@@ -827,5 +827,89 @@ export const ru: I18nDictionary = {
   "goal.reason.no_paused": "Нет цели на паузе, чтобы возобновить.",
   "goal.reason.none_set": "Цель не задана.",
   "goal.reason.objective_limit": "Цель ограничена {limit} символами (сейчас {count}).",
+  "uninstall.refused_container":
+    "Запуск внутри контейнера отклонён. Ничего не удалено. Пересоберите и заново разверните контейнер или уничтожьте его.",
+  "uninstall.refused_root":
+    "Запуск от имени root отклонён. Запустите деинсталлятор от пользователя, который установил бота; sudo запрашивается только там, где он нужен.",
+  "uninstall.plan_header": "Деинсталлятор выполнит следующее:",
+  "uninstall.plan_daemon": "Остановить отсоединённый демон бота (PID {pid}).",
+  "uninstall.plan_terminal_bots":
+    "Остановить боты, запущенные вне демона (каждый подтверждается отдельно).",
+  "uninstall.plan_systemd": "Удалить юнит systemd {path} через sudo.",
+  "uninstall.plan_home": "Удалить данные приложения в {path}.",
+  "uninstall.plan_override":
+    "Удалить данные в каталоге OPENCODE_TELEGRAM_HOME {path} (спрашивается отдельно).",
+  "uninstall.plan_keychain":
+    "Удалить сохранённые секреты из связки ключей (служба {service}).",
+  "uninstall.plan_logs_stay": "Файлы журналов никогда не удаляются и остаются в {path}.",
+  "uninstall.plan_opencode_server": "Остановить сервер OpenCode (подтверждается отдельно).",
+  "uninstall.plan_nothing": "Удалять нечего.",
+  "uninstall.confirm_plan": "Выполнить этот план? [y/N] ",
+  "uninstall.confirm_override": "Удалить также данные в {path}? [y/N] ",
+  "uninstall.confirm_stop_process":
+    "Остановить процесс {pid} (пользователь {user}, запущен {started}): {command}? [y/N] ",
+  "uninstall.confirm_stop_opencode":
+    "Остановить сервер OpenCode (PID {pid}, порт {port}): {command}? [y/N] ",
+  "uninstall.confirm_stop_opencode_tree":
+    "В Windows это остановит всё дерево процессов сервера.",
+  "uninstall.no_terminal_plan_only":
+    "Терминал недоступен. План показан выше, ничего не удалено. Запустите заново в терминале или укажите --yes.",
+  "uninstall.aborted": "Отменено. Ничего не удалено.",
+  "uninstall.step_daemon_stopped": "Демон бота остановлен (PID {pid}).",
+  "uninstall.step_daemon_failed": "Не удалось остановить демон бота (PID {pid}).",
+  "uninstall.step_daemon_absent": "Отсоединённый демон бота не был запущен.",
+  "uninstall.step_removed": "Удалено: {path}",
+  "uninstall.step_absent": "Уже отсутствует: {path}",
+  "uninstall.step_failed": "Не удалось удалить {path}: {reason}",
+  "uninstall.step_link_removed": "Ссылка {path} удалена (указывала на {target})",
+  "uninstall.step_target_left":
+    "Цель ссылки {path} оставлена на месте: она вне домашнего каталога.",
+  "uninstall.step_home_error": "Не удалось обработать каталог приложения {path}: {reason}",
+  "uninstall.step_keychain": "Секрет связки ключей {account}: {status}",
+  "uninstall.step_keychain_unavailable":
+    "Связка ключей недоступна; её секреты не затронуты.",
+  "uninstall.keychain_status_removed": "удалён",
+  "uninstall.keychain_status_absent": "не найден",
+  "uninstall.keychain_status_failed": "ошибка",
+  "uninstall.step_systemd": "Юнит systemd: {outcome}",
+  "uninstall.step_systemd_failed": "Не удалось удалить юнит systemd: {reason}",
+  "uninstall.step_systemd_commands": "Выполните эти команды самостоятельно, чтобы завершить:\n{commands}",
+  "uninstall.systemd_outcome_removed": "удалён",
+  "uninstall.systemd_outcome_absent": "не установлен",
+  "uninstall.systemd_outcome_not_applicable": "неприменимо в этой системе",
+  "uninstall.systemd_outcome_skipped_no_terminal": "пропущено (нет терминала для sudo)",
+  "uninstall.systemd_outcome_skipped_no_sudo": "пропущено (sudo недоступен)",
+  "uninstall.systemd_outcome_failed": "ошибка",
+  "uninstall.step_scan_failed": "Не удалось найти запущенные процессы бота: {reason}",
+  "uninstall.step_scan_unsupported":
+    "Поиск ботов вне демона не поддерживается в Windows; шаг пропущен.",
+  "uninstall.step_process_stopped": "Процесс {pid} остановлен.",
+  "uninstall.step_process_failed": "Не удалось остановить процесс {pid}.",
+  "uninstall.step_process_skipped": "Процесс {pid} пропущен.",
+  "uninstall.step_process_refused":
+    "Процесс {pid} пропущен: его командная строка изменилась до остановки.",
+  "uninstall.step_override_invalid":
+    "Каталог OPENCODE_TELEGRAM_HOME {path} пропущен: {reason}",
+  "uninstall.step_override_skipped": "Каталог OPENCODE_TELEGRAM_HOME {path} пропущен.",
+  "uninstall.override_reason_missing": "каталог не существует",
+  "uninstall.override_reason_unreadable": "каталог недоступен для чтения",
+  "uninstall.override_reason_not_a_directory": "это не каталог",
+  "uninstall.override_reason_root": "это корень файловой системы",
+  "uninstall.override_reason_user_home": "это ваш домашний каталог",
+  "uninstall.override_reason_no_bot_files": "в нём нет файлов бота",
+  "uninstall.step_opencode_stopped": "Сервер OpenCode остановлен (PID {pid}).",
+  "uninstall.step_opencode_failed": "Не удалось остановить сервер OpenCode (PID {pid}).",
+  "uninstall.step_opencode_skipped": "Остановка сервера OpenCode пропущена.",
+  "uninstall.step_opencode_refused":
+    "Сервер OpenCode (PID {pid}) пропущен: его командная строка изменилась до остановки.",
+  "uninstall.step_opencode_none": "Сервер OpenCode для остановки не найден.",
+  "uninstall.command_unavailable": "(командная строка недоступна)",
+  "uninstall.home_removed": "Каталог приложения {path} удалён.",
+  "uninstall.home_kept":
+    "Каталог приложения {path} сохранён: в нём остались файлы (журналы остаются).",
+  "uninstall.summary_ok": "Удаление завершено.",
+  "uninstall.summary_left": "Удаление завершено; оставлено на месте: {items}",
+  "uninstall.summary_failed": "Удаление завершено, шагов с ошибками: {count}.",
+  "uninstall.cli_hint": "Чтобы удалить саму CLI, выполните: {command}",
 
 };

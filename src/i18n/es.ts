@@ -830,5 +830,89 @@ export const es: I18nDictionary = {
   "goal.reason.no_paused": "No paused goal to resume.",
   "goal.reason.none_set": "No goal is set.",
   "goal.reason.objective_limit": "A goal objective is limited to {limit} characters (got {count}).",
+  "uninstall.refused_container":
+    "Se rechaza la ejecución dentro de un contenedor. No se eliminó nada. Reconstruye y vuelve a desplegar el contenedor, o destrúyelo.",
+  "uninstall.refused_root":
+    "Se rechaza la ejecución como root. Ejecuta el desinstalador con el usuario que instaló el bot; solo pide sudo donde hace falta.",
+  "uninstall.plan_header": "El desinstalador hará lo siguiente:",
+  "uninstall.plan_daemon": "Detener el daemon desacoplado del bot (PID {pid}).",
+  "uninstall.plan_terminal_bots":
+    "Detener los bots que se ejecutan fuera del daemon (cada uno se confirma por separado).",
+  "uninstall.plan_systemd": "Eliminar la unidad systemd {path} con sudo.",
+  "uninstall.plan_home": "Eliminar los datos de la aplicación en {path}.",
+  "uninstall.plan_override":
+    "Eliminar los datos del directorio OPENCODE_TELEGRAM_HOME {path} (se pregunta por separado).",
+  "uninstall.plan_keychain":
+    "Borrar los secretos almacenados en el llavero (servicio {service}).",
+  "uninstall.plan_logs_stay": "Los archivos de registro nunca se eliminan y permanecen en {path}.",
+  "uninstall.plan_opencode_server": "Detener el servidor de OpenCode (se confirma por separado).",
+  "uninstall.plan_nothing": "No hay nada que eliminar.",
+  "uninstall.confirm_plan": "¿Continuar con este plan? [y/N] ",
+  "uninstall.confirm_override": "¿Eliminar también los datos de {path}? [y/N] ",
+  "uninstall.confirm_stop_process":
+    "¿Detener el proceso {pid} (usuario {user}, iniciado {started}): {command}? [y/N] ",
+  "uninstall.confirm_stop_opencode":
+    "¿Detener el servidor de OpenCode (PID {pid}, puerto {port}): {command}? [y/N] ",
+  "uninstall.confirm_stop_opencode_tree":
+    "En Windows esto detiene todo el árbol de procesos del servidor.",
+  "uninstall.no_terminal_plan_only":
+    "No hay un terminal disponible. El plan se muestra arriba y no se eliminó nada. Vuelve a ejecutarlo en un terminal o usa --yes.",
+  "uninstall.aborted": "Cancelado. No se eliminó nada.",
+  "uninstall.step_daemon_stopped": "Daemon del bot detenido (PID {pid}).",
+  "uninstall.step_daemon_failed": "No se pudo detener el daemon del bot (PID {pid}).",
+  "uninstall.step_daemon_absent": "No había ningún daemon desacoplado del bot en ejecución.",
+  "uninstall.step_removed": "Eliminado: {path}",
+  "uninstall.step_absent": "Ya no existe: {path}",
+  "uninstall.step_failed": "No se pudo eliminar {path}: {reason}",
+  "uninstall.step_link_removed": "Enlace {path} eliminado (apuntaba a {target})",
+  "uninstall.step_target_left":
+    "Se dejó el destino del enlace {path}: está fuera del directorio personal.",
+  "uninstall.step_home_error": "No se pudo procesar el directorio de la aplicación {path}: {reason}",
+  "uninstall.step_keychain": "Secreto del llavero {account}: {status}",
+  "uninstall.step_keychain_unavailable":
+    "El llavero no está disponible; no se tocaron sus secretos.",
+  "uninstall.keychain_status_removed": "eliminado",
+  "uninstall.keychain_status_absent": "no encontrado",
+  "uninstall.keychain_status_failed": "falló",
+  "uninstall.step_systemd": "Unidad systemd: {outcome}",
+  "uninstall.step_systemd_failed": "No se pudo eliminar la unidad systemd: {reason}",
+  "uninstall.step_systemd_commands": "Ejecuta tú mismo estos comandos para terminar:\n{commands}",
+  "uninstall.systemd_outcome_removed": "eliminada",
+  "uninstall.systemd_outcome_absent": "no instalada",
+  "uninstall.systemd_outcome_not_applicable": "no aplicable en este sistema",
+  "uninstall.systemd_outcome_skipped_no_terminal": "omitida (no hay terminal para sudo)",
+  "uninstall.systemd_outcome_skipped_no_sudo": "omitida (sudo no está disponible)",
+  "uninstall.systemd_outcome_failed": "falló",
+  "uninstall.step_scan_failed": "No se pudo buscar procesos del bot en ejecución: {reason}",
+  "uninstall.step_scan_unsupported":
+    "Buscar bots fuera del daemon no es compatible con Windows; se omite.",
+  "uninstall.step_process_stopped": "Proceso {pid} detenido.",
+  "uninstall.step_process_failed": "No se pudo detener el proceso {pid}.",
+  "uninstall.step_process_skipped": "Proceso {pid} omitido.",
+  "uninstall.step_process_refused":
+    "Proceso {pid} omitido: su línea de comandos cambió antes de detenerlo.",
+  "uninstall.step_override_invalid":
+    "Directorio OPENCODE_TELEGRAM_HOME {path} omitido: {reason}",
+  "uninstall.step_override_skipped": "Directorio OPENCODE_TELEGRAM_HOME {path} omitido.",
+  "uninstall.override_reason_missing": "el directorio no existe",
+  "uninstall.override_reason_unreadable": "el directorio no se puede leer",
+  "uninstall.override_reason_not_a_directory": "no es un directorio",
+  "uninstall.override_reason_root": "es la raíz del sistema de archivos",
+  "uninstall.override_reason_user_home": "es tu directorio personal",
+  "uninstall.override_reason_no_bot_files": "no contiene archivos del bot",
+  "uninstall.step_opencode_stopped": "Servidor de OpenCode detenido (PID {pid}).",
+  "uninstall.step_opencode_failed": "No se pudo detener el servidor de OpenCode (PID {pid}).",
+  "uninstall.step_opencode_skipped": "Se omitió la detención del servidor de OpenCode.",
+  "uninstall.step_opencode_refused":
+    "Servidor de OpenCode (PID {pid}) omitido: su línea de comandos cambió antes de detenerlo.",
+  "uninstall.step_opencode_none": "No se encontró ningún servidor de OpenCode que detener.",
+  "uninstall.command_unavailable": "(línea de comandos no disponible)",
+  "uninstall.home_removed": "Directorio de la aplicación {path} eliminado.",
+  "uninstall.home_kept":
+    "Directorio de la aplicación {path} conservado: aún contiene archivos (los registros permanecen).",
+  "uninstall.summary_ok": "Desinstalación terminada.",
+  "uninstall.summary_left": "Desinstalación terminada; se dejó sin tocar: {items}",
+  "uninstall.summary_failed": "Desinstalación terminada con pasos fallidos: {count}.",
+  "uninstall.cli_hint": "Para eliminar la propia CLI, ejecuta: {command}",
 
 };
