@@ -115,6 +115,8 @@ const PLACEHOLDERS: Record<string, string[]> = {
   step_process_already_exited: ["pid"],
   step_opencode_gone: ["pid"],
   step_opencode_unknown: ["pid"],
+  step_opencode_unchecked: [],
+  left_opencode_unchecked: [],
 };
 
 const REQUIRED_KEYS = Object.keys(PLACEHOLDERS);

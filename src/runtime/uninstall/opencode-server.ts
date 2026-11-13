@@ -63,20 +63,24 @@ function resolveLocalPort(apiUrl: string): number | null {
   return Number.isInteger(port) && port > 0 && port <= MAX_PORT ? port : null;
 }
 
+/** Marks a URL that is not a local one: there is nothing local to look up or stop. */
+export const NOT_LOCAL = "not-local";
+
 /**
  * The port of the local OpenCode API the bot used: OPENCODE_API_URL, else the default for
  * OPENCODE_SERVER_VERSION (v2, otherwise v1), each read from the real environment first and
  * then from the .env file. A configured URL without a port resolves to its scheme default
- * (80 or 443), never to the OpenCode default. Null when the URL is not a local one (a remote
- * server is never a stop target) and when .env exists but cannot be read.
+ * (80 or 443), never to the OpenCode default. NOT_LOCAL when the URL is not a local one (a
+ * remote server is never a stop target) and null when .env exists but cannot be read (the
+ * configured URL is unknowable).
  *
  * OPENCODE_SERVER_MODE is deliberately not consulted: config.ts refuses standalone mode
  * without OPENCODE_API_URL for v2, so the v2 default port is only reached in service mode.
  */
-export async function resolveOpencodePort(
+export async function resolveOpencodeTarget(
   env: NodeJS.ProcessEnv,
   envFilePath: string,
-): Promise<number | null> {
+): Promise<number | typeof NOT_LOCAL | null> {
   const fileValues = await readEnvFile(envFilePath);
   if (fileValues === null) {
     return null;
@@ -86,23 +90,37 @@ export async function resolveOpencodePort(
   const version =
     pickValue("OPENCODE_SERVER_VERSION", env, fileValues).toLowerCase() === "v2" ? "v2" : "v1";
 
-  return resolveLocalPort(configuredUrl || DEFAULT_OPENCODE_API_URLS[version]);
+  return resolveLocalPort(configuredUrl || DEFAULT_OPENCODE_API_URLS[version]) ?? NOT_LOCAL;
+}
+
+/** The local port, or null for a remote URL and for an unreadable .env (see resolveOpencodeTarget). */
+export async function resolveOpencodePort(
+  env: NodeJS.ProcessEnv,
+  envFilePath: string,
+): Promise<number | null> {
+  const target = await resolveOpencodeTarget(env, envFilePath);
+  return typeof target === "number" ? target : null;
 }
 
 /**
  * The outcome of a lookup. `not-listening` is the only definite "nothing is there": the port is
- * known and the pid lookup found no listener. `unknown` means the answer cannot be trusted: the
- * port could not be resolved (unreadable .env, remote or invalid URL), the pid lookup threw, or
- * the listener is this process, its parent, or an excluded pid.
+ * known and the pid lookup found no listener. `not-local` means the configured URL is remote (or
+ * not a local http(s) URL): nothing local to look up. `excluded` means the listener is this
+ * process, its parent, or an excluded pid. `unknown` means the answer cannot be trusted: the
+ * configured port could not be resolved (unreadable .env) or the pid lookup threw.
  */
 export type OpencodeLookup =
-  { kind: "found"; server: OpencodeServer } | { kind: "not-listening" } | { kind: "unknown" };
+  | { kind: "found"; server: OpencodeServer }
+  | { kind: "not-listening" }
+  | { kind: "not-local" }
+  | { kind: "excluded" }
+  | { kind: "unknown" };
 
 /**
  * The process listening on the port. findServerPid returns only the first listener pid, so
  * callers word their output "the process found", never "the OpenCode server". A listener that
  * is this process, its parent, or in `excludePids` (the caller passes the own process chain and
- * the bot daemon) is never offered (unknown). On win32 the command line is always null:
+ * the bot daemon) is never offered (excluded). On win32 the command line is always null:
  * the caller must print the pid, say the command line is unavailable, and mention in the
  * prompt that stopping kills the whole process tree (taskkill /T).
  *
@@ -110,11 +128,15 @@ export type OpencodeLookup =
  * a null pid is reported as not-listening (the residual limit of that helper).
  */
 export async function findOpencodeServer(deps: {
-  port: number | null;
+  /** From resolveOpencodeTarget: a port, NOT_LOCAL for a remote URL, null when unknowable. */
+  port: number | typeof NOT_LOCAL | null;
   findPid: typeof findServerPid;
   commandLine: typeof getProcessCommandLine;
   excludePids?: readonly number[];
 }): Promise<OpencodeLookup> {
+  if (deps.port === NOT_LOCAL) {
+    return { kind: "not-local" };
+  }
   if (deps.port === null) {
     return { kind: "unknown" };
   }
@@ -129,7 +151,7 @@ export async function findOpencodeServer(deps: {
     return { kind: "not-listening" };
   }
   if (pid === process.pid || pid === process.ppid || (deps.excludePids ?? []).includes(pid)) {
-    return { kind: "unknown" };
+    return { kind: "excluded" };
   }
 
   return {

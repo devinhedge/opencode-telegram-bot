@@ -40,7 +40,8 @@ let initializeFailed = false;
 const CONSOLE_BROKEN_KEY = "__opencodeTelegramBotConsoleOutputBroken";
 
 function normalizeLogLevel(value: string): ConfiguredLogLevel {
-  if (value in LOG_LEVELS) {
+  // Own keys only: `in` would accept inherited names such as toString.
+  if (Object.hasOwn(LOG_LEVELS, value)) {
     return value as ConfiguredLogLevel;
   }
 

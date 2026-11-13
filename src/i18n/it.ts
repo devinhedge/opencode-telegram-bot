@@ -898,6 +898,7 @@ export const it: I18nDictionary = {
   "uninstall.step_opencode_refused":
     "Processo trovato sulla porta OpenCode (PID {pid}) saltato: ora è in ascolto un altro processo.",
   "uninstall.step_opencode_none": "Nessun server OpenCode da arrestare è stato trovato.",
+  "uninstall.step_opencode_unchecked": "Non è stato possibile controllare la porta OpenCode; non è stato arrestato nulla.",
   "uninstall.command_unavailable": "(riga di comando non disponibile)",
   "uninstall.home_removed": "Directory dell'applicazione {path} rimossa.",
   "uninstall.home_kept":
@@ -905,6 +906,7 @@ export const it: I18nDictionary = {
   "uninstall.summary_ok": "Disinstallazione completata.",
   "uninstall.left_process": "processo {pid}",
   "uninstall.left_opencode": "il processo sulla porta OpenCode (PID {pid})",
+  "uninstall.left_opencode_unchecked": "il processo sulla porta OpenCode (non controllato)",
   "uninstall.left_keychain": "i segreti del portachiavi (il portachiavi non era disponibile)",
   "uninstall.summary_left": "Disinstallazione completata; lasciato al suo posto: {items}",
   "uninstall.summary_failed": "Disinstallazione completata. Passaggi non riusciti: {count}",

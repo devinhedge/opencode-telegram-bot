@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   findOpencodeServer,
   resolveOpencodePort,
+  resolveOpencodeTarget,
   stopOpencodeServer,
 } from "../../../src/runtime/uninstall/opencode-server.js";
 
@@ -182,11 +183,11 @@ describe("runtime/uninstall/opencode-server", () => {
           commandLine: vi.fn().mockResolvedValue("x"),
         });
 
-        expect(server).toEqual({ kind: "unknown" });
+        expect(server).toEqual({ kind: "excluded" });
       }
     });
 
-    it("reports a listener in the excluded pids as unknown and never reads its command line", async () => {
+    it("reports a listener in the excluded pids as excluded and never reads its command line", async () => {
       const commandLine = vi.fn().mockResolvedValue("x");
 
       const server = await findOpencodeServer({
@@ -196,7 +197,7 @@ describe("runtime/uninstall/opencode-server", () => {
         excludePids: [111, 555],
       });
 
-      expect(server).toEqual({ kind: "unknown" });
+      expect(server).toEqual({ kind: "excluded" });
       expect(commandLine).not.toHaveBeenCalled();
     });
 
@@ -260,6 +261,31 @@ describe("runtime/uninstall/opencode-server", () => {
 
       expect(server).toEqual({ kind: "unknown" });
       expect(findPid).not.toHaveBeenCalled();
+    });
+
+    it("reports not-local for a remote URL without looking for a pid", async () => {
+      const findPid = vi.fn();
+
+      const server = await findOpencodeServer({
+        port: await resolveOpencodeTarget(
+          { OPENCODE_API_URL: "http://opencode.example.com:4096" },
+          envFilePath,
+        ),
+        findPid,
+        commandLine: vi.fn(),
+      });
+
+      expect(server).toEqual({ kind: "not-local" });
+      expect(findPid).not.toHaveBeenCalled();
+    });
+
+    it("tells a remote URL (not-local) from an unreadable .env (null) in resolveOpencodeTarget", async () => {
+      expect(await resolveOpencodeTarget({ OPENCODE_API_URL: "not a url" }, envFilePath)).toBe(
+        "not-local",
+      );
+      expect(await resolveOpencodeTarget({}, envFilePath)).toBe(4096);
+      await mkdir(envFilePath);
+      expect(await resolveOpencodeTarget({}, envFilePath)).toBeNull();
     });
 
     it("reports unknown when the pid lookup throws", async () => {

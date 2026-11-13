@@ -25,10 +25,9 @@ import {
 } from "./messages.js";
 import {
   findOpencodeServer,
-  resolveOpencodePort,
+  resolveOpencodeTarget,
   stopOpencodeServer,
   type OpencodeLookup,
-  type OpencodeServer,
 } from "./opencode-server.js";
 import {
   collectOwnChain,
@@ -251,15 +250,6 @@ async function lookupOpencode(
   }
 }
 
-/** For the plan only: anything but a found listener means there is nothing to offer. */
-async function detectOpencode(
-  deps: UninstallDeps,
-  exclude: readonly number[],
-): Promise<OpencodeServer | null> {
-  const lookup = await lookupOpencode(deps, exclude);
-  return lookup.kind === "found" ? lookup.server : null;
-}
-
 async function validate(
   deps: UninstallDeps,
   overrideHome: string,
@@ -464,14 +454,24 @@ async function systemdStep(ctx: Context): Promise<void> {
 
 async function opencodeStep(
   ctx: Context,
-  server: OpencodeServer | null,
+  lookup: OpencodeLookup,
   exclude: readonly number[],
 ): Promise<void> {
   const { deps, translate, say } = ctx;
-  if (server === null) {
+  if (lookup.kind === "not-listening" || lookup.kind === "not-local") {
+    // Definitely nothing local to stop: a remote or non-local URL, or no listener on the port.
     say("uninstall.step_opencode_none");
     return;
   }
+  if (lookup.kind !== "found") {
+    // Unreadable .env, a lookup that threw, or a listener that is excluded: not checked, so
+    // nothing was stopped and the process is reported as left.
+    say("uninstall.step_opencode_unchecked");
+    ctx.failures += 1;
+    ctx.left.push(translate("uninstall.left_opencode_unchecked"));
+    return;
+  }
+  const { server } = lookup;
 
   const leftRunning = (): void => {
     ctx.left.push(translate("uninstall.left_opencode", { pid: server.pid }));
@@ -503,9 +503,16 @@ async function opencodeStep(
   // Time of check to time of use: the listener is looked up again right before the kill, and a
   // different pid or command line means the confirmed process is not the one listening now.
   const fresh = await lookupOpencode(deps, exclude);
-  if (fresh.kind === "not-listening") {
-    // Definitely nothing listens any more: nothing to stop and nothing left running.
-    say("uninstall.step_opencode_gone", { pid: server.pid });
+  if (fresh.kind === "not-listening" || fresh.kind === "not-local") {
+    // A missing lsof or ss gives the same "not listening" as a port nobody listens on, so it
+    // counts as gone only when the confirmed process has also exited.
+    if (await processHasExited(deps, server.pid)) {
+      say("uninstall.step_opencode_gone", { pid: server.pid });
+      return;
+    }
+    say("uninstall.step_opencode_unknown", { pid: server.pid });
+    ctx.failures += 1;
+    leftRunning();
     return;
   }
   if (fresh.kind === "unknown") {
@@ -515,7 +522,11 @@ async function opencodeStep(
     leftRunning();
     return;
   }
-  if (fresh.server.pid !== server.pid || fresh.server.commandLine !== server.commandLine) {
+  if (
+    fresh.kind === "excluded" ||
+    fresh.server.pid !== server.pid ||
+    fresh.server.commandLine !== server.commandLine
+  ) {
     say("uninstall.step_opencode_refused", { pid: server.pid });
     ctx.failures += 1;
     leftRunning();
@@ -535,6 +546,15 @@ async function opencodeStep(
     say("uninstall.step_opencode_failed", { pid: server.pid });
     ctx.failures += 1;
     leftRunning();
+  }
+}
+
+/** True only when the process is known to have exited; a throwing probe counts as alive. */
+async function processHasExited(deps: UninstallDeps, pid: number): Promise<boolean> {
+  try {
+    return await deps.waitForExit(pid, 0);
+  } catch {
+    return false;
   }
 }
 
@@ -640,7 +660,7 @@ async function removeOverrideSecrets(
   overrideHome: string,
   revalidate: boolean,
 ): Promise<void> {
-  // After a question time has passed since the earlier check, so the directory must still
+  // After a question, time has passed since the earlier check, so the directory must still
   // qualify. Without a question the check just ran, so a second one would only repeat it.
   if (revalidate) {
     const reason = await validate(ctx.deps, overrideHome);
@@ -813,7 +833,9 @@ export async function runUninstall(
   const opencodeExclude = options.stopOpencode
     ? [...(await detectOwnChain(deps)), ...daemonPids]
     : [];
-  const server = options.stopOpencode ? await detectOpencode(deps, opencodeExclude) : null;
+  const opencode: OpencodeLookup = options.stopOpencode
+    ? await lookupOpencode(deps, opencodeExclude)
+    : { kind: "not-listening" };
   const overrideValid = overrideHome !== null && (await validate(deps, overrideHome)) === null;
 
   say("uninstall.plan_header");
@@ -826,7 +848,7 @@ export async function runUninstall(
   if (systemdPlanned) {
     say("uninstall.plan_systemd", { path: SYSTEMD_UNIT_PATH });
   }
-  if (server !== null) {
+  if (opencode.kind === "found") {
     say("uninstall.plan_opencode_server");
   }
   if (await hasHomeTargets(defaultHome)) {
@@ -859,7 +881,7 @@ export async function runUninstall(
   await stopBotsStep(ctx, scan);
   await systemdStep(ctx);
   if (options.stopOpencode) {
-    await opencodeStep(ctx, server, opencodeExclude);
+    await opencodeStep(ctx, opencode, opencodeExclude);
   }
   // Includes secrets.enc and keystore_password.
   await removeHomeStep(ctx, defaultHome);
@@ -944,7 +966,7 @@ export function defaultUninstallDeps(): UninstallDeps {
     systemd,
     findOpencode: async (excludePids) =>
       findOpencodeServer({
-        port: await resolveOpencodePort(process.env, runtimeEnvFile()),
+        port: await resolveOpencodeTarget(process.env, runtimeEnvFile()),
         findPid: findServerPid,
         commandLine: getProcessCommandLine,
         excludePids,

@@ -15,13 +15,10 @@ import { createUninstallTranslator } from "../../../src/runtime/uninstall/messag
 import {
   findOpencodeServer,
   resolveOpencodePort,
+  resolveOpencodeTarget,
   type OpencodeLookup,
   type OpencodeServer,
 } from "../../../src/runtime/uninstall/opencode-server.js";
-
-function found(server: OpencodeServer): OpencodeLookup {
-  return { kind: "found", server };
-}
 import type { BotProcess } from "../../../src/runtime/uninstall/processes.js";
 import {
   getServiceStateFilePath,
@@ -43,6 +40,49 @@ import {
   formatSystemdCommand,
   type SystemdDeps,
 } from "../../../src/runtime/uninstall/systemd.js";
+
+// No real child process may start from this file: every child_process entry point is a mock.
+// `exec` answers only the daemon manager's `ps -o lstart= -p <pid>` (no process found); any other
+// command, execFile, spawn, or a sync variant fails the test (see afterEach).
+const childProcess = vi.hoisted(() => {
+  const unexpected: string[] = [];
+  const refuse = (name: string) =>
+    vi.fn((...args: unknown[]) => {
+      unexpected.push(`${name} ${String(args[0])}`);
+      throw new Error(`real ${name} is not allowed in this test file`);
+    });
+  const exec = vi.fn((command: string, callback?: (error: Error | null, out: unknown) => void) => {
+    if (!command.startsWith("ps -o lstart= -p ")) {
+      unexpected.push(`exec ${command}`);
+    }
+    callback?.(null, { stdout: "", stderr: "" });
+    return {};
+  });
+  return {
+    unexpected,
+    exec,
+    execFile: refuse("execFile"),
+    spawn: refuse("spawn"),
+    execSync: refuse("execSync"),
+    execFileSync: refuse("execFileSync"),
+    spawnSync: refuse("spawnSync"),
+    fork: refuse("fork"),
+  };
+});
+
+vi.mock("node:child_process", () => ({
+  exec: childProcess.exec,
+  execFile: childProcess.execFile,
+  spawn: childProcess.spawn,
+  execSync: childProcess.execSync,
+  execFileSync: childProcess.execFileSync,
+  spawnSync: childProcess.spawnSync,
+  fork: childProcess.fork,
+}));
+
+function found(server: OpencodeServer): OpencodeLookup {
+  return { kind: "found", server };
+}
 
 const isWindows = process.platform === "win32";
 const SENTINEL = "SECRET-SENTINEL";
@@ -138,9 +178,9 @@ function botProcess(pid: number, commandLine = `node /opt/bot/dist/cli.js start`
 // recorded here and afterEach fails the test when the list is not empty.
 const guardViolations: string[] = [];
 
-function guard(target: string, root: string): void {
+function guard(target: string, root: string, followTarget = true): void {
   try {
-    assertInsideTempRoot(target, root);
+    assertInsideTempRoot(target, root, { followTarget });
   } catch (error) {
     guardViolations.push(target);
     throw error;
@@ -164,8 +204,10 @@ function guardFilesystemDeps(deps: UninstallDeps, root: string): UninstallDeps {
       guard(target, root);
       return validateOverride(target);
     }),
+    // removePath unlinks the entry itself, so only its parent chain is resolved; every other
+    // fake acts through a directory and resolves the target itself.
     removePath: vi.fn(async (target: string) => {
-      guard(target, root);
+      guard(target, root, false);
       return remove(target);
     }),
     removeAppHome: vi.fn(async (home: string) => {
@@ -202,6 +244,8 @@ describe("runtime/uninstall/run", () => {
     await fs.rm(tempRoot, { recursive: true, force: true });
     const violations = guardViolations.splice(0);
     expect(violations, "a fake was asked to touch a path outside the temp root").toEqual([]);
+    const realCommands = childProcess.unexpected.splice(0);
+    expect(realCommands, "a real child process was requested").toEqual([]);
   });
 
   function createHarness(overrides: Partial<UninstallDeps> = {}): Harness {
@@ -1218,7 +1262,54 @@ describe("runtime/uninstall/run", () => {
       });
     }
 
-    it("treats a fresh listener that is now an excluded pid as unknown (real lookup)", async () => {
+    it("treats not-listening as unknown while the confirmed pid is still alive", async () => {
+      // On macOS a missing lsof or ss gives the same "no listener" as a port nobody listens on.
+      const findOpencode = vi
+        .fn<() => Promise<OpencodeLookup>>()
+        .mockResolvedValueOnce(found(server))
+        .mockResolvedValueOnce({ kind: "not-listening" });
+      const harness = createHarness({
+        findOpencode,
+        waitForExit: vi.fn(async () => false),
+      });
+      harness.answers.push("y");
+
+      const code = await runUninstall({ yes: true, stopOpencode: true }, harness.deps);
+
+      expect(code).toBe(1);
+      expect(harness.deps.waitForExit).toHaveBeenCalledWith(7001, 0);
+      expect(harness.deps.stopOpencode).not.toHaveBeenCalled();
+      expect(harness.lines).toContain(tEn("uninstall.step_opencode_unknown", { pid: 7001 }));
+      expect(harness.lines).not.toContain(tEn("uninstall.step_opencode_gone", { pid: 7001 }));
+      expect(harness.lines).toContain(
+        tEn("uninstall.summary_failed_left", {
+          count: 1,
+          items: tEn("uninstall.left_opencode", { pid: 7001 }),
+        }),
+      );
+    });
+
+    it("treats not-listening as unknown when the exit check throws", async () => {
+      const findOpencode = vi
+        .fn<() => Promise<OpencodeLookup>>()
+        .mockResolvedValueOnce(found(server))
+        .mockResolvedValueOnce({ kind: "not-listening" });
+      const harness = createHarness({
+        findOpencode,
+        waitForExit: vi.fn(async () => {
+          throw new Error(`probe ${SENTINEL}`);
+        }),
+      });
+      harness.answers.push("y");
+
+      const code = await runUninstall({ yes: true, stopOpencode: true }, harness.deps);
+
+      expect(code).toBe(1);
+      expect(harness.lines).toContain(tEn("uninstall.step_opencode_unknown", { pid: 7001 }));
+      expect(harness.lines.join("\n")).not.toContain(SENTINEL);
+    });
+
+    it("treats a fresh listener that is now an excluded pid as refused (real lookup)", async () => {
       const findPid = vi
         .fn<(port: number) => Promise<number | null>>()
         .mockResolvedValueOnce(7001)
@@ -1238,7 +1329,14 @@ describe("runtime/uninstall/run", () => {
 
       expect(code).toBe(1);
       expect(harness.deps.stopOpencode).not.toHaveBeenCalled();
-      expect(harness.lines).toContain(tEn("uninstall.step_opencode_unknown", { pid: 7001 }));
+      expect(harness.lines).toContain(tEn("uninstall.step_opencode_refused", { pid: 7001 }));
+      expect(harness.lines).not.toContain(tEn("uninstall.step_opencode_unknown", { pid: 7001 }));
+      expect(harness.lines).toContain(
+        tEn("uninstall.summary_failed_left", {
+          count: 1,
+          items: tEn("uninstall.left_opencode", { pid: 7001 }),
+        }),
+      );
     });
 
     it("treats an unreadable .env at the fresh lookup as unknown (real lookup)", async () => {
@@ -1308,6 +1406,92 @@ describe("runtime/uninstall/run", () => {
       expect(harness.lines).toContain(tEn("uninstall.step_opencode_none"));
       expect(harness.deps.ask).not.toHaveBeenCalled();
     });
+
+    it("reports nothing local to stop for a remote URL (real lookup)", async () => {
+      const findPid = vi.fn(async () => 7001);
+      const harness = createHarness({
+        findOpencode: async (excludePids) =>
+          findOpencodeServer({
+            port: await resolveOpencodeTarget(
+              { OPENCODE_API_URL: "http://opencode.example.com:4096" },
+              path.join(tempRoot, "no-such.env"),
+            ),
+            findPid,
+            commandLine: async () => "x",
+            excludePids,
+          }),
+      });
+
+      const code = await runUninstall({ yes: true, stopOpencode: true }, harness.deps);
+
+      expect(code).toBe(0);
+      expect(findPid).not.toHaveBeenCalled();
+      expect(harness.lines).toContain(tEn("uninstall.step_opencode_none"));
+      expect(harness.lines).not.toContain(tEn("uninstall.step_opencode_unchecked"));
+      expect(harness.lines).toContain(tEn("uninstall.summary_ok"));
+    });
+
+    it("reports not-local as nothing to stop", async () => {
+      const harness = createHarness({
+        findOpencode: vi.fn(async (): Promise<OpencodeLookup> => ({ kind: "not-local" })),
+      });
+
+      const code = await runUninstall({ yes: true, stopOpencode: true }, harness.deps);
+
+      expect(code).toBe(0);
+      expect(harness.lines).toContain(tEn("uninstall.step_opencode_none"));
+    });
+
+    const uncheckedCases: [string, () => Promise<OpencodeLookup>][] = [
+      [
+        "an unreadable .env",
+        async () => {
+          const envFile = path.join(tempRoot, "env-dir");
+          await fs.mkdir(envFile, { recursive: true });
+          return findOpencodeServer({
+            port: await resolveOpencodeTarget({}, envFile),
+            findPid: async () => 7001,
+            commandLine: async () => "x",
+          });
+        },
+      ],
+      [
+        "a lookup that throws",
+        async () => {
+          throw new Error(`lookup ${SENTINEL}`);
+        },
+      ],
+      [
+        "an excluded listener",
+        async () =>
+          findOpencodeServer({
+            port: 4096,
+            findPid: async () => OWN_PPID,
+            commandLine: async () => "x",
+            excludePids: [OWN_PID, OWN_PPID],
+          }),
+      ],
+    ];
+    for (const [label, lookup] of uncheckedCases) {
+      it(`says the port could not be checked for ${label}, fails, and lists it as left`, async () => {
+        const harness = createHarness({ findOpencode: lookup });
+
+        const code = await runUninstall({ yes: true, stopOpencode: true }, harness.deps);
+
+        expect(code).toBe(1);
+        expect(harness.deps.ask).not.toHaveBeenCalled();
+        expect(harness.deps.stopOpencode).not.toHaveBeenCalled();
+        expect(harness.lines).toContain(tEn("uninstall.step_opencode_unchecked"));
+        expect(harness.lines).not.toContain(tEn("uninstall.step_opencode_none"));
+        expect(harness.lines).toContain(
+          tEn("uninstall.summary_failed_left", {
+            count: 1,
+            items: tEn("uninstall.left_opencode_unchecked"),
+          }),
+        );
+        expect(harness.lines.join("\n")).not.toContain(SENTINEL);
+      });
+    }
 
     it("skips the server without a terminal", async () => {
       const harness = createHarness({
@@ -2108,6 +2292,7 @@ describe("runtime/uninstall/run", () => {
             mode: "daemon",
           }),
         );
+        childProcess.exec.mockClear();
         // The fake pid is alive for signal 0; SIGTERM throws an error carrying the sentinel.
         vi.spyOn(process, "kill").mockImplementation((_pid, signal) => {
           if (signal === 0) {
@@ -2119,6 +2304,10 @@ describe("runtime/uninstall/run", () => {
 
       afterEach(async () => {
         await fs.rm(stateFile, { force: true });
+        // The creation-time probe went to the mocked exec, never to a real `ps`.
+        expect(childProcess.exec.mock.calls.map((call) => call[0])).toContain(
+          "ps -o lstart= -p 424242",
+        );
       });
 
       function consoleSpies(): ReturnType<typeof vi.spyOn>[] {
