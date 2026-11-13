@@ -194,8 +194,49 @@ describe("cli/args", () => {
   });
 
   it("rejects the uninstall flags when no command is given", () => {
-    expect(parseCliArgs(["--yes"]).error).toContain("--yes");
-    expect(parseCliArgs(["--stop-opencode"]).error).toContain("--stop-opencode");
+    const yesParsed = parseCliArgs(["--yes"]);
+    const stopParsed = parseCliArgs(["--stop-opencode"]);
+
+    expect(yesParsed.showHelp).toBe(true);
+    expect(yesParsed.error).toContain("--yes");
+    expect(stopParsed.showHelp).toBe(true);
+    expect(stopParsed.error).toContain("--stop-opencode");
+  });
+
+  it("reports the uninstall flag error when combined with --daemon and no command", () => {
+    const parsed = parseCliArgs(["--daemon", "--yes"]);
+
+    expect(parsed.showHelp).toBe(true);
+    expect(parsed.error).toBeDefined();
+  });
+
+  it.each(["status", "stop", "config"])("rejects --yes and --stop-opencode for %s", (command) => {
+    const yesParsed = parseCliArgs([command, "--yes"]);
+    const stopParsed = parseCliArgs([command, "--stop-opencode"]);
+
+    expect(yesParsed.showHelp).toBe(true);
+    expect(yesParsed.error).toContain("--yes");
+    expect(stopParsed.showHelp).toBe(true);
+    expect(stopParsed.error).toContain("--stop-opencode");
+  });
+
+  it.each([["--mode", "installed"], ["--daemon"], ["--restart"]])(
+    "rejects %s for the uninstall command",
+    (...flags) => {
+      const parsed = parseCliArgs(["uninstall", ...flags]);
+
+      expect(parsed.command).toBe("uninstall");
+      expect(parsed.showHelp).toBe(true);
+      expect(parsed.error).toBeDefined();
+    },
+  );
+
+  it("shows help without an error for uninstall --help", () => {
+    const parsed = parseCliArgs(["uninstall", "--help"]);
+
+    expect(parsed.command).toBe("uninstall");
+    expect(parsed.showHelp).toBe(true);
+    expect(parsed.error).toBeUndefined();
   });
 
   it("shows help when requested", () => {

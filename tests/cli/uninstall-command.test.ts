@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocked = vi.hoisted(() => ({
   runUninstallMock: vi.fn(),
+  handleCliFailureMock: vi.fn(),
 }));
 
 vi.mock("../../src/utils/logger.js", () => ({
@@ -10,32 +11,56 @@ vi.mock("../../src/utils/logger.js", () => ({
   logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
+// The real handleCliFailure calls process.exit(1); its own test covers that.
+vi.mock("../../src/cli/failure-exit.js", () => ({
+  handleCliFailure: mocked.handleCliFailureMock,
+}));
+
 // The real runUninstall deletes user data. It must never run from a test.
 vi.mock("../../src/runtime/uninstall/run.js", () => ({
   runUninstall: mocked.runUninstallMock,
 }));
 
+const RUNTIME_MODE_KEY = "OPENCODE_TELEGRAM_RUNTIME_MODE";
+
+function restoreEnv(key: string, value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env[key];
+  } else {
+    process.env[key] = value;
+  }
+}
+
 describe("cli uninstall command", () => {
   let originalArgv: string[];
   let originalExitCode: typeof process.exitCode;
   let originalLogLevel: string | undefined;
+  let originalRuntimeMode: string | undefined;
+  let observedLogLevel: string | undefined;
+  let observedRuntimeMode: string | undefined;
 
   beforeEach(() => {
     originalArgv = process.argv;
     originalExitCode = process.exitCode;
     originalLogLevel = process.env.LOG_LEVEL;
-    mocked.runUninstallMock.mockReset().mockResolvedValue(0);
+    originalRuntimeMode = process.env[RUNTIME_MODE_KEY];
+    observedLogLevel = undefined;
+    observedRuntimeMode = undefined;
+    mocked.runUninstallMock.mockReset().mockImplementation(async () => {
+      observedLogLevel = process.env.LOG_LEVEL;
+      observedRuntimeMode = process.env[RUNTIME_MODE_KEY];
+      return 0;
+    });
+    mocked.handleCliFailureMock.mockReset().mockResolvedValue(undefined);
     vi.resetModules();
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     process.argv = originalArgv;
     process.exitCode = originalExitCode;
-    if (originalLogLevel === undefined) {
-      delete process.env.LOG_LEVEL;
-    } else {
-      process.env.LOG_LEVEL = originalLogLevel;
-    }
+    restoreEnv("LOG_LEVEL", originalLogLevel);
+    restoreEnv(RUNTIME_MODE_KEY, originalRuntimeMode);
   });
 
   it("passes the parsed flags to runUninstall", async () => {
@@ -70,7 +95,19 @@ describe("cli uninstall command", () => {
     });
   });
 
-  it("sets LOG_LEVEL to silent when it was unset", async () => {
+  it("sets the installed runtime mode before runUninstall runs", async () => {
+    delete process.env[RUNTIME_MODE_KEY];
+    process.argv = ["node", "cli", "uninstall"];
+
+    await import("../../src/cli.js");
+    await vi.waitFor(() => {
+      expect(mocked.runUninstallMock).toHaveBeenCalledTimes(1);
+    });
+
+    expect(observedRuntimeMode).toBe("installed");
+  });
+
+  it("has LOG_LEVEL silent when runUninstall runs and it was unset", async () => {
     delete process.env.LOG_LEVEL;
     process.argv = ["node", "cli", "uninstall"];
 
@@ -79,10 +116,10 @@ describe("cli uninstall command", () => {
       expect(mocked.runUninstallMock).toHaveBeenCalledTimes(1);
     });
 
-    expect(process.env.LOG_LEVEL).toBe("silent");
+    expect(observedLogLevel).toBe("silent");
   });
 
-  it("sets LOG_LEVEL to silent even when it was set", async () => {
+  it("has LOG_LEVEL silent when runUninstall runs even when it was debug", async () => {
     process.env.LOG_LEVEL = "debug";
     process.argv = ["node", "cli", "uninstall"];
 
@@ -91,10 +128,10 @@ describe("cli uninstall command", () => {
       expect(mocked.runUninstallMock).toHaveBeenCalledTimes(1);
     });
 
-    expect(process.env.LOG_LEVEL).toBe("silent");
+    expect(observedLogLevel).toBe("silent");
   });
 
-  it("does not run the uninstall for a usage error", async () => {
+  it("does not run the uninstall for a usage error and writes the error and usage", async () => {
     const stderrSpy = vi.spyOn(process.stderr, "write").mockReturnValue(true);
     const stdoutSpy = vi.spyOn(process.stdout, "write").mockReturnValue(true);
     process.argv = ["node", "cli", "start", "--yes"];
@@ -105,7 +142,18 @@ describe("cli uninstall command", () => {
     });
 
     expect(mocked.runUninstallMock).not.toHaveBeenCalled();
-    stderrSpy.mockRestore();
-    stdoutSpy.mockRestore();
+    expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining("--yes"));
+    expect(stdoutSpy).toHaveBeenCalledWith(expect.stringContaining("Usage:"));
+  });
+
+  it("hands a rejection of runUninstall to handleCliFailure", async () => {
+    const failure = new Error("boom");
+    mocked.runUninstallMock.mockRejectedValue(failure);
+    process.argv = ["node", "cli", "uninstall", "--yes"];
+
+    await import("../../src/cli.js");
+    await vi.waitFor(() => {
+      expect(mocked.handleCliFailureMock).toHaveBeenCalledWith(failure);
+    });
   });
 });
