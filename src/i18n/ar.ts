@@ -869,6 +869,9 @@ export const ar: I18nDictionary = {
   "uninstall.summary_left": "اكتملت الإزالة؛ تُرك في مكانه: {items}",
   "uninstall.summary_failed": "اكتملت الإزالة. الخطوات الفاشلة: {count}",
   "uninstall.cli_hint": "لإزالة واجهة سطر الأوامر نفسها، شغّل: {command}",
+  "uninstall.step_process_already_exited": "كانت العملية {pid} قد انتهت بالفعل؛ لم تُرسل أي إشارة.",
+  "uninstall.step_opencode_gone":
+    "العملية الموجودة على منفذ OpenCode (PID {pid}) لم تعد تستمع؛ لم يتم إيقاف أي شيء.",
   "uninstall.plan_override_secrets":
     "إزالة secrets.enc وkeystore_password في ‏{path} حتى لو بقي باقي ذلك المجلد.",
   "uninstall.step_override_secrets":

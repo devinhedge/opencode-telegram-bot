@@ -893,6 +893,9 @@ export const tr: I18nDictionary = {
   "uninstall.summary_left": "Kaldırma tamamlandı; yerinde bırakılanlar: {items}",
   "uninstall.summary_failed": "Kaldırma tamamlandı. Başarısız adımlar: {count}",
   "uninstall.cli_hint": "CLI'nin kendisini kaldırmak için şunu çalıştırın: {command}",
+  "uninstall.step_process_already_exited": "{pid} işlemi zaten sonlanmıştı; sinyal gönderilmedi.",
+  "uninstall.step_opencode_gone":
+    "OpenCode portunda bulunan işlem (PID {pid}) artık dinlemiyor; hiçbir şey durdurulmadı.",
   "uninstall.plan_override_secrets":
     "Bu dizinin geri kalanı korunsa bile {path} içindeki secrets.enc ve keystore_password dosyalarını kaldır.",
   "uninstall.step_override_secrets":

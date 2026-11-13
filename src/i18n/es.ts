@@ -921,6 +921,10 @@ export const es: I18nDictionary = {
   "uninstall.summary_left": "Desinstalación terminada; se dejó sin tocar: {items}",
   "uninstall.summary_failed": "Desinstalación terminada. Pasos fallidos: {count}",
   "uninstall.cli_hint": "Para eliminar la propia CLI, ejecuta: {command}",
+  "uninstall.step_process_already_exited":
+    "El proceso {pid} ya había terminado; no se envió ninguna señal.",
+  "uninstall.step_opencode_gone":
+    "El proceso encontrado en el puerto de OpenCode (PID {pid}) ya no está escuchando; no se detuvo nada.",
   "uninstall.plan_override_secrets":
     "Eliminar secrets.enc y keystore_password en {path} aunque se conserve el resto de ese directorio.",
   "uninstall.step_override_secrets":

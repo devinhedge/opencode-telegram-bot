@@ -897,6 +897,10 @@ export const ko: I18nDictionary = {
   "uninstall.summary_left": "제거를 완료했습니다. 그대로 남긴 항목: {items}",
   "uninstall.summary_failed": "제거를 완료했습니다. 실패한 단계: {count}",
   "uninstall.cli_hint": "CLI 자체를 제거하려면 다음을 실행하세요: {command}",
+  "uninstall.step_process_already_exited":
+    "프로세스 {pid}은(는) 이미 종료되었습니다. 신호를 보내지 않았습니다.",
+  "uninstall.step_opencode_gone":
+    "OpenCode 포트에서 찾은 프로세스 (PID {pid})가 더 이상 수신 대기하지 않습니다. 아무것도 중지하지 않았습니다.",
   "uninstall.plan_override_secrets":
     "해당 디렉터리의 나머지를 유지하더라도 {path}의 secrets.enc와 keystore_password는 제거합니다.",
   "uninstall.step_override_secrets":

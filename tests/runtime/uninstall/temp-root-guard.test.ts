@@ -20,6 +20,34 @@ describe("assertInsideTempRoot", () => {
     }
   });
 
+  it.skipIf(process.platform === "win32")(
+    "refuses a temp path whose ancestor is a symlink out of the root",
+    async () => {
+      const root = await fs.mkdtemp(path.join(os.tmpdir(), "uninstall-guard-root-"));
+      const elsewhere = await fs.mkdtemp(path.join(os.tmpdir(), "uninstall-guard-elsewhere-"));
+      const toElsewhere = path.join(root, "to-elsewhere");
+      const toRealHome = path.join(root, "to-real-home");
+      try {
+        await fs.symlink(elsewhere, toElsewhere);
+        // Only a link is created; nothing is ever written through it.
+        await fs.symlink(os.userInfo().homedir, toRealHome);
+
+        expect(() => assertInsideTempRoot(path.join(toElsewhere, "home", ".env"), root)).toThrow(
+          /outside the temp root/,
+        );
+        expect(() => assertInsideTempRoot(path.join(toRealHome, "x"))).toThrow(
+          /outside the temp root/,
+        );
+        expect(() => assertInsideTempRoot(path.join(root, "plain", ".env"), root)).not.toThrow();
+      } finally {
+        await fs.unlink(toRealHome).catch(() => undefined);
+        await fs.unlink(toElsewhere).catch(() => undefined);
+        await fs.rm(root, { recursive: true, force: true });
+        await fs.rm(elsewhere, { recursive: true, force: true });
+      }
+    },
+  );
+
   it("accepts a path inside a temp directory", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "uninstall-guard-"));
     try {

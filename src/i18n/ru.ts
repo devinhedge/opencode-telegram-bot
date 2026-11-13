@@ -915,6 +915,9 @@ export const ru: I18nDictionary = {
   "uninstall.summary_left": "Удаление завершено; оставлено на месте: {items}",
   "uninstall.summary_failed": "Удаление завершено. Шаги с ошибками: {count}",
   "uninstall.cli_hint": "Чтобы удалить саму CLI, выполните: {command}",
+  "uninstall.step_process_already_exited": "Процесс {pid} уже завершился; сигнал не отправлялся.",
+  "uninstall.step_opencode_gone":
+    "Процесс, найденный на порту OpenCode (PID {pid}), больше не слушает порт; ничего не остановлено.",
   "uninstall.plan_override_secrets":
     "Удалить secrets.enc и keystore_password в {path}, даже если остальное содержимое каталога останется.",
   "uninstall.step_override_secrets":

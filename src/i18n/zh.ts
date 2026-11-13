@@ -829,6 +829,9 @@ export const zh: I18nDictionary = {
   "uninstall.summary_left": "卸载完成；保留未动的项目：{items}",
   "uninstall.summary_failed": "卸载完成。失败的步骤：{count}",
   "uninstall.cli_hint": "要删除 CLI 本身，请运行：{command}",
+  "uninstall.step_process_already_exited": "进程 {pid} 已经退出；未发送任何信号。",
+  "uninstall.step_opencode_gone":
+    "在 OpenCode 端口上找到的进程（PID {pid}）已不再监听；未停止任何进程。",
   "uninstall.plan_override_secrets":
     "即使保留该目录的其余内容，也会删除 {path} 中的 secrets.enc 和 keystore_password。",
   "uninstall.step_override_secrets":

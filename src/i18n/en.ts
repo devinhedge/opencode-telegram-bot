@@ -902,6 +902,9 @@ export const en = {
   "uninstall.summary_left": "Uninstall finished; left in place: {items}",
   "uninstall.summary_failed": "Uninstall finished. Failed steps: {count}",
   "uninstall.cli_hint": "To remove the CLI itself, run: {command}",
+  "uninstall.step_process_already_exited": "Process {pid} had already exited; no signal was sent.",
+  "uninstall.step_opencode_gone":
+    "The process found on the OpenCode port (PID {pid}) is no longer listening; nothing was stopped.",
   "uninstall.plan_override_secrets":
     "Remove secrets.enc and keystore_password in {path} even if you keep the rest of that directory.",
   "uninstall.step_override_secrets":

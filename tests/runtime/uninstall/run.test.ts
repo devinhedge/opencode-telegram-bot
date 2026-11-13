@@ -1,4 +1,3 @@
-import { spawnSync } from "node:child_process";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -490,9 +489,32 @@ describe("runtime/uninstall/run", () => {
       expect(typeof start).toBe("function");
     });
 
+    it("removes nothing and exits 1 when a cast deps object lacks the removal functions", async () => {
+      await populateHome(defaultHome);
+      const harness = createHarness();
+      const partial: Partial<UninstallDeps> = { ...harness.deps };
+      delete partial.removeAppHome;
+      delete partial.removeKeychain;
+
+      const code = await runUninstall(YES, partial as UninstallDeps);
+
+      expect(code).toBe(1);
+      await expectHomeUntouched(defaultHome);
+      expect(harness.secrets.size).toBe(STORED_KEYCHAIN_ACCOUNTS.length);
+    });
+
     it("fails the test instead of touching a home outside the temp root", async () => {
+      // Inert fakes: the real destructive functions are never reachable with these paths, even
+      // if the guard regressed.
+      const inertRemoveAppHome = vi.fn(async () => ({ results: [], homeRemoved: false }));
+      const inertRemovePath = vi.fn(async (target: string) => ({
+        path: target,
+        status: "absent" as const,
+      }));
       const harness = createHarness({
         getHomes: () => ({ defaultHome: os.userInfo().homedir, overrideHome: null }),
+        removeAppHome: inertRemoveAppHome,
+        removePath: inertRemovePath,
       });
 
       expect(() => harness.deps.getHomes()).toThrow(/outside the temp root/);
@@ -500,6 +522,8 @@ describe("runtime/uninstall/run", () => {
         /outside the temp root/,
       );
       await expect(harness.deps.removePath("/")).rejects.toThrow(/outside the temp root/);
+      expect(inertRemoveAppHome).not.toHaveBeenCalled();
+      expect(inertRemovePath).not.toHaveBeenCalled();
       expect(guardViolations).toHaveLength(3);
       // Deliberate violations: cleared so afterEach does not fail this test.
       guardViolations.length = 0;
@@ -610,9 +634,12 @@ describe("runtime/uninstall/run", () => {
       it(`leaves a stale daemon state file in place after ${label}`, async () => {
         await populateHome(defaultHome);
         const stateFile = path.join(defaultHome, "run", "bot-service.json");
-        const deadPid = spawnSync(process.execPath, ["-e", ""]).pid;
+        // No real pid is probed: the liveness check sees a process that is gone.
+        const kill = vi.spyOn(process, "kill").mockImplementation(() => {
+          throw Object.assign(new Error("kill ESRCH"), { code: "ESRCH" });
+        });
         const stale = JSON.stringify({
-          pid: deadPid,
+          pid: 424242,
           startedAt: new Date().toISOString(),
           logFilePath: "/x.log",
           mode: "daemon",
@@ -627,6 +654,7 @@ describe("runtime/uninstall/run", () => {
         const code = await runUninstall(NO_YES, harness.deps);
 
         expect(code).toBe(1);
+        expect(kill).toHaveBeenCalledWith(424242, 0);
         await expect(fs.readFile(stateFile, "utf-8")).resolves.toBe(stale);
       });
     }
@@ -745,11 +773,46 @@ describe("runtime/uninstall/run", () => {
       );
     });
 
-    it("reports a process that is already gone (ESRCH on SIGTERM) as stopped", async () => {
+    it("reports a process that exited before any signal as already exited, not stopped", async () => {
+      const harness = createHarness({
+        findBotProcesses: vi.fn(async () => [botProcess(5001)]),
+        reverifyProcess: vi.fn(async () => false),
+        waitForExit: vi.fn(async () => true),
+      });
+      harness.answers.push("y");
+
+      const code = await runUninstall(YES, harness.deps);
+
+      expect(code).toBe(0);
+      expect(harness.deps.signalProcess).not.toHaveBeenCalled();
+      expect(harness.lines).toContain(tEn("uninstall.step_process_already_exited", { pid: 5001 }));
+      expect(harness.lines).not.toContain(tEn("uninstall.step_process_stopped", { pid: 5001 }));
+      expect(harness.lines).toContain(tEn("uninstall.summary_ok"));
+    });
+
+    it("reports a process that is already gone (ESRCH on SIGTERM) as already exited", async () => {
       const harness = createHarness({
         findBotProcesses: vi.fn(async () => [botProcess(5001)]),
         signalProcess: vi.fn(() => {
           throw Object.assign(new Error("kill ESRCH"), { code: "ESRCH" });
+        }),
+      });
+      harness.answers.push("y");
+
+      const code = await runUninstall(YES, harness.deps);
+
+      expect(code).toBe(0);
+      expect(harness.lines).toContain(tEn("uninstall.step_process_already_exited", { pid: 5001 }));
+    });
+
+    it("reports ESRCH on SIGKILL after a SIGTERM as stopped", async () => {
+      const harness = createHarness({
+        findBotProcesses: vi.fn(async () => [botProcess(5001)]),
+        waitForExit: vi.fn(async () => false),
+        signalProcess: vi.fn((_pid: number, signal: NodeJS.Signals) => {
+          if (signal === "SIGKILL") {
+            throw Object.assign(new Error("kill ESRCH"), { code: "ESRCH" });
+          }
         }),
       });
       harness.answers.push("y");
@@ -1087,9 +1150,15 @@ describe("runtime/uninstall/run", () => {
       expect(code).toBe(1);
       expect(harness.deps.stopOpencode).not.toHaveBeenCalled();
       expect(harness.lines).toContain(tEn("uninstall.step_opencode_refused", { pid: 7001 }));
+      expect(harness.lines).toContain(
+        tEn("uninstall.summary_failed_left", {
+          count: 1,
+          items: tEn("uninstall.left_opencode", { pid: 7001 }),
+        }),
+      );
     });
 
-    it("refuses when the fresh lookup finds nothing", async () => {
+    it("reports a listener that is gone at the fresh lookup: not a failure, not left", async () => {
       const findOpencode = vi
         .fn<() => Promise<OpencodeServer | null>>()
         .mockResolvedValueOnce(server)
@@ -1099,8 +1168,11 @@ describe("runtime/uninstall/run", () => {
 
       const code = await runUninstall({ yes: true, stopOpencode: true }, harness.deps);
 
-      expect(code).toBe(1);
+      expect(code).toBe(0);
       expect(harness.deps.stopOpencode).not.toHaveBeenCalled();
+      expect(harness.lines).toContain(tEn("uninstall.step_opencode_gone", { pid: 7001 }));
+      expect(harness.lines).not.toContain(tEn("uninstall.step_opencode_refused", { pid: 7001 }));
+      expect(harness.lines).toContain(tEn("uninstall.summary_ok"));
     });
 
     it("shows the unavailable command line and, on Windows, the tree warning", async () => {
@@ -1172,6 +1244,12 @@ describe("runtime/uninstall/run", () => {
       expect(code).toBe(1);
       expect(harness.deps.stopOpencode).not.toHaveBeenCalled();
       expect(harness.lines).toContain(tEn("uninstall.step_opencode_refused", { pid: 7001 }));
+      expect(harness.lines).toContain(
+        tEn("uninstall.summary_failed_left", {
+          count: 1,
+          items: tEn("uninstall.left_opencode", { pid: 7001 }),
+        }),
+      );
     });
 
     it("excludes the own process chain and the daemon pid from both lookups", async () => {
@@ -1351,6 +1429,36 @@ describe("runtime/uninstall/run", () => {
         tEn("uninstall.step_override_invalid", {
           path: overrideHome,
           reason: tEn("uninstall.override_reason_not_a_directory"),
+        }),
+      );
+    });
+
+    it("validates the override again before removing its secret files after a decline", async () => {
+      await populateHome(overrideHome);
+      const validateOverride = vi
+        .fn<UninstallDeps["validateOverride"]>()
+        .mockResolvedValueOnce({ ok: true })
+        .mockResolvedValueOnce({ ok: true })
+        .mockResolvedValue({ ok: false, reason: "no-bot-files" });
+      const harness = createHarness({
+        getHomes: () => ({ defaultHome, overrideHome }),
+        validateOverride,
+      });
+      harness.answers.push("n");
+
+      const code = await runUninstall(YES, harness.deps);
+
+      expect(code).toBe(0);
+      expect(validateOverride).toHaveBeenCalledTimes(3);
+      await expectHomeUntouched(overrideHome);
+      expect(harness.deps.removePath).not.toHaveBeenCalled();
+      expect(harness.lines).not.toContain(
+        tEn("uninstall.step_override_secrets", { path: overrideHome }),
+      );
+      expect(harness.lines).toContain(
+        tEn("uninstall.step_override_invalid", {
+          path: overrideHome,
+          reason: tEn("uninstall.override_reason_no_bot_files"),
         }),
       );
     });
@@ -1691,7 +1799,7 @@ describe("runtime/uninstall/run", () => {
       expect(harness.lines.join("\n")).not.toContain(SENTINEL);
     });
 
-    it("never prints a secret on the error paths", async () => {
+    it("never prints a secret from swallowed errors or from process command lines", async () => {
       await populateHome(defaultHome, `TELEGRAM_BOT_TOKEN=${SENTINEL}\n`);
       const overrideHome = path.join(tempRoot, "override-home");
       await populateHome(overrideHome, `TELEGRAM_BOT_TOKEN=${SENTINEL}\n`);

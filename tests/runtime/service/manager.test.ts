@@ -428,36 +428,35 @@ describe("runtime/service/manager", () => {
       expect(logger.info).not.toHaveBeenCalled();
     });
 
-    it("reports a recycled pid as stale and leaves the file in place", async () => {
-      const restorePlatform = setPlatform("win32");
-      const content = JSON.stringify({
-        pid: 11236,
-        startedAt: new Date("2026-07-18T20:56:06.413Z").toISOString(),
-        logFilePath: path.join(tempDirPath, "logs", "bot-service.log"),
-        mode: "daemon",
-      });
-      await writeState(content);
-      vi.spyOn(process, "kill").mockImplementation(() => true);
-      execMock.mockImplementation(
-        (
-          _command: string,
-          callback: (error: Error | null, stdout: string, stderr: string) => void,
-        ) => {
-          callback(null, "20260719095542.123456+180\n", "");
-          return {};
-        },
-      );
+    // The POSIX creation-time path (`ps -o lstart=`); process.platform is never stubbed.
+    it.skipIf(process.platform === "win32")(
+      "reports a recycled pid as stale and leaves the file in place",
+      async () => {
+        const content = JSON.stringify({
+          pid: 11236,
+          startedAt: new Date("2026-07-18T20:56:06.413Z").toISOString(),
+          logFilePath: path.join(tempDirPath, "logs", "bot-service.log"),
+          mode: "daemon",
+        });
+        await writeState(content);
+        vi.spyOn(process, "kill").mockImplementation(() => true);
+        execMock.mockImplementation(
+          (
+            command: string,
+            callback: (error: Error | null, stdout: string, stderr: string) => void,
+          ) => {
+            callback(null, command.includes("lstart") ? "Sun Jul 19 09:55:42 2026\n" : "", "");
+            return {};
+          },
+        );
 
-      try {
         const status = await readBotServiceStatus();
 
         expect(status).toEqual({ status: "stopped", service: null, cleanupReason: "stale" });
         await expect(fs.readFile(getServiceStateFilePath(), "utf-8")).resolves.toBe(content);
         expect(logger.warn).not.toHaveBeenCalled();
-      } finally {
-        restorePlatform();
-      }
-    });
+      },
+    );
 
     it("reports invalid JSON and an invalid state without removing the file", async () => {
       for (const content of ["{not json", JSON.stringify({ pid: -1 })]) {

@@ -294,28 +294,38 @@ async function stopDaemonStep(ctx: Context, daemon: DaemonState): Promise<void> 
   }
 }
 
-type ProcessStopResult = "stopped" | "failed" | "refused";
+type ProcessStopResult = "stopped" | "exited" | "failed" | "refused";
 
 /**
  * SIGTERM, then SIGKILL after the timeout. The process is re-verified immediately before each
- * signal; a pid that no longer matches the bot is never signaled (refused) unless it has
- * already exited (stopped). A signal error other than ESRCH is a failure.
+ * signal; a pid that no longer matches the bot is never signaled (refused). A process that had
+ * already exited before any signal is "exited"; one that exits after SIGTERM is "stopped". A
+ * signal error other than ESRCH is a failure.
  */
 async function stopBotProcess(deps: UninstallDeps, found: BotProcess): Promise<ProcessStopResult> {
   if (!Number.isInteger(found.pid) || found.pid <= 0) {
     return "refused";
   }
 
+  let signaled = false;
   for (const signal of STOP_SIGNALS) {
     if (!(await deps.reverifyProcess(found))) {
-      return (await deps.waitForExit(found.pid, 0)) ? "stopped" : "refused";
+      if (await deps.waitForExit(found.pid, 0)) {
+        return signaled ? "stopped" : "exited";
+      }
+      return "refused";
     }
 
     try {
       deps.signalProcess(found.pid, signal);
     } catch (error) {
-      return errorCode(error) === "ESRCH" ? "stopped" : "failed";
+      // ESRCH: the process is gone; nothing received this signal.
+      if (errorCode(error) === "ESRCH") {
+        return signaled ? "stopped" : "exited";
+      }
+      return "failed";
     }
+    signaled = true;
 
     if (await deps.waitForExit(found.pid, PROCESS_STOP_TIMEOUT_MS)) {
       return "stopped";
@@ -373,8 +383,11 @@ async function stopBotsStep(ctx: Context, scan: ScanState): Promise<void> {
 
     if (result === "stopped") {
       say("uninstall.step_process_stopped", { pid: found.pid });
+    } else if (result === "exited") {
+      // Gone before any signal: nothing was stopped, nothing is left, nothing failed.
+      say("uninstall.step_process_already_exited", { pid: found.pid });
     } else if (result === "refused") {
-      // The pid exited or was reused: not this run's failure, but it is reported as left.
+      // The pid no longer matches the bot (reused or changed): not signaled, reported as left.
       say("uninstall.step_process_refused", { pid: found.pid });
       leftRunning();
     } else {
@@ -470,7 +483,12 @@ async function opencodeStep(
   // Time of check to time of use: the listener is looked up again right before the kill, and a
   // different pid or command line means the confirmed process is not the one listening now.
   const fresh = await detectOpencode(deps, exclude);
-  if (fresh === null || fresh.pid !== server.pid || fresh.commandLine !== server.commandLine) {
+  if (fresh === null) {
+    // Nothing listens any more: there is nothing to stop and nothing left running.
+    say("uninstall.step_opencode_gone", { pid: server.pid });
+    return;
+  }
+  if (fresh.pid !== server.pid || fresh.commandLine !== server.commandLine) {
     say("uninstall.step_opencode_refused", { pid: server.pid });
     ctx.failures += 1;
     leftRunning();
@@ -583,6 +601,12 @@ function reportInvalidOverride(
 
 /** The kept override still loses its secret files: only these two names, links unlinked only. */
 async function removeOverrideSecrets(ctx: Context, overrideHome: string): Promise<void> {
+  // Time passed since the earlier check (the question): the directory must still qualify.
+  const reason = await validate(ctx.deps, overrideHome);
+  if (reason !== null) {
+    reportInvalidOverride(ctx, overrideHome, reason);
+    return;
+  }
   ctx.say("uninstall.step_override_secrets", { path: overrideHome });
   const realHome = await realpathOrSelf(overrideHome);
   const results: RemoveResult[] = [];

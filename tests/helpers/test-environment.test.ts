@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -7,6 +8,7 @@ import {
   createTestHome,
   ensureTestEnvironment,
   getTestUserHome,
+  releaseTestUserHome,
 } from "./test-environment.js";
 
 async function snapshot(directory: string): Promise<Record<string, string>> {
@@ -57,6 +59,19 @@ describe("test user-home isolation", () => {
         getTestUserHome(),
       ),
     ).toBe(true);
+  });
+
+  it("on release removes the temp home but never points back at the real home", () => {
+    const before = getTestUserHome();
+
+    releaseTestUserHome();
+
+    expect(existsSync(before)).toBe(false);
+    expect(process.env.HOME).toBe(before);
+    expect(process.env.USERPROFILE).toBe(before);
+    ensureTestEnvironment();
+    expect(getTestUserHome()).not.toBe(before);
+    expect(os.homedir()).toBe(getTestUserHome());
   });
 
   it("restores the temp user home after a test deletes HOME", () => {

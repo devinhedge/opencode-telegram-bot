@@ -24,6 +24,8 @@ afterEach(async () => {
   ensureTestEnvironment();
 });
 
+// Removes the temp user home only; the environment keeps pointing at it (never back at the real
+// home) and each test file's setup re-points it at a fresh temp home.
 afterAll(() => {
   releaseTestUserHome();
 });

@@ -5,7 +5,7 @@ import type { RuntimePaths } from "../../src/runtime/paths.js";
 
 const state = globalThis as typeof globalThis & {
   __opencodeTestHomes?: { defaultHome: string; homes: Set<string> };
-  __opencodeTestUserHome?: { root: string; original: Record<string, string | undefined> };
+  __opencodeTestUserHome?: { root: string };
 };
 
 // Every variable from which a user home or an OS default directory is derived. They all point
@@ -31,17 +31,10 @@ function userHomeEnv(root: string): Record<(typeof USER_HOME_ENV_KEYS)[number], 
   };
 }
 
-function getUserHome(): { root: string; original: Record<string, string | undefined> } {
-  if (!state.__opencodeTestUserHome) {
-    const original: Record<string, string | undefined> = {};
-    for (const key of USER_HOME_ENV_KEYS) {
-      original[key] = process.env[key];
-    }
-    state.__opencodeTestUserHome = {
-      root: fs.mkdtempSync(path.join(os.tmpdir(), "opencode-telegram-user-home-")),
-      original,
-    };
-  }
+function getUserHome(): { root: string } {
+  state.__opencodeTestUserHome ??= {
+    root: fs.mkdtempSync(path.join(os.tmpdir(), "opencode-telegram-user-home-")),
+  };
   return state.__opencodeTestUserHome;
 }
 
@@ -50,19 +43,16 @@ export function getTestUserHome(): string {
   return getUserHome().root;
 }
 
-/** Removes the temp user home and restores the variables it replaced (setup afterAll). */
+/**
+ * Removes the temp user home (setup afterAll). The variables are deliberately NOT restored to the
+ * real values: late async work of the finished file must never resolve against the real home. They
+ * keep pointing at the removed directory until the next file's setup creates a new temp home and
+ * re-points them.
+ */
 export function releaseTestUserHome(): void {
   const userHome = state.__opencodeTestUserHome;
   if (!userHome) {
     return;
-  }
-  for (const key of USER_HOME_ENV_KEYS) {
-    const value = userHome.original[key];
-    if (value === undefined) {
-      delete process.env[key];
-    } else {
-      process.env[key] = value;
-    }
   }
   fs.rmSync(userHome.root, { recursive: true, force: true });
   delete state.__opencodeTestUserHome;

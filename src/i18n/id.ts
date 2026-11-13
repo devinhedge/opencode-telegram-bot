@@ -894,6 +894,10 @@ export const id: I18nDictionary = {
   "uninstall.summary_left": "Uninstall selesai; dibiarkan di tempat: {items}",
   "uninstall.summary_failed": "Uninstall selesai. Langkah yang gagal: {count}",
   "uninstall.cli_hint": "Untuk menghapus CLI itu sendiri, jalankan: {command}",
+  "uninstall.step_process_already_exited":
+    "Proses {pid} sudah berhenti; tidak ada sinyal yang dikirim.",
+  "uninstall.step_opencode_gone":
+    "Proses yang ditemukan di port OpenCode (PID {pid}) tidak lagi mendengarkan; tidak ada yang dihentikan.",
   "uninstall.plan_override_secrets":
     "Hapus secrets.enc dan keystore_password di {path} meskipun sisa direktori itu dipertahankan.",
   "uninstall.step_override_secrets":

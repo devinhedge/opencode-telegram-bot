@@ -1,3 +1,4 @@
+import { constants } from "node:fs";
 import fs from "node:fs/promises";
 import dotenv from "dotenv";
 // The uninstaller never initializes the file logger: do not import src/utils/logger.ts here,
@@ -18,8 +19,10 @@ const BOT_LOCALE_KEY = "BOT_LOCALE";
 // absent environment value falls through to the file. A missing or unreadable file, or an
 // unsupported value, yields undefined: the locale is a convenience and must never stop or block
 // the uninstall.
-// A null path (the app home is unknown) uses the environment only. The file is read only when it
-// is, or links to, a regular file, so a FIFO or device at that path can never block the run.
+// A null path (the app home is unknown) uses the environment only. The file is opened without
+// blocking (O_NONBLOCK where the platform has it), the open handle is checked to be a regular file
+// (a symlink to one is fine), and the content is read from that same handle, so a FIFO or device
+// at the path can never block the run and nothing can be swapped in between check and read.
 export async function resolveUninstallLocale(
   env: NodeJS.ProcessEnv,
   envFilePath: string | null,
@@ -32,14 +35,18 @@ export async function resolveUninstallLocale(
     return undefined;
   }
 
+  let handle: fs.FileHandle | undefined;
   try {
-    if (!(await fs.stat(envFilePath)).isFile()) {
+    handle = await fs.open(envFilePath, constants.O_RDONLY | (constants.O_NONBLOCK ?? 0));
+    if (!(await handle.stat()).isFile()) {
       return undefined;
     }
-    const content = await fs.readFile(envFilePath, "utf-8");
+    const content = await handle.readFile("utf-8");
     return resolveSupportedLocale(dotenv.parse(content)[BOT_LOCALE_KEY]) ?? undefined;
   } catch {
     return undefined;
+  } finally {
+    await handle?.close().catch(() => undefined);
   }
 }
 

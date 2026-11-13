@@ -112,6 +112,8 @@ const PLACEHOLDERS: Record<string, string[]> = {
   step_logs_warning: ["message"],
   step_homes_error: ["reason"],
   home_kept_logs: ["path"],
+  step_process_already_exited: ["pid"],
+  step_opencode_gone: ["pid"],
 };
 
 const REQUIRED_KEYS = Object.keys(PLACEHOLDERS);
@@ -132,7 +134,8 @@ const LOCALES: Record<Exclude<Locale, "en">, I18nDictionary> = {
 
 // Keys whose translation may legitimately equal the English text, each with a reason.
 const SAME_AS_ENGLISH: Record<string, string> = {
-  list_separator: "a comma and a space separate list items in the Latin and Cyrillic scripts too",
+  list_separator:
+    "a comma and a space separate list items in the Latin and Cyrillic scripts and in Korean",
 };
 
 function placeholdersOf(template: string): string[] {
