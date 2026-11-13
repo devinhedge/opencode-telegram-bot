@@ -848,7 +848,7 @@ export const ru: I18nDictionary = {
   "uninstall.confirm_stop_process":
     "Остановить процесс {pid} (пользователь {user}, запущен {started}): {command}? [y/N] ",
   "uninstall.confirm_stop_opencode":
-    "Остановить сервер OpenCode (PID {pid}, порт {port}): {command}? [y/N] ",
+    "Остановить процесс, найденный на порту OpenCode {port} (PID {pid}): {command}? [y/N] ",
   "uninstall.confirm_stop_opencode_tree": "В Windows это остановит всё дерево процессов сервера.",
   "uninstall.no_terminal_plan_only":
     "Терминал недоступен. План показан выше, ничего не удалено. Запустите заново в терминале или укажите --yes.",
@@ -856,6 +856,7 @@ export const ru: I18nDictionary = {
   "uninstall.step_daemon_stopped": "Демон бота остановлен (PID {pid}).",
   "uninstall.step_daemon_failed": "Не удалось остановить демон бота (PID {pid}).",
   "uninstall.step_daemon_absent": "Отсоединённый демон бота не был запущен.",
+  "uninstall.step_daemon_error": "Не удалось проверить или остановить демон бота: {reason}",
   "uninstall.step_removed": "Удалено: {path}",
   "uninstall.step_absent": "Уже отсутствует: {path}",
   "uninstall.step_failed": "Не удалось удалить {path}: {reason}",
@@ -886,6 +887,9 @@ export const ru: I18nDictionary = {
   "uninstall.step_process_skipped": "Процесс {pid} пропущен.",
   "uninstall.step_process_refused":
     "Процесс {pid} пропущен: его командная строка изменилась до остановки.",
+  "uninstall.process_unverified":
+    "Не удалось прочитать рабочий каталог процесса {pid}, поэтому это совпадение не проверено.",
+  "uninstall.started_unknown": "неизвестно",
   "uninstall.step_override_invalid": "Каталог OPENCODE_TELEGRAM_HOME {path} пропущен: {reason}",
   "uninstall.step_override_skipped": "Каталог OPENCODE_TELEGRAM_HOME {path} пропущен.",
   "uninstall.override_reason_missing": "каталог не существует",
@@ -894,17 +898,22 @@ export const ru: I18nDictionary = {
   "uninstall.override_reason_root": "это корень файловой системы",
   "uninstall.override_reason_user_home": "это ваш домашний каталог",
   "uninstall.override_reason_no_bot_files": "в нём нет файлов бота",
-  "uninstall.step_opencode_stopped": "Сервер OpenCode остановлен (PID {pid}).",
-  "uninstall.step_opencode_failed": "Не удалось остановить сервер OpenCode (PID {pid}).",
+  "uninstall.step_opencode_stopped":
+    "Процесс, найденный на порту OpenCode, остановлен (PID {pid}).",
+  "uninstall.step_opencode_failed":
+    "Не удалось остановить процесс, найденный на порту OpenCode (PID {pid}).",
   "uninstall.step_opencode_skipped": "Остановка сервера OpenCode пропущена.",
   "uninstall.step_opencode_refused":
-    "Сервер OpenCode (PID {pid}) пропущен: его командная строка изменилась до остановки.",
+    "Процесс, найденный на порту OpenCode (PID {pid}), пропущен: теперь порт слушает другой процесс.",
   "uninstall.step_opencode_none": "Сервер OpenCode для остановки не найден.",
   "uninstall.command_unavailable": "(командная строка недоступна)",
   "uninstall.home_removed": "Каталог приложения {path} удалён.",
   "uninstall.home_kept":
     "Каталог приложения {path} сохранён: в нём остались файлы (журналы остаются).",
   "uninstall.summary_ok": "Удаление завершено.",
+  "uninstall.left_process": "процесс {pid}",
+  "uninstall.left_opencode": "процесс на порту OpenCode (PID {pid})",
+  "uninstall.left_keychain": "секреты связки ключей (связка ключей была недоступна)",
   "uninstall.summary_left": "Удаление завершено; оставлено на месте: {items}",
   "uninstall.summary_failed": "Удаление завершено. Шаги с ошибками: {count}",
   "uninstall.cli_hint": "Чтобы удалить саму CLI, выполните: {command}",

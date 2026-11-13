@@ -829,7 +829,7 @@ export const tr: I18nDictionary = {
   "uninstall.confirm_stop_process":
     "{pid} işlemi durdurulsun mu (kullanıcı {user}, başlangıç {started}): {command}? [y/N] ",
   "uninstall.confirm_stop_opencode":
-    "OpenCode sunucusu durdurulsun mu (PID {pid}, port {port}): {command}? [y/N] ",
+    "OpenCode portu {port} üzerinde bulunan işlem durdurulsun mu (PID {pid}): {command}? [y/N] ",
   "uninstall.confirm_stop_opencode_tree": "Windows'ta bu, sunucunun tüm işlem ağacını durdurur.",
   "uninstall.no_terminal_plan_only":
     "Kullanılabilir terminal yok. Plan yukarıda gösterildi ve hiçbir şey kaldırılmadı. Bir terminalde yeniden çalıştırın veya --yes verin.",
@@ -837,6 +837,7 @@ export const tr: I18nDictionary = {
   "uninstall.step_daemon_stopped": "Bot daemon'u durduruldu (PID {pid}).",
   "uninstall.step_daemon_failed": "Bot daemon'u durdurulamadı (PID {pid}).",
   "uninstall.step_daemon_absent": "Çalışan ayrık bir bot daemon'u yoktu.",
+  "uninstall.step_daemon_error": "Bot daemon'u denetlenemedi veya durdurulamadı: {reason}",
   "uninstall.step_removed": "Kaldırıldı: {path}",
   "uninstall.step_absent": "Zaten yok: {path}",
   "uninstall.step_failed": "{path} kaldırılamadı: {reason}",
@@ -867,6 +868,9 @@ export const tr: I18nDictionary = {
   "uninstall.step_process_skipped": "{pid} işlemi atlandı.",
   "uninstall.step_process_refused":
     "{pid} işlemi atlandı: komut satırı durdurulmadan önce değişti.",
+  "uninstall.process_unverified":
+    "{pid} işleminin çalışma dizini okunamadı, bu nedenle bu eşleşme doğrulanmadı.",
+  "uninstall.started_unknown": "bilinmiyor",
   "uninstall.step_override_invalid": "OPENCODE_TELEGRAM_HOME dizini {path} atlandı: {reason}",
   "uninstall.step_override_skipped": "OPENCODE_TELEGRAM_HOME dizini {path} atlandı.",
   "uninstall.override_reason_missing": "dizin yok",
@@ -875,16 +879,19 @@ export const tr: I18nDictionary = {
   "uninstall.override_reason_root": "dosya sisteminin kök dizini",
   "uninstall.override_reason_user_home": "ev dizininiz",
   "uninstall.override_reason_no_bot_files": "bot dosyası içermiyor",
-  "uninstall.step_opencode_stopped": "OpenCode sunucusu durduruldu (PID {pid}).",
-  "uninstall.step_opencode_failed": "OpenCode sunucusu durdurulamadı (PID {pid}).",
+  "uninstall.step_opencode_stopped": "OpenCode portunda bulunan işlem durduruldu (PID {pid}).",
+  "uninstall.step_opencode_failed": "OpenCode portunda bulunan işlem durdurulamadı (PID {pid}).",
   "uninstall.step_opencode_skipped": "OpenCode sunucusunun durdurulması atlandı.",
   "uninstall.step_opencode_refused":
-    "OpenCode sunucusu (PID {pid}) atlandı: komut satırı durdurulmadan önce değişti.",
+    "OpenCode portunda bulunan işlem (PID {pid}) atlandı: artık portu başka bir işlem dinliyor.",
   "uninstall.step_opencode_none": "Durdurulacak OpenCode sunucusu bulunamadı.",
   "uninstall.command_unavailable": "(komut satırı kullanılamıyor)",
   "uninstall.home_removed": "{path} uygulama dizini kaldırıldı.",
   "uninstall.home_kept": "{path} uygulama dizini korundu: hâlâ dosya içeriyor (günlükler kalır).",
   "uninstall.summary_ok": "Kaldırma tamamlandı.",
+  "uninstall.left_process": "{pid} işlemi",
+  "uninstall.left_opencode": "OpenCode portundaki işlem (PID {pid})",
+  "uninstall.left_keychain": "anahtar zinciri gizli bilgileri (anahtar zinciri kullanılamıyordu)",
   "uninstall.summary_left": "Kaldırma tamamlandı; yerinde bırakılanlar: {items}",
   "uninstall.summary_failed": "Kaldırma tamamlandı. Başarısız adımlar: {count}",
   "uninstall.cli_hint": "CLI'nin kendisini kaldırmak için şunu çalıştırın: {command}",

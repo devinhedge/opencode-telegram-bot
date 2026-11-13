@@ -855,7 +855,7 @@ export const de: I18nDictionary = {
   "uninstall.confirm_stop_process":
     "Prozess {pid} beenden (Benutzer {user}, gestartet {started}): {command}? [y/N] ",
   "uninstall.confirm_stop_opencode":
-    "Den OpenCode-Server beenden (PID {pid}, Port {port}): {command}? [y/N] ",
+    "Den am OpenCode-Port {port} gefundenen Prozess beenden (PID {pid}): {command}? [y/N] ",
   "uninstall.confirm_stop_opencode_tree":
     "Unter Windows wird dabei der gesamte Prozessbaum des Servers beendet.",
   "uninstall.no_terminal_plan_only":
@@ -864,6 +864,8 @@ export const de: I18nDictionary = {
   "uninstall.step_daemon_stopped": "Bot-Daemon beendet (PID {pid}).",
   "uninstall.step_daemon_failed": "Der Bot-Daemon (PID {pid}) konnte nicht beendet werden.",
   "uninstall.step_daemon_absent": "Es lief kein losgelöster Bot-Daemon.",
+  "uninstall.step_daemon_error":
+    "Der Bot-Daemon konnte nicht geprüft oder beendet werden: {reason}",
   "uninstall.step_removed": "Entfernt: {path}",
   "uninstall.step_absent": "Bereits nicht vorhanden: {path}",
   "uninstall.step_failed": "{path} konnte nicht entfernt werden: {reason}",
@@ -896,6 +898,9 @@ export const de: I18nDictionary = {
   "uninstall.step_process_skipped": "Prozess {pid} übersprungen.",
   "uninstall.step_process_refused":
     "Prozess {pid} übersprungen: seine Befehlszeile hat sich vor dem Beenden geändert.",
+  "uninstall.process_unverified":
+    "Das Arbeitsverzeichnis von Prozess {pid} konnte nicht gelesen werden, daher ist diese Zuordnung nicht verifiziert.",
+  "uninstall.started_unknown": "unbekannt",
   "uninstall.step_override_invalid":
     "OPENCODE_TELEGRAM_HOME-Verzeichnis {path} übersprungen: {reason}",
   "uninstall.step_override_skipped": "OPENCODE_TELEGRAM_HOME-Verzeichnis {path} übersprungen.",
@@ -905,16 +910,22 @@ export const de: I18nDictionary = {
   "uninstall.override_reason_root": "es ist das Wurzelverzeichnis des Dateisystems",
   "uninstall.override_reason_user_home": "es ist dein Home-Verzeichnis",
   "uninstall.override_reason_no_bot_files": "es enthält keine Bot-Dateien",
-  "uninstall.step_opencode_stopped": "OpenCode-Server beendet (PID {pid}).",
-  "uninstall.step_opencode_failed": "Der OpenCode-Server (PID {pid}) konnte nicht beendet werden.",
+  "uninstall.step_opencode_stopped":
+    "Der am OpenCode-Port gefundene Prozess (PID {pid}) wurde beendet.",
+  "uninstall.step_opencode_failed":
+    "Der am OpenCode-Port gefundene Prozess (PID {pid}) konnte nicht beendet werden.",
   "uninstall.step_opencode_skipped": "Das Beenden des OpenCode-Servers wurde übersprungen.",
   "uninstall.step_opencode_refused":
-    "OpenCode-Server (PID {pid}) übersprungen: seine Befehlszeile hat sich vor dem Beenden geändert.",
+    "Der am OpenCode-Port gefundene Prozess (PID {pid}) wurde übersprungen: jetzt lauscht dort ein anderer Prozess.",
   "uninstall.step_opencode_none": "Es wurde kein OpenCode-Server zum Beenden gefunden.",
   "uninstall.command_unavailable": "(Befehlszeile nicht verfügbar)",
   "uninstall.home_removed": "App-Home {path} entfernt.",
   "uninstall.home_kept": "App-Home {path} behalten: es enthält noch Dateien (Logs bleiben).",
   "uninstall.summary_ok": "Deinstallation abgeschlossen.",
+  "uninstall.left_process": "Prozess {pid}",
+  "uninstall.left_opencode": "der Prozess am OpenCode-Port (PID {pid})",
+  "uninstall.left_keychain":
+    "die Schlüsselbund-Geheimnisse (der Schlüsselbund war nicht verfügbar)",
   "uninstall.summary_left": "Deinstallation abgeschlossen; unverändert geblieben: {items}",
   "uninstall.summary_failed": "Deinstallation abgeschlossen. Fehlgeschlagene Schritte: {count}",
   "uninstall.cli_hint": "Um die CLI selbst zu entfernen, führe aus: {command}",

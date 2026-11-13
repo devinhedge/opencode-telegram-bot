@@ -827,7 +827,7 @@ export const id: I18nDictionary = {
   "uninstall.confirm_stop_process":
     "Hentikan proses {pid} (pengguna {user}, dimulai {started}): {command}? [y/N] ",
   "uninstall.confirm_stop_opencode":
-    "Hentikan server OpenCode (PID {pid}, port {port}): {command}? [y/N] ",
+    "Hentikan proses yang ditemukan di port OpenCode {port} (PID {pid}): {command}? [y/N] ",
   "uninstall.confirm_stop_opencode_tree":
     "Di Windows, ini menghentikan seluruh pohon proses server.",
   "uninstall.no_terminal_plan_only":
@@ -836,6 +836,7 @@ export const id: I18nDictionary = {
   "uninstall.step_daemon_stopped": "Daemon bot dihentikan (PID {pid}).",
   "uninstall.step_daemon_failed": "Tidak dapat menghentikan daemon bot (PID {pid}).",
   "uninstall.step_daemon_absent": "Tidak ada daemon bot terlepas yang berjalan.",
+  "uninstall.step_daemon_error": "Tidak dapat memeriksa atau menghentikan daemon bot: {reason}",
   "uninstall.step_removed": "Dihapus: {path}",
   "uninstall.step_absent": "Sudah tidak ada: {path}",
   "uninstall.step_failed": "Gagal menghapus {path}: {reason}",
@@ -865,6 +866,9 @@ export const id: I18nDictionary = {
   "uninstall.step_process_skipped": "Proses {pid} dilewati.",
   "uninstall.step_process_refused":
     "Proses {pid} dilewati: baris perintahnya berubah sebelum dihentikan.",
+  "uninstall.process_unverified":
+    "Direktori kerja proses {pid} tidak dapat dibaca, sehingga kecocokan ini tidak terverifikasi.",
+  "uninstall.started_unknown": "tidak diketahui",
   "uninstall.step_override_invalid": "Direktori OPENCODE_TELEGRAM_HOME {path} dilewati: {reason}",
   "uninstall.step_override_skipped": "Direktori OPENCODE_TELEGRAM_HOME {path} dilewati.",
   "uninstall.override_reason_missing": "direktori tidak ada",
@@ -873,17 +877,22 @@ export const id: I18nDictionary = {
   "uninstall.override_reason_root": "ini adalah root sistem file",
   "uninstall.override_reason_user_home": "ini adalah direktori home Anda",
   "uninstall.override_reason_no_bot_files": "tidak berisi file bot",
-  "uninstall.step_opencode_stopped": "Server OpenCode dihentikan (PID {pid}).",
-  "uninstall.step_opencode_failed": "Tidak dapat menghentikan server OpenCode (PID {pid}).",
+  "uninstall.step_opencode_stopped":
+    "Proses yang ditemukan di port OpenCode dihentikan (PID {pid}).",
+  "uninstall.step_opencode_failed":
+    "Tidak dapat menghentikan proses yang ditemukan di port OpenCode (PID {pid}).",
   "uninstall.step_opencode_skipped": "Penghentian server OpenCode dilewati.",
   "uninstall.step_opencode_refused":
-    "Server OpenCode (PID {pid}) dilewati: baris perintahnya berubah sebelum dihentikan.",
+    "Proses yang ditemukan di port OpenCode (PID {pid}) dilewati: kini proses lain yang mendengarkan port itu.",
   "uninstall.step_opencode_none": "Tidak ditemukan server OpenCode yang perlu dihentikan.",
   "uninstall.command_unavailable": "(baris perintah tidak tersedia)",
   "uninstall.home_removed": "Direktori aplikasi {path} dihapus.",
   "uninstall.home_kept":
     "Direktori aplikasi {path} dipertahankan: masih berisi file (log tetap ada).",
   "uninstall.summary_ok": "Uninstall selesai.",
+  "uninstall.left_process": "proses {pid}",
+  "uninstall.left_opencode": "proses di port OpenCode (PID {pid})",
+  "uninstall.left_keychain": "rahasia di keychain (keychain tidak tersedia)",
   "uninstall.summary_left": "Uninstall selesai; dibiarkan di tempat: {items}",
   "uninstall.summary_failed": "Uninstall selesai. Langkah yang gagal: {count}",
   "uninstall.cli_hint": "Untuk menghapus CLI itu sendiri, jalankan: {command}",

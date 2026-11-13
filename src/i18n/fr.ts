@@ -855,7 +855,7 @@ export const fr: I18nDictionary = {
   "uninstall.confirm_stop_process":
     "Arrêter le processus {pid} (utilisateur {user}, démarré {started}) : {command} ? [y/N] ",
   "uninstall.confirm_stop_opencode":
-    "Arrêter le serveur OpenCode (PID {pid}, port {port}) : {command} ? [y/N] ",
+    "Arrêter le processus trouvé sur le port OpenCode {port} (PID {pid}) : {command} ? [y/N] ",
   "uninstall.confirm_stop_opencode_tree":
     "Sous Windows, cela arrête toute l'arborescence de processus du serveur.",
   "uninstall.no_terminal_plan_only":
@@ -864,6 +864,7 @@ export const fr: I18nDictionary = {
   "uninstall.step_daemon_stopped": "Démon du bot arrêté (PID {pid}).",
   "uninstall.step_daemon_failed": "Impossible d'arrêter le démon du bot (PID {pid}).",
   "uninstall.step_daemon_absent": "Aucun démon détaché du bot n'était en cours d'exécution.",
+  "uninstall.step_daemon_error": "Impossible de vérifier ou d'arrêter le démon du bot : {reason}",
   "uninstall.step_removed": "Supprimé : {path}",
   "uninstall.step_absent": "Déjà absent : {path}",
   "uninstall.step_failed": "Échec de la suppression de {path} : {reason}",
@@ -896,6 +897,9 @@ export const fr: I18nDictionary = {
   "uninstall.step_process_skipped": "Processus {pid} ignoré.",
   "uninstall.step_process_refused":
     "Processus {pid} ignoré : sa ligne de commande a changé avant l'arrêt.",
+  "uninstall.process_unverified":
+    "Le répertoire de travail du processus {pid} n'a pas pu être lu ; cette correspondance n'est donc pas vérifiée.",
+  "uninstall.started_unknown": "inconnu",
   "uninstall.step_override_invalid": "Répertoire OPENCODE_TELEGRAM_HOME {path} ignoré : {reason}",
   "uninstall.step_override_skipped": "Répertoire OPENCODE_TELEGRAM_HOME {path} ignoré.",
   "uninstall.override_reason_missing": "le répertoire n'existe pas",
@@ -904,17 +908,21 @@ export const fr: I18nDictionary = {
   "uninstall.override_reason_root": "c'est la racine du système de fichiers",
   "uninstall.override_reason_user_home": "c'est votre répertoire personnel",
   "uninstall.override_reason_no_bot_files": "il ne contient aucun fichier du bot",
-  "uninstall.step_opencode_stopped": "Serveur OpenCode arrêté (PID {pid}).",
-  "uninstall.step_opencode_failed": "Impossible d'arrêter le serveur OpenCode (PID {pid}).",
+  "uninstall.step_opencode_stopped": "Processus trouvé sur le port OpenCode arrêté (PID {pid}).",
+  "uninstall.step_opencode_failed":
+    "Impossible d'arrêter le processus trouvé sur le port OpenCode (PID {pid}).",
   "uninstall.step_opencode_skipped": "Arrêt du serveur OpenCode ignoré.",
   "uninstall.step_opencode_refused":
-    "Serveur OpenCode (PID {pid}) ignoré : sa ligne de commande a changé avant l'arrêt.",
+    "Processus trouvé sur le port OpenCode (PID {pid}) ignoré : un autre processus écoute désormais.",
   "uninstall.step_opencode_none": "Aucun serveur OpenCode à arrêter n'a été trouvé.",
   "uninstall.command_unavailable": "(ligne de commande indisponible)",
   "uninstall.home_removed": "Répertoire de l'application {path} supprimé.",
   "uninstall.home_kept":
     "Répertoire de l'application {path} conservé : il contient encore des fichiers (les journaux restent).",
   "uninstall.summary_ok": "Désinstallation terminée.",
+  "uninstall.left_process": "processus {pid}",
+  "uninstall.left_opencode": "le processus sur le port OpenCode (PID {pid})",
+  "uninstall.left_keychain": "les secrets du trousseau (le trousseau n'était pas disponible)",
   "uninstall.summary_left": "Désinstallation terminée ; laissé en place : {items}",
   "uninstall.summary_failed": "Désinstallation terminée. Étapes en échec : {count}",
   "uninstall.cli_hint": "Pour supprimer la CLI elle-même, exécutez : {command}",

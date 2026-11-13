@@ -840,7 +840,7 @@ export const it: I18nDictionary = {
   "uninstall.confirm_stop_process":
     "Arrestare il processo {pid} (utente {user}, avviato {started}): {command}? [y/N] ",
   "uninstall.confirm_stop_opencode":
-    "Arrestare il server OpenCode (PID {pid}, porta {port}): {command}? [y/N] ",
+    "Arrestare il processo trovato sulla porta OpenCode {port} (PID {pid}): {command}? [y/N] ",
   "uninstall.confirm_stop_opencode_tree":
     "Su Windows questo arresta l'intero albero dei processi del server.",
   "uninstall.no_terminal_plan_only":
@@ -849,6 +849,7 @@ export const it: I18nDictionary = {
   "uninstall.step_daemon_stopped": "Daemon del bot arrestato (PID {pid}).",
   "uninstall.step_daemon_failed": "Impossibile arrestare il daemon del bot (PID {pid}).",
   "uninstall.step_daemon_absent": "Nessun daemon staccato del bot era in esecuzione.",
+  "uninstall.step_daemon_error": "Impossibile verificare o arrestare il daemon del bot: {reason}",
   "uninstall.step_removed": "Rimosso: {path}",
   "uninstall.step_absent": "Già assente: {path}",
   "uninstall.step_failed": "Impossibile rimuovere {path}: {reason}",
@@ -880,6 +881,9 @@ export const it: I18nDictionary = {
   "uninstall.step_process_skipped": "Processo {pid} saltato.",
   "uninstall.step_process_refused":
     "Processo {pid} saltato: la sua riga di comando è cambiata prima dell'arresto.",
+  "uninstall.process_unverified":
+    "Impossibile leggere la directory di lavoro del processo {pid}, quindi questa corrispondenza non è verificata.",
+  "uninstall.started_unknown": "sconosciuto",
   "uninstall.step_override_invalid": "Directory OPENCODE_TELEGRAM_HOME {path} saltata: {reason}",
   "uninstall.step_override_skipped": "Directory OPENCODE_TELEGRAM_HOME {path} saltata.",
   "uninstall.override_reason_missing": "la directory non esiste",
@@ -888,17 +892,21 @@ export const it: I18nDictionary = {
   "uninstall.override_reason_root": "è la radice del file system",
   "uninstall.override_reason_user_home": "è la tua directory home",
   "uninstall.override_reason_no_bot_files": "non contiene file del bot",
-  "uninstall.step_opencode_stopped": "Server OpenCode arrestato (PID {pid}).",
-  "uninstall.step_opencode_failed": "Impossibile arrestare il server OpenCode (PID {pid}).",
+  "uninstall.step_opencode_stopped": "Processo trovato sulla porta OpenCode arrestato (PID {pid}).",
+  "uninstall.step_opencode_failed":
+    "Impossibile arrestare il processo trovato sulla porta OpenCode (PID {pid}).",
   "uninstall.step_opencode_skipped": "Arresto del server OpenCode saltato.",
   "uninstall.step_opencode_refused":
-    "Server OpenCode (PID {pid}) saltato: la sua riga di comando è cambiata prima dell'arresto.",
+    "Processo trovato sulla porta OpenCode (PID {pid}) saltato: ora è in ascolto un altro processo.",
   "uninstall.step_opencode_none": "Nessun server OpenCode da arrestare è stato trovato.",
   "uninstall.command_unavailable": "(riga di comando non disponibile)",
   "uninstall.home_removed": "Directory dell'applicazione {path} rimossa.",
   "uninstall.home_kept":
     "Directory dell'applicazione {path} mantenuta: contiene ancora file (i log restano).",
   "uninstall.summary_ok": "Disinstallazione completata.",
+  "uninstall.left_process": "processo {pid}",
+  "uninstall.left_opencode": "il processo sulla porta OpenCode (PID {pid})",
+  "uninstall.left_keychain": "i segreti del portachiavi (il portachiavi non era disponibile)",
   "uninstall.summary_left": "Disinstallazione completata; lasciato al suo posto: {items}",
   "uninstall.summary_failed": "Disinstallazione completata. Passaggi non riusciti: {count}",
   "uninstall.cli_hint": "Per rimuovere la CLI stessa, esegui: {command}",

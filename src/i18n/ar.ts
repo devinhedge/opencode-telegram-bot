@@ -806,7 +806,7 @@ export const ar: I18nDictionary = {
   "uninstall.confirm_stop_process":
     "هل توقف العملية {pid} (المستخدم {user}، بدأت {started}): {command}؟ \u200E[y/N] ",
   "uninstall.confirm_stop_opencode":
-    "هل توقف خادم OpenCode (PID {pid}، المنفذ {port}): {command}؟ \u200E[y/N] ",
+    "هل توقف العملية الموجودة على منفذ OpenCode {port} (PID {pid}): {command}؟ \u200E[y/N] ",
   "uninstall.confirm_stop_opencode_tree":
     "في Windows يؤدي هذا إلى إيقاف شجرة عمليات الخادم بالكامل.",
   "uninstall.no_terminal_plan_only":
@@ -815,6 +815,7 @@ export const ar: I18nDictionary = {
   "uninstall.step_daemon_stopped": "تم إيقاف عملية البوت الخلفية (PID {pid}).",
   "uninstall.step_daemon_failed": "تعذّر إيقاف عملية البوت الخلفية (PID {pid}).",
   "uninstall.step_daemon_absent": "لم تكن هناك عملية بوت خلفية منفصلة قيد التشغيل.",
+  "uninstall.step_daemon_error": "تعذّر فحص عملية البوت الخلفية أو إيقافها: {reason}",
   "uninstall.step_removed": "تمت الإزالة: {path}",
   "uninstall.step_absent": "غير موجود أصلًا: {path}",
   "uninstall.step_failed": "تعذّرت إزالة {path}: {reason}",
@@ -842,6 +843,9 @@ export const ar: I18nDictionary = {
   "uninstall.step_process_failed": "تعذّر إيقاف العملية {pid}.",
   "uninstall.step_process_skipped": "تم تخطي العملية {pid}.",
   "uninstall.step_process_refused": "تم تخطي العملية {pid}: تغيّر سطر أوامرها قبل إيقافها.",
+  "uninstall.process_unverified":
+    "تعذّرت قراءة مجلد العمل للعملية {pid}، لذا فهذا التطابق غير مُتحقق منه.",
+  "uninstall.started_unknown": "غير معروف",
   "uninstall.step_override_invalid": "تم تخطي المجلد OPENCODE_TELEGRAM_HOME ‏{path}: {reason}",
   "uninstall.step_override_skipped": "تم تخطي المجلد OPENCODE_TELEGRAM_HOME ‏{path}.",
   "uninstall.override_reason_missing": "المجلد غير موجود",
@@ -850,17 +854,20 @@ export const ar: I18nDictionary = {
   "uninstall.override_reason_root": "هو جذر نظام الملفات",
   "uninstall.override_reason_user_home": "هو مجلدك الرئيسي",
   "uninstall.override_reason_no_bot_files": "لا يحتوي على ملفات البوت",
-  "uninstall.step_opencode_stopped": "تم إيقاف خادم OpenCode (PID {pid}).",
-  "uninstall.step_opencode_failed": "تعذّر إيقاف خادم OpenCode (PID {pid}).",
+  "uninstall.step_opencode_stopped": "تم إيقاف العملية الموجودة على منفذ OpenCode (PID {pid}).",
+  "uninstall.step_opencode_failed": "تعذّر إيقاف العملية الموجودة على منفذ OpenCode (PID {pid}).",
   "uninstall.step_opencode_skipped": "تم تخطي إيقاف خادم OpenCode.",
   "uninstall.step_opencode_refused":
-    "تم تخطي خادم OpenCode (PID {pid}): تغيّر سطر أوامره قبل إيقافه.",
+    "تم تخطي العملية الموجودة على منفذ OpenCode (PID {pid}): تستمع الآن عملية أخرى إلى المنفذ.",
   "uninstall.step_opencode_none": "لم يُعثر على خادم OpenCode لإيقافه.",
   "uninstall.command_unavailable": "(سطر الأوامر غير متاح)",
   "uninstall.home_removed": "تمت إزالة مجلد التطبيق {path}.",
   "uninstall.home_kept":
     "تم الإبقاء على مجلد التطبيق {path}: ما زال يحتوي على ملفات (تبقى السجلات).",
   "uninstall.summary_ok": "اكتملت الإزالة.",
+  "uninstall.left_process": "العملية {pid}",
+  "uninstall.left_opencode": "العملية على منفذ OpenCode (PID {pid})",
+  "uninstall.left_keychain": "أسرار سلسلة المفاتيح (كانت سلسلة المفاتيح غير متاحة)",
   "uninstall.summary_left": "اكتملت الإزالة؛ تُرك في مكانه: {items}",
   "uninstall.summary_failed": "اكتملت الإزالة. الخطوات الفاشلة: {count}",
   "uninstall.cli_hint": "لإزالة واجهة سطر الأوامر نفسها، شغّل: {command}",

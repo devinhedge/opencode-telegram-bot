@@ -849,7 +849,7 @@ export const pt: I18nDictionary = {
   "uninstall.confirm_stop_process":
     "Parar o processo {pid} (usuário {user}, iniciado {started}): {command}? [y/N] ",
   "uninstall.confirm_stop_opencode":
-    "Parar o servidor OpenCode (PID {pid}, porta {port}): {command}? [y/N] ",
+    "Parar o processo encontrado na porta {port} do OpenCode (PID {pid}): {command}? [y/N] ",
   "uninstall.confirm_stop_opencode_tree":
     "No Windows, isso para toda a árvore de processos do servidor.",
   "uninstall.no_terminal_plan_only":
@@ -858,6 +858,7 @@ export const pt: I18nDictionary = {
   "uninstall.step_daemon_stopped": "Daemon do bot parado (PID {pid}).",
   "uninstall.step_daemon_failed": "Não foi possível parar o daemon do bot (PID {pid}).",
   "uninstall.step_daemon_absent": "Nenhum daemon desanexado do bot estava em execução.",
+  "uninstall.step_daemon_error": "Não foi possível verificar nem parar o daemon do bot: {reason}",
   "uninstall.step_removed": "Removido: {path}",
   "uninstall.step_absent": "Já inexistente: {path}",
   "uninstall.step_failed": "Falha ao remover {path}: {reason}",
@@ -889,6 +890,9 @@ export const pt: I18nDictionary = {
   "uninstall.step_process_skipped": "Processo {pid} ignorado.",
   "uninstall.step_process_refused":
     "Processo {pid} ignorado: sua linha de comando mudou antes de ser parado.",
+  "uninstall.process_unverified":
+    "Não foi possível ler o diretório de trabalho do processo {pid}, então esta correspondência não está verificada.",
+  "uninstall.started_unknown": "desconhecido",
   "uninstall.step_override_invalid": "Diretório OPENCODE_TELEGRAM_HOME {path} ignorado: {reason}",
   "uninstall.step_override_skipped": "Diretório OPENCODE_TELEGRAM_HOME {path} ignorado.",
   "uninstall.override_reason_missing": "o diretório não existe",
@@ -897,17 +901,22 @@ export const pt: I18nDictionary = {
   "uninstall.override_reason_root": "é a raiz do sistema de arquivos",
   "uninstall.override_reason_user_home": "é o seu diretório pessoal",
   "uninstall.override_reason_no_bot_files": "não contém arquivos do bot",
-  "uninstall.step_opencode_stopped": "Servidor OpenCode parado (PID {pid}).",
-  "uninstall.step_opencode_failed": "Não foi possível parar o servidor OpenCode (PID {pid}).",
+  "uninstall.step_opencode_stopped":
+    "O processo encontrado na porta do OpenCode foi parado (PID {pid}).",
+  "uninstall.step_opencode_failed":
+    "Não foi possível parar o processo encontrado na porta do OpenCode (PID {pid}).",
   "uninstall.step_opencode_skipped": "A parada do servidor OpenCode foi ignorada.",
   "uninstall.step_opencode_refused":
-    "Servidor OpenCode (PID {pid}) ignorado: sua linha de comando mudou antes de ser parado.",
+    "O processo encontrado na porta do OpenCode (PID {pid}) foi ignorado: agora outro processo está escutando.",
   "uninstall.step_opencode_none": "Nenhum servidor OpenCode para parar foi encontrado.",
   "uninstall.command_unavailable": "(linha de comando indisponível)",
   "uninstall.home_removed": "Diretório do aplicativo {path} removido.",
   "uninstall.home_kept":
     "Diretório do aplicativo {path} mantido: ainda contém arquivos (os logs permanecem).",
   "uninstall.summary_ok": "Desinstalação concluída.",
+  "uninstall.left_process": "processo {pid}",
+  "uninstall.left_opencode": "o processo na porta do OpenCode (PID {pid})",
+  "uninstall.left_keychain": "os segredos do chaveiro (o chaveiro não estava disponível)",
   "uninstall.summary_left": "Desinstalação concluída; deixado no lugar: {items}",
   "uninstall.summary_failed": "Desinstalação concluída. Etapas com falha: {count}",
   "uninstall.cli_hint": "Para remover a própria CLI, execute: {command}",

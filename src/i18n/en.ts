@@ -835,7 +835,7 @@ export const en = {
   "uninstall.confirm_stop_process":
     "Stop process {pid} (user {user}, started {started}): {command}? [y/N] ",
   "uninstall.confirm_stop_opencode":
-    "Stop the OpenCode server (PID {pid}, port {port}): {command}? [y/N] ",
+    "Stop the process found on the OpenCode port {port} (PID {pid}): {command}? [y/N] ",
   "uninstall.confirm_stop_opencode_tree":
     "On Windows this stops the whole process tree of the server.",
   "uninstall.no_terminal_plan_only":
@@ -844,6 +844,7 @@ export const en = {
   "uninstall.step_daemon_stopped": "Stopped the bot daemon (PID {pid}).",
   "uninstall.step_daemon_failed": "Could not stop the bot daemon (PID {pid}).",
   "uninstall.step_daemon_absent": "No detached bot daemon was running.",
+  "uninstall.step_daemon_error": "Could not check or stop the bot daemon: {reason}",
   "uninstall.step_removed": "Removed {path}",
   "uninstall.step_absent": "Already absent: {path}",
   "uninstall.step_failed": "Failed to remove {path}: {reason}",
@@ -874,6 +875,9 @@ export const en = {
   "uninstall.step_process_skipped": "Skipped process {pid}.",
   "uninstall.step_process_refused":
     "Skipped process {pid}: its command line changed before it was stopped.",
+  "uninstall.process_unverified":
+    "The working directory of process {pid} could not be read, so this match is unverified.",
+  "uninstall.started_unknown": "unknown",
   "uninstall.step_override_invalid":
     "Skipped the OPENCODE_TELEGRAM_HOME directory {path}: {reason}",
   "uninstall.step_override_skipped": "Skipped the OPENCODE_TELEGRAM_HOME directory {path}.",
@@ -883,16 +887,20 @@ export const en = {
   "uninstall.override_reason_root": "it is the filesystem root",
   "uninstall.override_reason_user_home": "it is your home directory",
   "uninstall.override_reason_no_bot_files": "it contains no bot files",
-  "uninstall.step_opencode_stopped": "Stopped the OpenCode server (PID {pid}).",
-  "uninstall.step_opencode_failed": "Could not stop the OpenCode server (PID {pid}).",
+  "uninstall.step_opencode_stopped": "Stopped the process found on the OpenCode port (PID {pid}).",
+  "uninstall.step_opencode_failed":
+    "Could not stop the process found on the OpenCode port (PID {pid}).",
   "uninstall.step_opencode_skipped": "Skipped stopping the OpenCode server.",
   "uninstall.step_opencode_refused":
-    "Skipped the OpenCode server (PID {pid}): its command line changed before it was stopped.",
+    "Skipped the process found on the OpenCode port (PID {pid}): a different process is listening now.",
   "uninstall.step_opencode_none": "No OpenCode server was found to stop.",
   "uninstall.command_unavailable": "(command line unavailable)",
   "uninstall.home_removed": "Removed the app home {path}.",
   "uninstall.home_kept": "Kept the app home {path}: it still contains files (logs stay).",
   "uninstall.summary_ok": "Uninstall finished.",
+  "uninstall.left_process": "process {pid}",
+  "uninstall.left_opencode": "the process on the OpenCode port (PID {pid})",
+  "uninstall.left_keychain": "the keychain secrets (the keychain was unavailable)",
   "uninstall.summary_left": "Uninstall finished; left in place: {items}",
   "uninstall.summary_failed": "Uninstall finished. Failed steps: {count}",
   "uninstall.cli_hint": "To remove the CLI itself, run: {command}",

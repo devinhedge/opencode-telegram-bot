@@ -833,7 +833,7 @@ export const ko: I18nDictionary = {
   "uninstall.confirm_stop_process":
     "프로세스 {pid}을(를) 중지할까요 (사용자 {user}, 시작 {started}): {command}? [y/N] ",
   "uninstall.confirm_stop_opencode":
-    "OpenCode 서버를 중지할까요 (PID {pid}, 포트 {port}): {command}? [y/N] ",
+    "OpenCode 포트 {port}에서 찾은 프로세스를 중지할까요 (PID {pid}): {command}? [y/N] ",
   "uninstall.confirm_stop_opencode_tree": "Windows에서는 서버의 전체 프로세스 트리가 중지됩니다.",
   "uninstall.no_terminal_plan_only":
     "사용 가능한 터미널이 없습니다. 계획은 위에 표시되었고 아무것도 제거되지 않았습니다. 터미널에서 다시 실행하거나 --yes를 지정하세요.",
@@ -841,6 +841,7 @@ export const ko: I18nDictionary = {
   "uninstall.step_daemon_stopped": "봇 데몬을 중지했습니다 (PID {pid}).",
   "uninstall.step_daemon_failed": "봇 데몬을 중지하지 못했습니다 (PID {pid}).",
   "uninstall.step_daemon_absent": "실행 중인 분리된 봇 데몬이 없습니다.",
+  "uninstall.step_daemon_error": "봇 데몬을 확인하거나 중지하지 못했습니다: {reason}",
   "uninstall.step_removed": "제거됨: {path}",
   "uninstall.step_absent": "이미 없음: {path}",
   "uninstall.step_failed": "{path}을(를) 제거하지 못했습니다: {reason}",
@@ -868,6 +869,9 @@ export const ko: I18nDictionary = {
   "uninstall.step_process_skipped": "프로세스 {pid}을(를) 건너뛰었습니다.",
   "uninstall.step_process_refused":
     "프로세스 {pid}을(를) 건너뛰었습니다: 중지하기 전에 명령줄이 바뀌었습니다.",
+  "uninstall.process_unverified":
+    "프로세스 {pid}의 작업 디렉터리를 읽을 수 없어 이 일치 항목은 확인되지 않았습니다.",
+  "uninstall.started_unknown": "알 수 없음",
   "uninstall.step_override_invalid":
     "OPENCODE_TELEGRAM_HOME 디렉터리 {path}을(를) 건너뛰었습니다: {reason}",
   "uninstall.step_override_skipped": "OPENCODE_TELEGRAM_HOME 디렉터리 {path}을(를) 건너뛰었습니다.",
@@ -877,16 +881,20 @@ export const ko: I18nDictionary = {
   "uninstall.override_reason_root": "파일 시스템의 루트입니다",
   "uninstall.override_reason_user_home": "사용자의 홈 디렉터리입니다",
   "uninstall.override_reason_no_bot_files": "봇 파일이 없습니다",
-  "uninstall.step_opencode_stopped": "OpenCode 서버를 중지했습니다 (PID {pid}).",
-  "uninstall.step_opencode_failed": "OpenCode 서버를 중지하지 못했습니다 (PID {pid}).",
+  "uninstall.step_opencode_stopped": "OpenCode 포트에서 찾은 프로세스를 중지했습니다 (PID {pid}).",
+  "uninstall.step_opencode_failed":
+    "OpenCode 포트에서 찾은 프로세스를 중지하지 못했습니다 (PID {pid}).",
   "uninstall.step_opencode_skipped": "OpenCode 서버 중지를 건너뛰었습니다.",
   "uninstall.step_opencode_refused":
-    "OpenCode 서버 (PID {pid})를 건너뛰었습니다: 중지하기 전에 명령줄이 바뀌었습니다.",
+    "OpenCode 포트에서 찾은 프로세스 (PID {pid})를 건너뛰었습니다: 이제 다른 프로세스가 포트를 수신 대기하고 있습니다.",
   "uninstall.step_opencode_none": "중지할 OpenCode 서버를 찾지 못했습니다.",
   "uninstall.command_unavailable": "(명령줄을 사용할 수 없음)",
   "uninstall.home_removed": "앱 홈 {path}을(를) 제거했습니다.",
   "uninstall.home_kept": "앱 홈 {path}은(는) 파일이 남아 있어 유지했습니다 (로그는 남습니다).",
   "uninstall.summary_ok": "제거를 완료했습니다.",
+  "uninstall.left_process": "프로세스 {pid}",
+  "uninstall.left_opencode": "OpenCode 포트의 프로세스 (PID {pid})",
+  "uninstall.left_keychain": "키체인의 비밀 정보 (키체인을 사용할 수 없었음)",
   "uninstall.summary_left": "제거를 완료했습니다. 그대로 남긴 항목: {items}",
   "uninstall.summary_failed": "제거를 완료했습니다. 실패한 단계: {count}",
   "uninstall.cli_hint": "CLI 자체를 제거하려면 다음을 실행하세요: {command}",
