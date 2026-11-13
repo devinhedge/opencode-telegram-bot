@@ -1,66 +1,33 @@
-import { spawn, spawnSync } from "node:child_process";
-import {
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readdirSync,
-  rmSync,
-  statSync,
-  symlinkSync,
-} from "node:fs";
+import { spawn } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join } from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { isContainerRuntime } from "../../src/runtime/container.js";
 import { resolveCanonicalLogsDir } from "../../src/runtime/log-location.js";
+import { buildProjectToTempDir, type E2eBuild } from "../helpers/e2e-build.js";
 
 // Real-process check: the built entrypoint initializes the logger before it loads the
 // config, so with no TELEGRAM_BOT_TOKEN it fails startup after the main log file exists.
 // Every home-like variable points into a temporary directory, so nothing is written to
 // the real user's canonical log directory.
 
-const PROJECT_ROOT = resolve(__dirname, "../..");
 const LOG_FILE_NAME = /^opencode-telegram-bot-.+\.log$/;
 const isWindows = process.platform === "win32";
 const RUNTIME_MODES = ["installed", "sources"] as const;
 
 let root = "";
-let buildRoot = "";
+let build: E2eBuild | undefined;
 let entrypoint = "";
 
 beforeAll(() => {
-  // The build goes to a temporary directory so the test never writes into the repository (the
-  // repo dist/ may also be stale). The temporary root mimics the package layout the compiled
-  // code expects: dist/ for the code, package.json and .env.example one level above it (read
-  // relative to the compiled files), and node_modules for dependency resolution. On Windows
-  // the node_modules link is a junction, which needs no elevated privileges.
-  buildRoot = mkdtempSync(join(tmpdir(), "log-location-e2e-build-"));
-  const outDir = join(buildRoot, "dist");
-  const tsc = join(PROJECT_ROOT, "node_modules", "typescript", "bin", "tsc");
-  const build = spawnSync(
-    process.execPath,
-    [tsc, "-p", join(PROJECT_ROOT, "tsconfig.json"), "--outDir", outDir],
-    { cwd: PROJECT_ROOT, encoding: "utf8" },
-  );
-  if (build.status !== 0) {
-    throw new Error(`tsc build failed:\n${build.stdout}\n${build.stderr}`);
-  }
-
-  copyFileSync(join(PROJECT_ROOT, "package.json"), join(buildRoot, "package.json"));
-  copyFileSync(join(PROJECT_ROOT, ".env.example"), join(buildRoot, ".env.example"));
-  symlinkSync(
-    join(PROJECT_ROOT, "node_modules"),
-    join(buildRoot, "node_modules"),
-    isWindows ? "junction" : "dir",
-  );
-  entrypoint = join(outDir, "index.js");
+  // The build goes to a temporary directory so the test never writes into the repository.
+  build = buildProjectToTempDir("log-location-e2e-build-");
+  entrypoint = join(build.outDir, "index.js");
 }, 180_000);
 
 afterAll(() => {
-  if (buildRoot) {
-    rmSync(buildRoot, { recursive: true, force: true });
-  }
+  build?.cleanup();
 });
 
 beforeEach(() => {
