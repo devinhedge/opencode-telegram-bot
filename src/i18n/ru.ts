@@ -834,13 +834,12 @@ export const ru: I18nDictionary = {
   "uninstall.plan_header": "Деинсталлятор выполнит следующее:",
   "uninstall.plan_daemon": "Остановить отсоединённый демон бота (PID {pid}).",
   "uninstall.plan_terminal_bots":
-    "Остановить боты, запущенные вне демона (каждый подтверждается отдельно).",
+    "Остановить ботов, запущенные вне демона (каждый подтверждается отдельно).",
   "uninstall.plan_systemd": "Удалить юнит systemd {path} через sudo.",
   "uninstall.plan_home": "Удалить данные приложения в {path}.",
   "uninstall.plan_override":
     "Удалить данные в каталоге OPENCODE_TELEGRAM_HOME {path} (спрашивается отдельно).",
-  "uninstall.plan_keychain":
-    "Удалить сохранённые секреты из связки ключей (служба {service}).",
+  "uninstall.plan_keychain": "Удалить сохранённые секреты из связки ключей (служба {service}).",
   "uninstall.plan_logs_stay": "Файлы журналов никогда не удаляются и остаются в {path}.",
   "uninstall.plan_opencode_server": "Остановить сервер OpenCode (подтверждается отдельно).",
   "uninstall.plan_nothing": "Удалять нечего.",
@@ -850,8 +849,7 @@ export const ru: I18nDictionary = {
     "Остановить процесс {pid} (пользователь {user}, запущен {started}): {command}? [y/N] ",
   "uninstall.confirm_stop_opencode":
     "Остановить сервер OpenCode (PID {pid}, порт {port}): {command}? [y/N] ",
-  "uninstall.confirm_stop_opencode_tree":
-    "В Windows это остановит всё дерево процессов сервера.",
+  "uninstall.confirm_stop_opencode_tree": "В Windows это остановит всё дерево процессов сервера.",
   "uninstall.no_terminal_plan_only":
     "Терминал недоступен. План показан выше, ничего не удалено. Запустите заново в терминале или укажите --yes.",
   "uninstall.aborted": "Отменено. Ничего не удалено.",
@@ -866,14 +864,14 @@ export const ru: I18nDictionary = {
     "Цель ссылки {path} оставлена на месте: она вне домашнего каталога.",
   "uninstall.step_home_error": "Не удалось обработать каталог приложения {path}: {reason}",
   "uninstall.step_keychain": "Секрет связки ключей {account}: {status}",
-  "uninstall.step_keychain_unavailable":
-    "Связка ключей недоступна; её секреты не затронуты.",
+  "uninstall.step_keychain_unavailable": "Связка ключей недоступна; её секреты не затронуты.",
   "uninstall.keychain_status_removed": "удалён",
   "uninstall.keychain_status_absent": "не найден",
   "uninstall.keychain_status_failed": "ошибка",
   "uninstall.step_systemd": "Юнит systemd: {outcome}",
   "uninstall.step_systemd_failed": "Не удалось удалить юнит systemd: {reason}",
-  "uninstall.step_systemd_commands": "Выполните эти команды самостоятельно, чтобы завершить:\n{commands}",
+  "uninstall.step_systemd_commands":
+    "Выполните эти команды самостоятельно, чтобы завершить:\n{commands}",
   "uninstall.systemd_outcome_removed": "удалён",
   "uninstall.systemd_outcome_absent": "не установлен",
   "uninstall.systemd_outcome_not_applicable": "неприменимо в этой системе",
@@ -888,8 +886,7 @@ export const ru: I18nDictionary = {
   "uninstall.step_process_skipped": "Процесс {pid} пропущен.",
   "uninstall.step_process_refused":
     "Процесс {pid} пропущен: его командная строка изменилась до остановки.",
-  "uninstall.step_override_invalid":
-    "Каталог OPENCODE_TELEGRAM_HOME {path} пропущен: {reason}",
+  "uninstall.step_override_invalid": "Каталог OPENCODE_TELEGRAM_HOME {path} пропущен: {reason}",
   "uninstall.step_override_skipped": "Каталог OPENCODE_TELEGRAM_HOME {path} пропущен.",
   "uninstall.override_reason_missing": "каталог не существует",
   "uninstall.override_reason_unreadable": "каталог недоступен для чтения",
@@ -909,7 +906,7 @@ export const ru: I18nDictionary = {
     "Каталог приложения {path} сохранён: в нём остались файлы (журналы остаются).",
   "uninstall.summary_ok": "Удаление завершено.",
   "uninstall.summary_left": "Удаление завершено; оставлено на месте: {items}",
-  "uninstall.summary_failed": "Удаление завершено, шагов с ошибками: {count}.",
+  "uninstall.summary_failed": "Удаление завершено. Шаги с ошибками: {count}",
   "uninstall.cli_hint": "Чтобы удалить саму CLI, выполните: {command}",
 
 };

@@ -840,8 +840,7 @@ export const pt: I18nDictionary = {
   "uninstall.plan_home": "Remover os dados do aplicativo em {path}.",
   "uninstall.plan_override":
     "Remover os dados do diretório OPENCODE_TELEGRAM_HOME {path} (perguntado separadamente).",
-  "uninstall.plan_keychain":
-    "Apagar os segredos armazenados no chaveiro (serviço {service}).",
+  "uninstall.plan_keychain": "Apagar os segredos armazenados no chaveiro (serviço {service}).",
   "uninstall.plan_logs_stay": "Os arquivos de log nunca são removidos e permanecem em {path}.",
   "uninstall.plan_opencode_server": "Parar o servidor OpenCode (confirmado separadamente).",
   "uninstall.plan_nothing": "Nada a remover.",
@@ -860,7 +859,7 @@ export const pt: I18nDictionary = {
   "uninstall.step_daemon_failed": "Não foi possível parar o daemon do bot (PID {pid}).",
   "uninstall.step_daemon_absent": "Nenhum daemon desanexado do bot estava em execução.",
   "uninstall.step_removed": "Removido: {path}",
-  "uninstall.step_absent": "Já não existe: {path}",
+  "uninstall.step_absent": "Já inexistente: {path}",
   "uninstall.step_failed": "Falha ao remover {path}: {reason}",
   "uninstall.step_link_removed": "Link {path} removido (apontava para {target})",
   "uninstall.step_target_left":
@@ -882,8 +881,7 @@ export const pt: I18nDictionary = {
   "uninstall.systemd_outcome_skipped_no_terminal": "ignorada (sem terminal para o sudo)",
   "uninstall.systemd_outcome_skipped_no_sudo": "ignorada (o sudo não está disponível)",
   "uninstall.systemd_outcome_failed": "falhou",
-  "uninstall.step_scan_failed":
-    "Não foi possível procurar processos do bot em execução: {reason}",
+  "uninstall.step_scan_failed": "Não foi possível procurar processos do bot em execução: {reason}",
   "uninstall.step_scan_unsupported":
     "A busca por bots fora do daemon não é compatível com o Windows; etapa ignorada.",
   "uninstall.step_process_stopped": "Processo {pid} parado.",
@@ -891,8 +889,7 @@ export const pt: I18nDictionary = {
   "uninstall.step_process_skipped": "Processo {pid} ignorado.",
   "uninstall.step_process_refused":
     "Processo {pid} ignorado: sua linha de comando mudou antes de ser parado.",
-  "uninstall.step_override_invalid":
-    "Diretório OPENCODE_TELEGRAM_HOME {path} ignorado: {reason}",
+  "uninstall.step_override_invalid": "Diretório OPENCODE_TELEGRAM_HOME {path} ignorado: {reason}",
   "uninstall.step_override_skipped": "Diretório OPENCODE_TELEGRAM_HOME {path} ignorado.",
   "uninstall.override_reason_missing": "o diretório não existe",
   "uninstall.override_reason_unreadable": "o diretório não pode ser lido",
@@ -912,7 +909,7 @@ export const pt: I18nDictionary = {
     "Diretório do aplicativo {path} mantido: ainda contém arquivos (os logs permanecem).",
   "uninstall.summary_ok": "Desinstalação concluída.",
   "uninstall.summary_left": "Desinstalação concluída; deixado no lugar: {items}",
-  "uninstall.summary_failed": "Desinstalação concluída com etapas que falharam: {count}.",
+  "uninstall.summary_failed": "Desinstalação concluída. Etapas com falha: {count}",
   "uninstall.cli_hint": "Para remover a própria CLI, execute: {command}",
 
 };

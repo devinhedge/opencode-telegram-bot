@@ -842,8 +842,7 @@ export const es: I18nDictionary = {
   "uninstall.plan_home": "Eliminar los datos de la aplicación en {path}.",
   "uninstall.plan_override":
     "Eliminar los datos del directorio OPENCODE_TELEGRAM_HOME {path} (se pregunta por separado).",
-  "uninstall.plan_keychain":
-    "Borrar los secretos almacenados en el llavero (servicio {service}).",
+  "uninstall.plan_keychain": "Borrar los secretos almacenados en el llavero (servicio {service}).",
   "uninstall.plan_logs_stay": "Los archivos de registro nunca se eliminan y permanecen en {path}.",
   "uninstall.plan_opencode_server": "Detener el servidor de OpenCode (se confirma por separado).",
   "uninstall.plan_nothing": "No hay nada que eliminar.",
@@ -867,7 +866,8 @@ export const es: I18nDictionary = {
   "uninstall.step_link_removed": "Enlace {path} eliminado (apuntaba a {target})",
   "uninstall.step_target_left":
     "Se dejó el destino del enlace {path}: está fuera del directorio personal.",
-  "uninstall.step_home_error": "No se pudo procesar el directorio de la aplicación {path}: {reason}",
+  "uninstall.step_home_error":
+    "No se pudo procesar el directorio de la aplicación {path}: {reason}",
   "uninstall.step_keychain": "Secreto del llavero {account}: {status}",
   "uninstall.step_keychain_unavailable":
     "El llavero no está disponible; no se tocaron sus secretos.",
@@ -891,8 +891,7 @@ export const es: I18nDictionary = {
   "uninstall.step_process_skipped": "Proceso {pid} omitido.",
   "uninstall.step_process_refused":
     "Proceso {pid} omitido: su línea de comandos cambió antes de detenerlo.",
-  "uninstall.step_override_invalid":
-    "Directorio OPENCODE_TELEGRAM_HOME {path} omitido: {reason}",
+  "uninstall.step_override_invalid": "Directorio OPENCODE_TELEGRAM_HOME {path} omitido: {reason}",
   "uninstall.step_override_skipped": "Directorio OPENCODE_TELEGRAM_HOME {path} omitido.",
   "uninstall.override_reason_missing": "el directorio no existe",
   "uninstall.override_reason_unreadable": "el directorio no se puede leer",
@@ -912,7 +911,7 @@ export const es: I18nDictionary = {
     "Directorio de la aplicación {path} conservado: aún contiene archivos (los registros permanecen).",
   "uninstall.summary_ok": "Desinstalación terminada.",
   "uninstall.summary_left": "Desinstalación terminada; se dejó sin tocar: {items}",
-  "uninstall.summary_failed": "Desinstalación terminada con pasos fallidos: {count}.",
+  "uninstall.summary_failed": "Desinstalación terminada. Pasos fallidos: {count}",
   "uninstall.cli_hint": "Para eliminar la propia CLI, ejecuta: {command}",
 
 };

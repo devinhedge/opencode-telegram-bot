@@ -872,8 +872,7 @@ export const it: I18nDictionary = {
   "uninstall.systemd_outcome_skipped_no_terminal": "saltata (nessun terminale per sudo)",
   "uninstall.systemd_outcome_skipped_no_sudo": "saltata (sudo non è disponibile)",
   "uninstall.systemd_outcome_failed": "non riuscita",
-  "uninstall.step_scan_failed":
-    "Impossibile cercare i processi del bot in esecuzione: {reason}",
+  "uninstall.step_scan_failed": "Impossibile cercare i processi del bot in esecuzione: {reason}",
   "uninstall.step_scan_unsupported":
     "La ricerca di bot fuori dal daemon non è supportata su Windows; saltata.",
   "uninstall.step_process_stopped": "Processo {pid} arrestato.",
@@ -881,8 +880,7 @@ export const it: I18nDictionary = {
   "uninstall.step_process_skipped": "Processo {pid} saltato.",
   "uninstall.step_process_refused":
     "Processo {pid} saltato: la sua riga di comando è cambiata prima dell'arresto.",
-  "uninstall.step_override_invalid":
-    "Directory OPENCODE_TELEGRAM_HOME {path} saltata: {reason}",
+  "uninstall.step_override_invalid": "Directory OPENCODE_TELEGRAM_HOME {path} saltata: {reason}",
   "uninstall.step_override_skipped": "Directory OPENCODE_TELEGRAM_HOME {path} saltata.",
   "uninstall.override_reason_missing": "la directory non esiste",
   "uninstall.override_reason_unreadable": "la directory non è leggibile",
@@ -902,7 +900,7 @@ export const it: I18nDictionary = {
     "Directory dell'applicazione {path} mantenuta: contiene ancora file (i log restano).",
   "uninstall.summary_ok": "Disinstallazione completata.",
   "uninstall.summary_left": "Disinstallazione completata; lasciato al suo posto: {items}",
-  "uninstall.summary_failed": "Disinstallazione completata con passaggi non riusciti: {count}.",
+  "uninstall.summary_failed": "Disinstallazione completata. Passaggi non riusciti: {count}",
   "uninstall.cli_hint": "Per rimuovere la CLI stessa, esegui: {command}",
 
 };

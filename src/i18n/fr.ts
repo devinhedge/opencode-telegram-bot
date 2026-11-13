@@ -845,8 +845,7 @@ export const fr: I18nDictionary = {
   "uninstall.plan_home": "Supprimer les données de l'application dans {path}.",
   "uninstall.plan_override":
     "Supprimer les données du répertoire OPENCODE_TELEGRAM_HOME {path} (demandé séparément).",
-  "uninstall.plan_keychain":
-    "Supprimer les secrets stockés dans le trousseau (service {service}).",
+  "uninstall.plan_keychain": "Supprimer les secrets stockés dans le trousseau (service {service}).",
   "uninstall.plan_logs_stay":
     "Les fichiers journaux ne sont jamais supprimés et restent dans {path}.",
   "uninstall.plan_opencode_server": "Arrêter le serveur OpenCode (confirmé séparément).",
@@ -881,8 +880,7 @@ export const fr: I18nDictionary = {
   "uninstall.keychain_status_failed": "échec",
   "uninstall.step_systemd": "Unité systemd : {outcome}",
   "uninstall.step_systemd_failed": "Échec de la suppression de l'unité systemd : {reason}",
-  "uninstall.step_systemd_commands":
-    "Exécutez vous-même ces commandes pour terminer :\n{commands}",
+  "uninstall.step_systemd_commands": "Exécutez vous-même ces commandes pour terminer :\n{commands}",
   "uninstall.systemd_outcome_removed": "supprimée",
   "uninstall.systemd_outcome_absent": "non installée",
   "uninstall.systemd_outcome_not_applicable": "sans objet sur ce système",
@@ -898,8 +896,7 @@ export const fr: I18nDictionary = {
   "uninstall.step_process_skipped": "Processus {pid} ignoré.",
   "uninstall.step_process_refused":
     "Processus {pid} ignoré : sa ligne de commande a changé avant l'arrêt.",
-  "uninstall.step_override_invalid":
-    "Répertoire OPENCODE_TELEGRAM_HOME {path} ignoré : {reason}",
+  "uninstall.step_override_invalid": "Répertoire OPENCODE_TELEGRAM_HOME {path} ignoré : {reason}",
   "uninstall.step_override_skipped": "Répertoire OPENCODE_TELEGRAM_HOME {path} ignoré.",
   "uninstall.override_reason_missing": "le répertoire n'existe pas",
   "uninstall.override_reason_unreadable": "le répertoire est illisible",
@@ -919,7 +916,7 @@ export const fr: I18nDictionary = {
     "Répertoire de l'application {path} conservé : il contient encore des fichiers (les journaux restent).",
   "uninstall.summary_ok": "Désinstallation terminée.",
   "uninstall.summary_left": "Désinstallation terminée ; laissé en place : {items}",
-  "uninstall.summary_failed": "Désinstallation terminée avec des étapes en échec : {count}.",
+  "uninstall.summary_failed": "Désinstallation terminée. Étapes en échec : {count}",
   "uninstall.cli_hint": "Pour supprimer la CLI elle-même, exécutez : {command}",
 
 };

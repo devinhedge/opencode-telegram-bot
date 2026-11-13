@@ -852,7 +852,8 @@ export const en = {
     "Left the link target {path} in place: it is outside the home directory.",
   "uninstall.step_home_error": "Could not process the app home {path}: {reason}",
   "uninstall.step_keychain": "Keychain secret {account}: {status}",
-  "uninstall.step_keychain_unavailable": "The keychain is unavailable; its secrets were not touched.",
+  "uninstall.step_keychain_unavailable":
+    "The keychain is unavailable; its secrets were not touched.",
   "uninstall.keychain_status_removed": "removed",
   "uninstall.keychain_status_absent": "not found",
   "uninstall.keychain_status_failed": "failed",
@@ -873,7 +874,8 @@ export const en = {
   "uninstall.step_process_skipped": "Skipped process {pid}.",
   "uninstall.step_process_refused":
     "Skipped process {pid}: its command line changed before it was stopped.",
-  "uninstall.step_override_invalid": "Skipped the OPENCODE_TELEGRAM_HOME directory {path}: {reason}",
+  "uninstall.step_override_invalid":
+    "Skipped the OPENCODE_TELEGRAM_HOME directory {path}: {reason}",
   "uninstall.step_override_skipped": "Skipped the OPENCODE_TELEGRAM_HOME directory {path}.",
   "uninstall.override_reason_missing": "the directory does not exist",
   "uninstall.override_reason_unreadable": "the directory cannot be read",
@@ -892,7 +894,7 @@ export const en = {
   "uninstall.home_kept": "Kept the app home {path}: it still contains files (logs stay).",
   "uninstall.summary_ok": "Uninstall finished.",
   "uninstall.summary_left": "Uninstall finished; left in place: {items}",
-  "uninstall.summary_failed": "Uninstall finished with failed steps: {count}.",
+  "uninstall.summary_failed": "Uninstall finished. Failed steps: {count}",
   "uninstall.cli_hint": "To remove the CLI itself, run: {command}",
 } as const;
 

@@ -801,12 +801,12 @@ export const ar: I18nDictionary = {
   "uninstall.plan_logs_stay": "لا تُزال ملفات السجل أبدًا وتبقى في {path}.",
   "uninstall.plan_opencode_server": "إيقاف خادم OpenCode (يُؤكَّد على حدة).",
   "uninstall.plan_nothing": "لا شيء للإزالة.",
-  "uninstall.confirm_plan": "هل تتابع بهذه الخطة؟ [y/N] ",
-  "uninstall.confirm_override": "هل تزيل أيضًا البيانات في {path}؟ [y/N] ",
+  "uninstall.confirm_plan": "هل تتابع بهذه الخطة؟ \u200E[y/N] ",
+  "uninstall.confirm_override": "هل تزيل أيضًا البيانات في {path}؟ \u200E[y/N] ",
   "uninstall.confirm_stop_process":
-    "هل توقف العملية {pid} (المستخدم {user}، بدأت {started}): {command}؟ [y/N] ",
+    "هل توقف العملية {pid} (المستخدم {user}، بدأت {started}): {command}؟ \u200E[y/N] ",
   "uninstall.confirm_stop_opencode":
-    "هل توقف خادم OpenCode (PID {pid}، المنفذ {port}): {command}؟ [y/N] ",
+    "هل توقف خادم OpenCode (PID {pid}، المنفذ {port}): {command}؟ \u200E[y/N] ",
   "uninstall.confirm_stop_opencode_tree":
     "في Windows يؤدي هذا إلى إيقاف شجرة عمليات الخادم بالكامل.",
   "uninstall.no_terminal_plan_only":
@@ -858,10 +858,11 @@ export const ar: I18nDictionary = {
   "uninstall.step_opencode_none": "لم يُعثر على خادم OpenCode لإيقافه.",
   "uninstall.command_unavailable": "(سطر الأوامر غير متاح)",
   "uninstall.home_removed": "تمت إزالة مجلد التطبيق {path}.",
-  "uninstall.home_kept": "تم الإبقاء على مجلد التطبيق {path}: ما زال يحتوي على ملفات (تبقى السجلات).",
+  "uninstall.home_kept":
+    "تم الإبقاء على مجلد التطبيق {path}: ما زال يحتوي على ملفات (تبقى السجلات).",
   "uninstall.summary_ok": "اكتملت الإزالة.",
   "uninstall.summary_left": "اكتملت الإزالة؛ تُرك في مكانه: {items}",
-  "uninstall.summary_failed": "اكتملت الإزالة مع خطوات فاشلة: {count}.",
+  "uninstall.summary_failed": "اكتملت الإزالة. الخطوات الفاشلة: {count}",
   "uninstall.cli_hint": "لإزالة واجهة سطر الأوامر نفسها، شغّل: {command}",
 
 };

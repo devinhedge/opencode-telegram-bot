@@ -822,7 +822,7 @@ export const zh: I18nDictionary = {
   "uninstall.home_kept": "已保留应用主目录 {path}：其中仍有文件（日志会保留）。",
   "uninstall.summary_ok": "卸载完成。",
   "uninstall.summary_left": "卸载完成；保留未动的项目：{items}",
-  "uninstall.summary_failed": "卸载完成，但有失败的步骤：{count}。",
+  "uninstall.summary_failed": "卸载完成。失败的步骤：{count}",
   "uninstall.cli_hint": "要删除 CLI 本身，请运行：{command}",
 
 };

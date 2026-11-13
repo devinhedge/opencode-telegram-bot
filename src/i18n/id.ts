@@ -840,18 +840,17 @@ export const id: I18nDictionary = {
   "uninstall.step_absent": "Sudah tidak ada: {path}",
   "uninstall.step_failed": "Gagal menghapus {path}: {reason}",
   "uninstall.step_link_removed": "Tautan {path} dihapus (menunjuk ke {target})",
-  "uninstall.step_target_left":
-    "Target tautan {path} dibiarkan: berada di luar direktori home.",
+  "uninstall.step_target_left": "Target tautan {path} dibiarkan: berada di luar direktori home.",
   "uninstall.step_home_error": "Tidak dapat memproses direktori aplikasi {path}: {reason}",
   "uninstall.step_keychain": "Rahasia keychain {account}: {status}",
-  "uninstall.step_keychain_unavailable":
-    "Keychain tidak tersedia; rahasianya tidak disentuh.",
+  "uninstall.step_keychain_unavailable": "Keychain tidak tersedia; rahasianya tidak disentuh.",
   "uninstall.keychain_status_removed": "dihapus",
   "uninstall.keychain_status_absent": "tidak ditemukan",
   "uninstall.keychain_status_failed": "gagal",
   "uninstall.step_systemd": "Unit systemd: {outcome}",
   "uninstall.step_systemd_failed": "Gagal menghapus unit systemd: {reason}",
-  "uninstall.step_systemd_commands": "Jalankan sendiri perintah berikut untuk menyelesaikan:\n{commands}",
+  "uninstall.step_systemd_commands":
+    "Jalankan sendiri perintah berikut untuk menyelesaikan:\n{commands}",
   "uninstall.systemd_outcome_removed": "dihapus",
   "uninstall.systemd_outcome_absent": "tidak terpasang",
   "uninstall.systemd_outcome_not_applicable": "tidak berlaku di sistem ini",
@@ -886,7 +885,7 @@ export const id: I18nDictionary = {
     "Direktori aplikasi {path} dipertahankan: masih berisi file (log tetap ada).",
   "uninstall.summary_ok": "Uninstall selesai.",
   "uninstall.summary_left": "Uninstall selesai; dibiarkan di tempat: {items}",
-  "uninstall.summary_failed": "Uninstall selesai dengan langkah yang gagal: {count}.",
+  "uninstall.summary_failed": "Uninstall selesai. Langkah yang gagal: {count}",
   "uninstall.cli_hint": "Untuk menghapus CLI itu sendiri, jalankan: {command}",
 
 };

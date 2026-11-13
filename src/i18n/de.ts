@@ -869,7 +869,7 @@ export const de: I18nDictionary = {
   "uninstall.step_failed": "{path} konnte nicht entfernt werden: {reason}",
   "uninstall.step_link_removed": "Link {path} entfernt (zeigte auf {target})",
   "uninstall.step_target_left":
-    "Das Link-Ziel {path} bleibt bestehen: es liegt außerhalb des Home-Verzeichnisses.",
+    "Das Link-Ziel {path} bleibt bestehen: Es liegt außerhalb des Home-Verzeichnisses.",
   "uninstall.step_home_error": "Das App-Home {path} konnte nicht verarbeitet werden: {reason}",
   "uninstall.step_keychain": "Schlüsselbund-Geheimnis {account}: {status}",
   "uninstall.step_keychain_unavailable":
@@ -879,7 +879,8 @@ export const de: I18nDictionary = {
   "uninstall.keychain_status_failed": "fehlgeschlagen",
   "uninstall.step_systemd": "systemd-Unit: {outcome}",
   "uninstall.step_systemd_failed": "Die systemd-Unit konnte nicht entfernt werden: {reason}",
-  "uninstall.step_systemd_commands": "Führe diese Befehle selbst aus, um abzuschließen:\n{commands}",
+  "uninstall.step_systemd_commands":
+    "Führe diese Befehle selbst aus, um abzuschließen:\n{commands}",
   "uninstall.systemd_outcome_removed": "entfernt",
   "uninstall.systemd_outcome_absent": "nicht installiert",
   "uninstall.systemd_outcome_not_applicable": "auf diesem System nicht anwendbar",
@@ -915,7 +916,7 @@ export const de: I18nDictionary = {
   "uninstall.home_kept": "App-Home {path} behalten: es enthält noch Dateien (Logs bleiben).",
   "uninstall.summary_ok": "Deinstallation abgeschlossen.",
   "uninstall.summary_left": "Deinstallation abgeschlossen; unverändert geblieben: {items}",
-  "uninstall.summary_failed": "Deinstallation mit fehlgeschlagenen Schritten abgeschlossen: {count}.",
+  "uninstall.summary_failed": "Deinstallation abgeschlossen. Fehlgeschlagene Schritte: {count}",
   "uninstall.cli_hint": "Um die CLI selbst zu entfernen, führe aus: {command}",
 
 };
