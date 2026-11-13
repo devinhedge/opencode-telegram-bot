@@ -263,85 +263,127 @@ describe("runtime/uninstall/messages", () => {
 
   describe("redactCommandLine", () => {
     const SECRET = "S3CR3T";
+    const PREFIX = "node /opt/x/cli.js";
 
-    // input -> exact output; every input carries SECRET in the value position.
-    const CASES: Array<[string, string]> = [
-      [`--token ${SECRET}`, "--token ***"],
-      [`--token=${SECRET}`, "--token=***"],
-      [`TOKEN=${SECRET} cmd`, "TOKEN=*** cmd"],
-      [`export API_KEY=${SECRET}`, "export API_KEY=***"],
-      [`--password "my ${SECRET}"`, "--password ***"],
-      [`--password='a ${SECRET}'`, "--password=***"],
-      [`Authorization: Bearer ${SECRET} ${SECRET}`, "Authorization: *** *** ***"],
-      [`-H "Authorization: Bearer ${SECRET} ${SECRET}"`, '-H "Authorization:***'],
-      [`Authorization: Basic ${SECRET}`, "Authorization: *** ***"],
-      [`Proxy-Authorization: Basic ${SECRET}`, "Proxy-Authorization: *** ***"],
-      [`Cookie: a=${SECRET}; b=${SECRET}`, "Cookie: *** ***"],
-      [`https://user:${SECRET}@host/x`, "https://***@host/x"],
-      [`http://user@h:${SECRET}@x`, "http://***@x"],
-      [`postgres://u:${SECRET}%40ss@h/db`, "postgres://***@h/db"],
-      [`--api-key ${SECRET}`, "--api-key ***"],
-      [`--apikey ${SECRET}`, "--apikey ***"],
-      [`--client_secret=${SECRET}`, "--client_secret=***"],
-      [`--TOKEN ${SECRET}`, "--TOKEN ***"],
-      [`--pass ${SECRET}`, "--pass ***"],
-      [`--pwd ${SECRET}`, "--pwd ***"],
-      [`--passphrase ${SECRET}`, "--passphrase ***"],
-      [`--pw=${SECRET}=b,c`, "--pw=***"],
-      [`-p ${SECRET}`, "-p ***"],
-      [`-P ${SECRET}`, "-P ***"],
-      [`--auth Bearer ${SECRET}`, "--auth *** ***"],
-      [`'TOKEN=a ${SECRET}'`, "'TOKEN=***"],
-      [`"--password=a ${SECRET}"`, '"--password=***'],
-      [`--token=a'b ${SECRET}'`, "--token=***"],
-      [`--token "a\\" ${SECRET}" tail`, "--token *** tail"],
-      [`--token=${SECRET}\\ def`, "--token=***"],
-      [`--token='${SECRET}`, "***"],
-      [`--token "${SECRET}`, "--token ***"],
-      [`--password: ${SECRET}`, "--password: ***"],
-      [`--token -${SECRET}`, "--token ***"],
-      [`--token --${SECRET}`, "--token ***"],
-      [`--token ${SECRET} --token ${SECRET} x`, "--token *** --token *** x"],
-      ["run --token", "run --token"],
+    // Attack forms, each carrying SECRET where the secret would be. They run after a normal
+    // executable and script and, where it makes sense, also as the whole line.
+    const FORMS: string[] = [
+      `--token ${SECRET}`,
+      `--token=${SECRET}`,
+      `TOKEN=${SECRET} cmd`,
+      `export API_KEY=${SECRET}`,
+      `--password "my ${SECRET}"`,
+      `--password='a ${SECRET}'`,
+      `Authorization: Bearer ${SECRET} ${SECRET}`,
+      `-H "Authorization: Bearer ${SECRET} ${SECRET}"`,
+      `Authorization:Bearer ${SECRET}`,
+      `-HAuthorization:Bearer ${SECRET}`,
+      `--header Authorization:Bearer ${SECRET}`,
+      `https://user:${SECRET}@host/x`,
+      `http://user@h:${SECRET}@x`,
+      `a://b://u:${SECRET}@h`,
+      `https://u:${SECRET}/ss@h/`,
+      `postgres://u:${SECRET}%40ss@h/db`,
+      `--api-key ${SECRET}`,
+      `--client_secret=${SECRET}`,
+      `--pass ${SECRET}`,
+      `--pwd ${SECRET}`,
+      `--pw=a=${SECRET},c`,
+      `-p ${SECRET}`,
+      `-p${SECRET}`,
+      `-p=${SECRET}`,
+      `-P${SECRET}`,
+      `--auth Bearer ${SECRET}`,
+      `'TOKEN=a ${SECRET}'`,
+      `"--password=a ${SECRET}"`,
+      `'--password ${SECRET}'`,
+      `--password\\ ${SECRET}`,
+      `--token=a'b ${SECRET}'`,
+      `--token "a\\" ${SECRET}" tail`,
+      `--token=${SECRET}\\ def`,
+      `--token='${SECRET}`,
+      `--token "${SECRET}`,
+      `--password: ${SECRET}`,
+      `--token -${SECRET}`,
+      `--header=X-Api-Key:${SECRET}`,
+      `env KEY=${SECRET} node x.js`,
+      `--token\u0000${SECRET}`,
+      `--token\u000c${SECRET}`,
+      `--token\u000b${SECRET}`,
+      `--password\u00a0${SECRET}`,
+      `--токен ${SECRET}`,
     ];
 
-    it("leaves an ordinary command line unchanged", () => {
-      const line = "node /opt/x/dist/cli.js start --daemon --mode installed";
-
-      expect(redactCommandLine(line)).toBe(line);
+    it("leaves ordinary command lines unchanged", () => {
+      for (const line of [
+        "node /opt/x/dist/cli.js start --daemon --mode installed",
+        "node dist/index.js",
+        "opencode serve --port 4096 --hostname 127.0.0.1",
+        "node /opt/x/dist/cli.js stop",
+        "node /opt/x/dist/cli.js --mode=sources --port=4096 uninstall",
+      ]) {
+        expect(redactCommandLine(line), line).toBe(line);
+      }
     });
 
-    for (const [input, expected] of CASES) {
-      it(`masks ${input}`, () => {
-        const out = redactCommandLine(input);
-
-        expect(out).toBe(expected);
-        expect(out).not.toContain(SECRET);
+    for (const form of FORMS) {
+      it(`hides the secret in ${JSON.stringify(form)}`, () => {
+        expect(redactCommandLine(`${PREFIX} ${form}`)).not.toContain(SECRET);
+        expect(redactCommandLine(form)).not.toContain(SECRET);
+        expect(redactCommandLine(`${PREFIX} start ${form} --daemon`)).not.toContain(SECRET);
       });
     }
 
+    it("keeps the allowed words and masks everything else", () => {
+      expect(redactCommandLine(`${PREFIX} --token ${SECRET} --port 4096`)).toBe(
+        `${PREFIX} *** *** --port 4096`,
+      );
+      expect(redactCommandLine("node x.js --mode=evil")).toBe("node x.js ***");
+      expect(redactCommandLine("TOKEN=abc node x.js")).toBe("*** *** x.js");
+      expect(redactCommandLine("node x.js --daemon=1 --port=99999999")).toBe(
+        "node x.js --daemon=1 ***",
+      );
+    });
+
+    it("joins tokens with a single space and splits on control and Unicode whitespace", () => {
+      expect(redactCommandLine("node\u0000x.js\u00a0\u00a0start\t\n--daemon")).toBe(
+        "node x.js start --daemon",
+      );
+    });
+
     it("caps the input at 4096 characters and marks the cut", () => {
-      const out = redactCommandLine(`--token ${SECRET} ${"x".repeat(10000)}`);
+      const out = redactCommandLine(`${PREFIX} ${"start ".repeat(5000)}`);
 
       expect(out.length).toBeLessThanOrEqual(4096 + 3);
       expect(out.endsWith("...")).toBe(true);
-      expect(out).not.toContain(SECRET);
+    });
+
+    it("hides a secret cut at every offset around the cap", () => {
+      const tail = ` https://user:SECRETVALUE@h/ --token SECRETVALUE`;
+      for (let offset = 4060; offset <= 4100; offset += 1) {
+        const filler = `${PREFIX} ${"a ".repeat(3000)}`.slice(0, offset);
+
+        expect(redactCommandLine(filler + tail), String(offset)).not.toContain("SECRET");
+      }
     });
 
     describe("ReDoS", () => {
-      const HOSTILE: Array<[string, string]> = [
-        ["token repeated", "token".repeat(20000)],
-        ["a-token- repeated", "a-token-".repeat(20000)],
-        ["--token repeated", "--token ".repeat(20000)],
-        ["a= repeated", "a=".repeat(50000)],
-        ["one letter", "a".repeat(1_000_000)],
+      const SHAPES: Array<[string, string]> = [
+        ["one letter", "a"],
+        ["--token ", "--token "],
+        ["a=", "a="],
+        ["double quote", '"'],
+        ["backslash", "\\"],
+        ["space", " "],
+        ["NUL", "\u0000"],
+        ["token", "token"],
       ];
 
-      for (const [label, junk] of HOSTILE) {
-        it(`finishes fast on ${label} and leaks nothing`, () => {
-          const input = `--token ${SECRET} TOKEN=${SECRET} ${junk}`;
+      for (const [label, unit] of SHAPES) {
+        it(`finishes fast on 1,000,000 characters of ${label}`, () => {
+          const input = unit.repeat(Math.ceil(1_000_000 / unit.length));
           const started = performance.now();
-          const out = redactCommandLine(input);
+          const out = redactCommandLine(`--token ${SECRET} ${input}`);
           const elapsed = performance.now() - started;
 
           expect(elapsed).toBeLessThan(500);
