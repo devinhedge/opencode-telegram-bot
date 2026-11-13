@@ -1,7 +1,7 @@
 ---
 title: Uninstaller Implementation Plan
 status: draft
-version: 0.1.5
+version: 0.1.6
 last_updated: 2026-11-12
 review_date: 2027-05-12
 spec: docs/superpowers/specs/2026-11-11-uninstaller-design.md
@@ -206,9 +206,9 @@ Order: (1) container refusal; (2) root refusal (`getUid() === 0`); (3) resolve t
 **Files:** Modify `src/cli/args.ts`, `src/cli.ts`; Test `tests/cli/args.test.ts` (update), `tests/cli/uninstall-command.test.ts` (create).
 
 **Interfaces:**
-- Produces: `CliCommand` gains `"uninstall"`; `ParsedCliArgs` gains `yes: boolean` and `stopOpencode: boolean` (every early-return literal in `parseCliArgs` is updated); `--yes` and `--stop-opencode` are rejected for every other command with new messages (mirroring `daemonOnlyStart`); `CLI_USAGE` lists `uninstall` and both flags; `runUninstallCommand(options: UninstallOptions): Promise<number>` in `src/cli.ts` (sets runtime mode `installed`, sets `LOG_LEVEL` to `error` only when it is unset so the existing daemon-stop log lines do not mix English into the localized trace, dynamic-imports `./runtime/uninstall/run.js`); an explicit `uninstall` branch is added before the `stop` fall-through.
+- Produces: `CliCommand` gains `"uninstall"`; `ParsedCliArgs` gains `yes: boolean` and `stopOpencode: boolean` (every early-return literal in `parseCliArgs` is updated); `--yes` and `--stop-opencode` are rejected for every other command with new messages (mirroring `daemonOnlyStart`); `CLI_USAGE` lists `uninstall` and both flags; `runUninstallCommand(options: UninstallOptions): Promise<number>` in `src/cli.ts` (sets runtime mode `installed`, sets `LOG_LEVEL` to `silent` unconditionally (the logger's level above `error`) so the existing daemon-stop log lines never mix English or raw error text into the localized trace, dynamic-imports `./runtime/uninstall/run.js`); an explicit `uninstall` branch is added before the `stop` fall-through.
 
-- [ ] **Step 1: Failing tests:** `parseCliArgs(["uninstall"])`, `["uninstall","--yes"]`, `["uninstall","--yes","--stop-opencode"]` parse; `["start","--yes"]` and `["stop","--stop-opencode"]` return the error and `showHelp`; every existing `toEqual` expectation gains `yes: false` and `stopOpencode: false`; the command test (follow `tests/cli/config-command.test.ts`: `vi.hoisted` mocks, `vi.mock` of the logger and of `run.js`, `process.argv`, `vi.resetModules`, `vi.waitFor`) asserts `runUninstall` is called with `{ yes, stopOpencode }`, the exit code is propagated, `LOG_LEVEL` is `error` when unset and unchanged when set.
+- [ ] **Step 1: Failing tests:** `parseCliArgs(["uninstall"])`, `["uninstall","--yes"]`, `["uninstall","--yes","--stop-opencode"]` parse; `["start","--yes"]` and `["stop","--stop-opencode"]` return the error and `showHelp`; every existing `toEqual` expectation gains `yes: false` and `stopOpencode: false`; the command test (follow `tests/cli/config-command.test.ts`: `vi.hoisted` mocks, `vi.mock` of the logger and of `run.js`, `process.argv`, `vi.resetModules`, `vi.waitFor`) asserts `runUninstall` is called with `{ yes, stopOpencode }`, the exit code is propagated, `LOG_LEVEL` is `silent` in-process whether or not it was set before (and `runUninstall` is never executed for real: `run.js` is mocked).
 - [ ] **Step 2:** Run. Expected: FAIL.
 - [ ] **Step 3: Implement.**
 - [ ] **Step 4:** `npx vitest run tests/cli`, lint, typecheck. Expected: PASS.
@@ -248,7 +248,7 @@ Order: (1) container refusal; (2) root refusal (`getUid() === 0`); (3) resolve t
 - A new `KeychainSecretStore.removeSecret` reports removed, absent, or failed; `deleteSecret` stays as is.
 - Process-control code moves to a side-effect-free module because importing `src/opencode/process.ts` loads `.env` and can throw.
 - Without `--yes` and without a terminal the plan is printed and nothing is removed; a declined confirmation exits 1.
-- `LOG_LEVEL` is set to `error` in-process only when unset.
+- `LOG_LEVEL` is set to `silent` in-process for the uninstall command.
 - The end-to-end run with `--yes` is Linux-only to protect the developer's real keychain.
 
 ## Self-Review
