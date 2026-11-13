@@ -1,0 +1,489 @@
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { de } from "../../../src/i18n/de.js";
+import { en } from "../../../src/i18n/en.js";
+import type {
+  BotServiceStatus,
+  ServiceOperationResult,
+} from "../../../src/runtime/service/types.js";
+import {
+  KEYCHAIN_SERVICE,
+  PRESERVED_APP_HOME_ENTRIES,
+  STORED_APP_HOME_ENTRIES,
+  STORED_KEYCHAIN_ACCOUNTS,
+  STORED_TEMP_SIBLING_PATTERNS,
+  listAppHomeTargets,
+} from "../../../src/runtime/stored-data.js";
+import {
+  resolveUninstallHomes,
+  validateOverrideHome,
+} from "../../../src/runtime/uninstall/homes.js";
+import { removeKeychainAccounts } from "../../../src/runtime/uninstall/keychain.js";
+import type { KeychainRemovalStore } from "../../../src/runtime/uninstall/keychain.js";
+import { createUninstallTranslator } from "../../../src/runtime/uninstall/messages.js";
+import type { OpencodeLookup } from "../../../src/runtime/uninstall/opencode-server.js";
+import type { BotProcess } from "../../../src/runtime/uninstall/processes.js";
+import { removeAppHomeData, removePath } from "../../../src/runtime/uninstall/remove-path.js";
+import {
+  runUninstall,
+  type UninstallDeps,
+  type UninstallOptions,
+} from "../../../src/runtime/uninstall/run.js";
+import type { SystemdDeps } from "../../../src/runtime/uninstall/systemd.js";
+import { assertInsideTempRoot } from "./temp-root-guard.js";
+
+// No real child process may start from this file: every child_process entry point is a mock that
+// records the request, and afterEach fails the test when any was made.
+const childProcess = vi.hoisted(() => {
+  const unexpected: string[] = [];
+  const refuse = (name: string) =>
+    vi.fn((...args: unknown[]) => {
+      unexpected.push(`${name} ${String(args[0])}`);
+      throw new Error(`real ${name} is not allowed in this test file`);
+    });
+  return {
+    unexpected,
+    exec: refuse("exec"),
+    execFile: refuse("execFile"),
+    spawn: refuse("spawn"),
+    execSync: refuse("execSync"),
+    execFileSync: refuse("execFileSync"),
+    spawnSync: refuse("spawnSync"),
+    fork: refuse("fork"),
+  };
+});
+
+vi.mock("node:child_process", () => ({
+  exec: childProcess.exec,
+  execFile: childProcess.execFile,
+  spawn: childProcess.spawn,
+  execSync: childProcess.execSync,
+  execFileSync: childProcess.execFileSync,
+  spawnSync: childProcess.spawnSync,
+  fork: childProcess.fork,
+}));
+
+const isWindows = process.platform === "win32";
+const SENTINEL = "SECRET-SENTINEL";
+const FAKE_DAEMON_PID = 424242;
+const YES: UninstallOptions = { yes: true, stopOpencode: false };
+const CLI_COMMAND = "npm uninstall -g @grinev/opencode-telegram-bot";
+const tEn = createUninstallTranslator(undefined);
+const tDe = createUninstallTranslator("de");
+
+// The real user home from the password database (a stubbed HOME cannot hide it).
+const REAL_HOME = os.userInfo().homedir;
+const REAL_APP_HOME_NAMES = [
+  path.join(REAL_HOME, "Library", "Application Support", "opencode-telegram-bot"),
+  path.join(REAL_HOME, ".config", "opencode-telegram-bot"),
+  path.join(REAL_HOME, "AppData", "Roaming", "opencode-telegram-bot"),
+];
+
+const TEMP_SIBLINGS = [
+  ".env.123.0123abcd-0123-4567-89ab-0123456789ab.tmp",
+  "secrets.enc.456.89abcdef-0123-4567-89ab-0123456789ab.tmp",
+];
+const MARKER_FILES = [".env", "settings.json", path.join("run", "bot-service.json")];
+const SECRET_FILES = ["secrets.enc", "keystore_password"];
+
+// The run catches step errors, so a guard throw alone could be swallowed: every violation is also
+// recorded and afterEach fails the test when the list is not empty.
+const guardViolations: string[] = [];
+
+function guard(target: string, root: string, followTarget = true): void {
+  try {
+    assertInsideTempRoot(target, root, { followTarget });
+  } catch (error) {
+    guardViolations.push(target);
+    throw error;
+  }
+}
+
+/** The per-target "left in place" step line (the summary line is a different template). */
+function isTargetLeftLine(line: string): boolean {
+  return line.startsWith("Left the link target ");
+}
+
+function isUnder(target: string, root: string): boolean {
+  const relative = path.relative(root, target);
+  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+}
+
+async function exists(target: string): Promise<boolean> {
+  try {
+    await fs.lstat(target);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function populateHome(home: string): Promise<void> {
+  await fs.mkdir(home, { recursive: true });
+  for (const entry of STORED_APP_HOME_ENTRIES) {
+    const target = path.join(home, entry.name);
+    if (entry.kind === "dir") {
+      await fs.mkdir(target, { recursive: true });
+      await fs.writeFile(path.join(target, "content.json"), "{}");
+    } else {
+      await fs.writeFile(target, `TELEGRAM_BOT_TOKEN=${SENTINEL}\n`);
+    }
+  }
+  for (const sibling of TEMP_SIBLINGS) {
+    await fs.writeFile(path.join(home, sibling), "partial");
+  }
+  await fs.mkdir(path.join(home, "logs"), { recursive: true });
+  await fs.writeFile(path.join(home, "logs", "opencode-telegram-bot-2026-11-12.log"), "log");
+  await fs.writeFile(path.join(home, "notes.txt"), "the user's own notes");
+  // A stub daemon state file; the pid is fake and no deps signal it.
+  await fs.writeFile(
+    path.join(home, "run", "bot-service.json"),
+    JSON.stringify({ pid: FAKE_DAEMON_PID, startedAt: "2026-11-12T00:00:00.000Z" }),
+  );
+}
+
+describe("runtime/uninstall integration", () => {
+  let tempRoot: string;
+  let tempHome: string;
+  let outside: string;
+  let touched: string[];
+  let lines: string[];
+  let prompts: string[];
+  let answers: (string | null)[];
+  let secrets: Map<string, string>;
+  let signals: string[];
+  let daemonStatus: BotServiceStatus;
+  let stopDaemonCalls: number;
+
+  beforeEach(async () => {
+    tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "uninstall-integration-"));
+    tempHome = path.join(tempRoot, "user-home");
+    outside = path.join(tempRoot, "outside");
+    await fs.mkdir(tempHome, { recursive: true });
+    await fs.mkdir(outside, { recursive: true });
+    // The default home resolves from these, so it lands inside the temp directory.
+    vi.stubEnv("HOME", tempHome);
+    vi.stubEnv("USERPROFILE", tempHome);
+    vi.stubEnv("XDG_CONFIG_HOME", path.join(tempHome, ".config"));
+    vi.stubEnv("APPDATA", path.join(tempHome, "AppData", "Roaming"));
+    vi.stubEnv("OPENCODE_TELEGRAM_HOME", "");
+    touched = [];
+    lines = [];
+    prompts = [];
+    answers = [];
+    signals = [];
+    stopDaemonCalls = 0;
+    secrets = new Map(STORED_KEYCHAIN_ACCOUNTS.map((account) => [account, SENTINEL]));
+    daemonStatus = {
+      status: "running",
+      service: {
+        pid: FAKE_DAEMON_PID,
+        startedAt: "2026-11-12T00:00:00.000Z",
+        logFilePath: path.join(tempRoot, "daemon.log"),
+        mode: "daemon",
+      },
+      cleanupReason: null,
+    };
+  });
+
+  afterEach(async () => {
+    vi.unstubAllEnvs();
+    await fs.rm(tempRoot, { recursive: true, force: true });
+    const violations = guardViolations.splice(0);
+    expect(violations, "a fake was asked to touch a path outside the temp root").toEqual([]);
+    const realCommands = childProcess.unexpected.splice(0);
+    expect(realCommands, "a real child process was requested").toEqual([]);
+  });
+
+  /** A COMPLETE deps object: every key is set here, nothing falls back to a real default. */
+  function createDeps(
+    env: NodeJS.ProcessEnv,
+    options: { onAsk?: (question: string) => Promise<void> } = {},
+  ): UninstallDeps {
+    const store: KeychainRemovalStore = {
+      isAvailable: async () => true,
+      removeSecret: async (account) => (secrets.delete(account) ? "removed" : "absent"),
+    };
+    const systemd: SystemdDeps = {
+      platform: "linux",
+      unitExists: async () => false,
+      hasSudo: async () => false,
+      isInteractive: false,
+      run: vi.fn(async () => 0),
+    };
+    const note = (target: string): void => {
+      touched.push(target);
+    };
+    return {
+      env,
+      platform: "linux",
+      isContainer: () => false,
+      getUid: () => 1000,
+      isInteractive: true,
+      ask: async (question: string) => {
+        prompts.push(question);
+        await options.onAsk?.(question);
+        return answers.length > 0 ? (answers.shift() ?? null) : null;
+      },
+      write: (line: string) => {
+        lines.push(line);
+      },
+      // The real homes lookup, guarded: both homes must lie inside the temp directory.
+      getHomes: () => {
+        const homes = resolveUninstallHomes(env);
+        note(homes.defaultHome);
+        guard(homes.defaultHome, tempRoot);
+        if (homes.overrideHome !== null) {
+          note(homes.overrideHome);
+          guard(homes.overrideHome, tempRoot);
+        }
+        return homes;
+      },
+      getDaemonStatus: async () => daemonStatus,
+      stopDaemon: async (): Promise<ServiceOperationResult> => {
+        stopDaemonCalls += 1;
+        const service = daemonStatus.service;
+        daemonStatus = { status: "stopped", service: null, cleanupReason: null };
+        return service
+          ? { success: true, service, cleanupReason: null }
+          : { success: true, service: null, cleanupReason: null, alreadyStopped: true };
+      },
+      getOwnPidChain: async () => [9100, 9099],
+      findSystemdMainPid: async () => null,
+      findBotProcesses: async (): Promise<BotProcess[]> => [],
+      reverifyProcess: async () => {
+        signals.push("reverify");
+        return false;
+      },
+      signalProcess: (pid: number, signal: NodeJS.Signals) => {
+        signals.push(`${signal} ${pid}`);
+      },
+      waitForExit: async () => true,
+      systemd,
+      findOpencode: async (): Promise<OpencodeLookup> => {
+        signals.push("findOpencode");
+        return { kind: "not-listening" };
+      },
+      stopOpencode: async () => {
+        signals.push("stopOpencode");
+        return true;
+      },
+      validateOverride: async (target: string) => {
+        note(target);
+        guard(target, tempRoot);
+        return validateOverrideHome(target, tempHome);
+      },
+      removePath: async (target: string) => {
+        note(target);
+        guard(target, tempRoot, false);
+        return removePath(target);
+      },
+      removeAppHome: async (home: string) => {
+        note(home);
+        guard(home, tempRoot);
+        return removeAppHomeData(home);
+      },
+      removeKeychain: () => removeKeychainAccounts(store),
+      resolveLogsDir: async () => path.join(tempRoot, "canonical-logs"),
+    };
+  }
+
+  function expectNothingRealTouched(): void {
+    for (const target of touched) {
+      expect(isUnder(path.resolve(target), tempRoot), target).toBe(true);
+      expect(isUnder(path.resolve(target), REAL_HOME), target).toBe(false);
+    }
+    for (const line of lines) {
+      for (const realApp of REAL_APP_HOME_NAMES) {
+        expect(line).not.toContain(realApp);
+      }
+    }
+    for (const text of [...lines, ...prompts]) {
+      expect(text).not.toContain(SENTINEL);
+    }
+    expect(signals.filter((entry) => /^SIG/.test(entry))).toEqual([]);
+  }
+
+  it("removes a full home, keeps logs and notes, leaves an outside link target, then is idempotent", async () => {
+    const resolvedHomes = resolveUninstallHomes({});
+    const home = resolvedHomes.defaultHome;
+    expect(isUnder(home, tempRoot)).toBe(true);
+    expect(resolvedHomes.overrideHome).toBeNull();
+    await populateHome(home);
+    const outsideTarget = path.join(outside, "secrets-target.enc");
+    await fs.writeFile(outsideTarget, "encrypted");
+    if (!isWindows) {
+      await fs.rm(path.join(home, "secrets.enc"));
+      await fs.symlink(outsideTarget, path.join(home, "secrets.enc"));
+    }
+
+    const listed = await listAppHomeTargets(home);
+    expect(listed.map((target) => path.basename(target)).sort()).toEqual(
+      [...STORED_APP_HOME_ENTRIES.map((entry) => entry.name), ...TEMP_SIBLINGS].sort(),
+    );
+    for (const sibling of TEMP_SIBLINGS) {
+      expect(STORED_TEMP_SIBLING_PATTERNS.some((pattern) => pattern.test(sibling))).toBe(true);
+    }
+
+    const code = await runUninstall(YES, createDeps({}));
+
+    expect(code).toBe(0);
+    expect(prompts).toEqual([]);
+    expect(stopDaemonCalls).toBe(1);
+    expect(lines).toContain(tEn("uninstall.step_daemon_stopped", { pid: FAKE_DAEMON_PID }));
+    for (const target of listed) {
+      expect(await exists(target), target).toBe(false);
+      expect(
+        lines.some((line) => line.includes(target)),
+        target,
+      ).toBe(true);
+    }
+    for (const name of PRESERVED_APP_HOME_ENTRIES) {
+      expect(await exists(path.join(home, name)), name).toBe(true);
+    }
+    expect(await exists(path.join(home, "notes.txt"))).toBe(true);
+    expect(await exists(path.join(home, "logs", "opencode-telegram-bot-2026-11-12.log"))).toBe(
+      true,
+    );
+    expect(secrets.size).toBe(0);
+    expect(lines).toContain(tEn("uninstall.plan_keychain", { service: KEYCHAIN_SERVICE }));
+    expect(lines.at(-1)).toBe(tEn("uninstall.cli_hint", { command: CLI_COMMAND }));
+    if (isWindows) {
+      expect(lines).toContain(tEn("uninstall.summary_ok"));
+      expect(lines.filter(isTargetLeftLine)).toEqual([]);
+    } else {
+      expect(await exists(outsideTarget)).toBe(true);
+      expect(await exists(path.join(home, "secrets.enc"))).toBe(false);
+      const realTarget = await fs.realpath(outsideTarget);
+      expect(lines.filter(isTargetLeftLine)).toEqual([
+        tEn("uninstall.step_target_left", { path: realTarget }),
+      ]);
+      expect(lines).toContain(tEn("uninstall.summary_left", { items: realTarget }));
+    }
+    expectNothingRealTouched();
+
+    // Second run: everything is already gone.
+    lines.length = 0;
+    prompts.length = 0;
+    stopDaemonCalls = 0;
+    const secondCode = await runUninstall(YES, createDeps({}));
+
+    expect(secondCode).toBe(0);
+    expect(stopDaemonCalls).toBe(0);
+    expect(lines.filter(isTargetLeftLine)).toEqual([]);
+    expect(lines).toContain(tEn("uninstall.step_daemon_absent"));
+    expect(lines).toContain(tEn("uninstall.summary_ok"));
+    for (const target of listed) {
+      expect(lines.some((line) => line === tEn("uninstall.step_removed", { path: target }))).toBe(
+        false,
+      );
+    }
+    expect(await exists(path.join(home, "notes.txt"))).toBe(true);
+    expectNothingRealTouched();
+  });
+
+  it.skipIf(isWindows)(
+    "reports 'left in place' only for an existing target outside the home",
+    async () => {
+      const home = resolveUninstallHomes({}).defaultHome;
+      await populateHome(home);
+      // Inside the home (removed in the same run) and dangling outside targets: not reported.
+      await fs.rm(path.join(home, ".env"));
+      await fs.symlink(path.join(home, "settings.json"), path.join(home, ".env"));
+      await fs.rm(path.join(home, "secrets.enc"));
+      await fs.symlink(path.join(outside, "missing.enc"), path.join(home, "secrets.enc"));
+
+      const code = await runUninstall(YES, createDeps({}));
+
+      expect(code).toBe(0);
+      expect(await exists(path.join(home, ".env"))).toBe(false);
+      expect(await exists(path.join(home, "secrets.enc"))).toBe(false);
+      expect(lines.filter(isTargetLeftLine)).toEqual([]);
+      expect(lines).toContain(tEn("uninstall.summary_ok"));
+      expectNothingRealTouched();
+    },
+  );
+
+  describe("override home", () => {
+    let overrideHome: string;
+
+    beforeEach(async () => {
+      overrideHome = path.join(tempRoot, "override-home");
+      await fs.mkdir(path.join(overrideHome, "run"), { recursive: true });
+      for (const marker of MARKER_FILES) {
+        await fs.writeFile(path.join(overrideHome, marker), "{}");
+      }
+      for (const name of SECRET_FILES) {
+        await fs.writeFile(path.join(overrideHome, name), "secret-file");
+      }
+      await fs.mkdir(path.join(overrideHome, "logs"), { recursive: true });
+      await fs.writeFile(path.join(overrideHome, "notes.txt"), "keep");
+    });
+
+    it("removes the marker files only after the scripted yes", async () => {
+      const markersAtPrompt: boolean[] = [];
+      answers.push("y");
+      const deps = createDeps(
+        { OPENCODE_TELEGRAM_HOME: overrideHome },
+        {
+          onAsk: async () => {
+            for (const marker of MARKER_FILES) {
+              markersAtPrompt.push(await exists(path.join(overrideHome, marker)));
+            }
+          },
+        },
+      );
+
+      const code = await runUninstall(YES, deps);
+
+      expect(code).toBe(0);
+      expect(prompts).toEqual([tEn("uninstall.confirm_override", { path: overrideHome })]);
+      expect(markersAtPrompt).toEqual(MARKER_FILES.map(() => true));
+      for (const name of [...MARKER_FILES, ...SECRET_FILES]) {
+        expect(await exists(path.join(overrideHome, name)), name).toBe(false);
+      }
+      expect(await exists(path.join(overrideHome, "logs"))).toBe(true);
+      expect(await exists(path.join(overrideHome, "notes.txt"))).toBe(true);
+      expectNothingRealTouched();
+    });
+
+    it("keeps the marker files on a scripted no and removes the secret files by name", async () => {
+      answers.push("n");
+
+      const code = await runUninstall(YES, createDeps({ OPENCODE_TELEGRAM_HOME: overrideHome }));
+
+      expect(code).toBe(0);
+      for (const marker of MARKER_FILES) {
+        expect(await exists(path.join(overrideHome, marker)), marker).toBe(true);
+      }
+      for (const name of SECRET_FILES) {
+        expect(await exists(path.join(overrideHome, name)), name).toBe(false);
+      }
+      expect(await exists(path.join(overrideHome, "notes.txt"))).toBe(true);
+      expect(lines).toContain(tEn("uninstall.step_override_skipped", { path: overrideHome }));
+      expect(lines).toContain(tEn("uninstall.step_override_secrets", { path: overrideHome }));
+      expectNothingRealTouched();
+    });
+  });
+
+  describe("translator", () => {
+    it("prints German text for a German locale and never the sentinel", async () => {
+      const home = resolveUninstallHomes({}).defaultHome;
+      await populateHome(home);
+
+      const code = await runUninstall(YES, createDeps({ BOT_LOCALE: "de" }));
+
+      expect(code).toBe(0);
+      expect(lines[0]).toBe(de["uninstall.plan_header"]);
+      expect(lines[0]).not.toBe(en["uninstall.plan_header"]);
+      expect(lines).toContain(tDe("uninstall.summary_ok"));
+      expect(tDe("uninstall.summary_ok")).not.toBe(tEn("uninstall.summary_ok"));
+      expect(lines.at(-1)).toBe(tDe("uninstall.cli_hint", { command: CLI_COMMAND }));
+      expect(lines).not.toContain(tEn("uninstall.summary_ok"));
+      expect(lines).not.toContain(en["uninstall.plan_header"]);
+      expectNothingRealTouched();
+    });
+  });
+});
