@@ -32,7 +32,7 @@ import {
   type UninstallOptions,
 } from "../../../src/runtime/uninstall/run.js";
 import type { SystemdDeps } from "../../../src/runtime/uninstall/systemd.js";
-import { assertInsideTempRoot } from "./temp-root-guard.js";
+import { assertInsideTempRoot, exists as lstatExists, isUnder } from "./temp-root-guard.js";
 
 // No real child process may start from this file: every child_process entry point is a mock that
 // records the request, and afterEach fails the test when any was made.
@@ -85,7 +85,6 @@ const TEMP_SIBLINGS = [
   ".env.123.0123abcd-0123-4567-89ab-0123456789ab.tmp",
   "secrets.enc.456.89abcdef-0123-4567-89ab-0123456789ab.tmp",
 ];
-const MARKER_FILES = [".env", "settings.json", path.join("run", "bot-service.json")];
 const SECRET_FILES = ["secrets.enc", "keystore_password"];
 
 // The run catches step errors, so a guard throw alone could be swallowed: every violation is also
@@ -106,19 +105,9 @@ function isTargetLeftLine(line: string): boolean {
   return line.startsWith("Left the link target ");
 }
 
-function isUnder(target: string, root: string): boolean {
-  const relative = path.relative(root, target);
-  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
-}
+const exists = async (target: string): Promise<boolean> => lstatExists(target);
 
-async function exists(target: string): Promise<boolean> {
-  try {
-    await fs.lstat(target);
-    return true;
-  } catch {
-    return false;
-  }
-}
+const INVENTORY_NAMES = [...STORED_APP_HOME_ENTRIES.map((entry) => entry.name), ...TEMP_SIBLINGS];
 
 async function populateHome(home: string): Promise<void> {
   await fs.mkdir(home, { recursive: true });
@@ -137,7 +126,9 @@ async function populateHome(home: string): Promise<void> {
   await fs.mkdir(path.join(home, "logs"), { recursive: true });
   await fs.writeFile(path.join(home, "logs", "opencode-telegram-bot-2026-11-12.log"), "log");
   await fs.writeFile(path.join(home, "notes.txt"), "the user's own notes");
-  // A stub daemon state file; the pid is fake and no deps signal it.
+  // A stub daemon state file with a fake pid. In most tests it is decorative (getDaemonStatus is
+  // a fake that does not read it); the "state file" test derives the status from it. No dep
+  // ever signals the pid.
   await fs.writeFile(
     path.join(home, "run", "bot-service.json"),
     JSON.stringify({ pid: FAKE_DAEMON_PID, startedAt: "2026-11-12T00:00:00.000Z" }),
@@ -200,7 +191,13 @@ describe("runtime/uninstall integration", () => {
   /** A COMPLETE deps object: every key is set here, nothing falls back to a real default. */
   function createDeps(
     env: NodeJS.ProcessEnv,
-    options: { onAsk?: (question: string) => Promise<void> } = {},
+    options: {
+      onAsk?: (question: string) => Promise<void>;
+      /** Replaces the real override validator (the guard still sees the path first). */
+      validate?: UninstallDeps["validateOverride"];
+      /** Derives the daemon status from the state file in this (temp) home. */
+      statusFromStateFileIn?: string;
+    } = {},
   ): UninstallDeps {
     const store: KeychainRemovalStore = {
       isAvailable: async () => true,
@@ -216,8 +213,28 @@ describe("runtime/uninstall integration", () => {
     const note = (target: string): void => {
       touched.push(target);
     };
+    // The daemon status is a fake; with statusFromStateFileIn it is built from the state file
+    // (fake pid) in the temp home, until the fake stop has run.
+    const readStatus = async (): Promise<BotServiceStatus> => {
+      if (options.statusFromStateFileIn === undefined || daemonStatus.status !== "running") {
+        return daemonStatus;
+      }
+      const stateFile = path.join(options.statusFromStateFileIn, "run", "bot-service.json");
+      guard(stateFile, tempRoot);
+      const state = JSON.parse(await fs.readFile(stateFile, "utf8")) as {
+        pid: number;
+        startedAt: string;
+      };
+      return {
+        status: "running",
+        service: { ...state, logFilePath: path.join(tempRoot, "daemon.log"), mode: "daemon" },
+        cleanupReason: null,
+      };
+    };
     return {
       env,
+      // Only selects the Linux-only steps (the systemd unit check, whose runner is a fake). Home
+      // resolution uses the real process.platform and the stubbed environment, not this value.
       platform: "linux",
       isContainer: () => false,
       getUid: () => 1000,
@@ -241,10 +258,10 @@ describe("runtime/uninstall integration", () => {
         }
         return homes;
       },
-      getDaemonStatus: async () => daemonStatus,
+      getDaemonStatus: readStatus,
       stopDaemon: async (): Promise<ServiceOperationResult> => {
         stopDaemonCalls += 1;
-        const service = daemonStatus.service;
+        const service = (await readStatus()).service;
         daemonStatus = { status: "stopped", service: null, cleanupReason: null };
         return service
           ? { success: true, service, cleanupReason: null }
@@ -273,7 +290,7 @@ describe("runtime/uninstall integration", () => {
       validateOverride: async (target: string) => {
         note(target);
         guard(target, tempRoot);
-        return validateOverrideHome(target, tempHome);
+        return options.validate ? options.validate(target) : validateOverrideHome(target, tempHome);
       },
       removePath: async (target: string) => {
         note(target);
@@ -291,6 +308,11 @@ describe("runtime/uninstall integration", () => {
   }
 
   function expectNothingRealTouched(): void {
+    // Not vacuous: the run asked about at least one path.
+    expect(touched.length).toBeGreaterThan(0);
+    // stopOpencode is false in every run here: the OpenCode server is never looked up or stopped.
+    expect(signals).not.toContain("findOpencode");
+    expect(signals).not.toContain("stopOpencode");
     for (const target of touched) {
       expect(isUnder(path.resolve(target), tempRoot), target).toBe(true);
       expect(isUnder(path.resolve(target), REAL_HOME), target).toBe(false);
@@ -375,11 +397,18 @@ describe("runtime/uninstall integration", () => {
     expect(lines.filter(isTargetLeftLine)).toEqual([]);
     expect(lines).toContain(tEn("uninstall.step_daemon_absent"));
     expect(lines).toContain(tEn("uninstall.summary_ok"));
-    for (const target of listed) {
-      expect(lines.some((line) => line === tEn("uninstall.step_removed", { path: target }))).toBe(
-        false,
-      );
+    // removeAppHomeData acts only on entries that exist (listAppHomeTargets lstats each one), so
+    // an inventory entry that is already gone produces no per-target line at all: no removal, no
+    // "Already absent" line (that one is printed only for a missing home, see the next test).
+    for (const name of INVENTORY_NAMES) {
+      expect(
+        lines.some((line) => line.includes(path.join(home, name))),
+        name,
+      ).toBe(false);
     }
+    expect(lines.some((line) => line.startsWith("Removed "))).toBe(false);
+    expect(lines).not.toContain(tEn("uninstall.step_absent", { path: home }));
+    expect(lines).toContain(tEn("uninstall.home_kept_logs", { path: home }));
     expect(await exists(path.join(home, "notes.txt"))).toBe(true);
     expectNothingRealTouched();
   });
@@ -406,31 +435,69 @@ describe("runtime/uninstall integration", () => {
     },
   );
 
+  it("reports a missing default home as already absent and exits 0", async () => {
+    const home = resolveUninstallHomes({}).defaultHome;
+    expect(await exists(home)).toBe(false);
+
+    const code = await runUninstall(YES, createDeps({}));
+
+    expect(code).toBe(0);
+    expect(lines).toContain(tEn("uninstall.step_absent", { path: home }));
+    expect(await exists(home)).toBe(false);
+    expectNothingRealTouched();
+  });
+
+  it("derives the daemon from the state file in the home and stops that pid via the fake", async () => {
+    const home = resolveUninstallHomes({}).defaultHome;
+    await populateHome(home);
+    const statePid = FAKE_DAEMON_PID + 1;
+    await fs.writeFile(
+      path.join(home, "run", "bot-service.json"),
+      JSON.stringify({ pid: statePid, startedAt: "2026-11-12T00:00:00.000Z" }),
+    );
+
+    const code = await runUninstall(YES, createDeps({}, { statusFromStateFileIn: home }));
+
+    expect(code).toBe(0);
+    expect(lines).toContain(tEn("uninstall.plan_daemon", { pid: statePid }));
+    expect(lines).toContain(tEn("uninstall.step_daemon_stopped", { pid: statePid }));
+    expect(stopDaemonCalls).toBe(1);
+    expect(await exists(path.join(home, "run"))).toBe(false);
+    expectNothingRealTouched();
+  });
+
   describe("override home", () => {
     let overrideHome: string;
 
     beforeEach(async () => {
       overrideHome = path.join(tempRoot, "override-home");
-      await fs.mkdir(path.join(overrideHome, "run"), { recursive: true });
-      for (const marker of MARKER_FILES) {
-        await fs.writeFile(path.join(overrideHome, marker), "{}");
-      }
-      for (const name of SECRET_FILES) {
-        await fs.writeFile(path.join(overrideHome, name), "secret-file");
-      }
-      await fs.mkdir(path.join(overrideHome, "logs"), { recursive: true });
-      await fs.writeFile(path.join(overrideHome, "notes.txt"), "keep");
     });
 
-    it("removes the marker files only after the scripted yes", async () => {
-      const markersAtPrompt: boolean[] = [];
+    // Names that look like bot files but are not markers (.env, settings.json,
+    // run/bot-service.json), plus the two secret files.
+    async function writeDecoys(home: string): Promise<void> {
+      await fs.mkdir(home, { recursive: true });
+      for (const name of [...SECRET_FILES, ".env.bak", "settings.json.bak", "notes.txt"]) {
+        await fs.writeFile(path.join(home, name), "decoy");
+      }
+    }
+
+    async function expectDecoysUntouched(home: string): Promise<void> {
+      for (const name of [...SECRET_FILES, ".env.bak", "settings.json.bak", "notes.txt"]) {
+        expect(await exists(path.join(home, name)), name).toBe(true);
+      }
+    }
+
+    it("removes the whole inventory only after the scripted yes", async () => {
+      await populateHome(overrideHome);
+      const presentAtPrompt: boolean[] = [];
       answers.push("y");
       const deps = createDeps(
         { OPENCODE_TELEGRAM_HOME: overrideHome },
         {
           onAsk: async () => {
-            for (const marker of MARKER_FILES) {
-              markersAtPrompt.push(await exists(path.join(overrideHome, marker)));
+            for (const name of INVENTORY_NAMES) {
+              presentAtPrompt.push(await exists(path.join(overrideHome, name)));
             }
           },
         },
@@ -440,23 +507,25 @@ describe("runtime/uninstall integration", () => {
 
       expect(code).toBe(0);
       expect(prompts).toEqual([tEn("uninstall.confirm_override", { path: overrideHome })]);
-      expect(markersAtPrompt).toEqual(MARKER_FILES.map(() => true));
-      for (const name of [...MARKER_FILES, ...SECRET_FILES]) {
+      expect(presentAtPrompt).toEqual(INVENTORY_NAMES.map(() => true));
+      for (const name of INVENTORY_NAMES) {
         expect(await exists(path.join(overrideHome, name)), name).toBe(false);
       }
       expect(await exists(path.join(overrideHome, "logs"))).toBe(true);
       expect(await exists(path.join(overrideHome, "notes.txt"))).toBe(true);
+      expect(secrets.size).toBe(0);
       expectNothingRealTouched();
     });
 
-    it("keeps the marker files on a scripted no and removes the secret files by name", async () => {
+    it("keeps the other files on a scripted no, removes the secret files by name and the keychain", async () => {
+      await populateHome(overrideHome);
       answers.push("n");
 
       const code = await runUninstall(YES, createDeps({ OPENCODE_TELEGRAM_HOME: overrideHome }));
 
       expect(code).toBe(0);
-      for (const marker of MARKER_FILES) {
-        expect(await exists(path.join(overrideHome, marker)), marker).toBe(true);
+      for (const name of INVENTORY_NAMES.filter((entry) => !SECRET_FILES.includes(entry))) {
+        expect(await exists(path.join(overrideHome, name)), name).toBe(true);
       }
       for (const name of SECRET_FILES) {
         expect(await exists(path.join(overrideHome, name)), name).toBe(false);
@@ -464,6 +533,69 @@ describe("runtime/uninstall integration", () => {
       expect(await exists(path.join(overrideHome, "notes.txt"))).toBe(true);
       expect(lines).toContain(tEn("uninstall.step_override_skipped", { path: overrideHome }));
       expect(lines).toContain(tEn("uninstall.step_override_secrets", { path: overrideHome }));
+      // The keychain step runs regardless of the answer.
+      expect(secrets.size).toBe(0);
+      expect(lines).toContain(tEn("uninstall.plan_keychain", { service: KEYCHAIN_SERVICE }));
+      expectNothingRealTouched();
+    });
+
+    it("leaves an override without marker files untouched, asks nothing, and says why", async () => {
+      await writeDecoys(overrideHome);
+
+      const code = await runUninstall(YES, createDeps({ OPENCODE_TELEGRAM_HOME: overrideHome }));
+
+      expect(code).toBe(0);
+      expect(prompts).toEqual([]);
+      await expectDecoysUntouched(overrideHome);
+      expect(lines).toContain(
+        tEn("uninstall.step_override_invalid", {
+          path: overrideHome,
+          reason: tEn("uninstall.override_reason_no_bot_files"),
+        }),
+      );
+      expect(secrets.size).toBe(0);
+      expectNothingRealTouched();
+    });
+
+    for (const [reason, key] of [
+      ["root", "uninstall.override_reason_root"],
+      ["user-home", "uninstall.override_reason_user_home"],
+    ] as const) {
+      // The reason is injected: the real filesystem root and the real user home are never used.
+      it(`skips an override reported as ${reason} and touches nothing in it`, async () => {
+        await populateHome(overrideHome);
+        const validate = vi.fn(async () => ({ ok: false as const, reason }));
+
+        const code = await runUninstall(
+          YES,
+          createDeps({ OPENCODE_TELEGRAM_HOME: overrideHome }, { validate }),
+        );
+
+        expect(code).toBe(0);
+        expect(validate).toHaveBeenCalled();
+        expect(prompts).toEqual([]);
+        for (const name of INVENTORY_NAMES) {
+          expect(await exists(path.join(overrideHome, name)), name).toBe(true);
+        }
+        expect(lines).toContain(
+          tEn("uninstall.step_override_invalid", { path: overrideHome, reason: tEn(key) }),
+        );
+        expectNothingRealTouched();
+      });
+    }
+
+    it("skips a missing override and never creates it", async () => {
+      const code = await runUninstall(YES, createDeps({ OPENCODE_TELEGRAM_HOME: overrideHome }));
+
+      expect(code).toBe(0);
+      expect(prompts).toEqual([]);
+      expect(await exists(overrideHome)).toBe(false);
+      expect(lines).toContain(
+        tEn("uninstall.step_override_invalid", {
+          path: overrideHome,
+          reason: tEn("uninstall.override_reason_missing"),
+        }),
+      );
       expectNothingRealTouched();
     });
   });

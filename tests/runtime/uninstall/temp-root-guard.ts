@@ -2,7 +2,8 @@ import { lstatSync, realpathSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-function isUnder(target: string, root: string): boolean {
+/** True when `target` is `root` or lies below it (lexical; no symlink resolution). */
+export function isUnder(target: string, root: string): boolean {
   const relative = path.relative(root, target);
   return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
 }
@@ -15,7 +16,8 @@ function realpathOrSelf(target: string): string {
   }
 }
 
-function exists(target: string): boolean {
+/** True when an entry exists at `target` (lstat, so a dangling symlink counts). */
+export function exists(target: string): boolean {
   try {
     lstatSync(target);
     return true;
