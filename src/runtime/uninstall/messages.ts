@@ -43,8 +43,10 @@ export function createUninstallTranslator(locale: Locale | undefined): Uninstall
 
 const MAX_COMMAND_LINE_LENGTH = 4096;
 const REDACTED = "***";
-const EXECUTABLE_PATTERN = /^[A-Za-z0-9_.\/+-]+$/;
-const SCRIPT_PATTERN = /^[A-Za-z0-9_.\/+-]+\.(?:js|mjs|cjs|ts)$/;
+// Path characters, after an optional Windows drive prefix that needs a following separator so
+// that C:SECRET is not a path.
+const EXECUTABLE_PATTERN = /^(?:[A-Za-z]:[\\/])?[A-Za-z0-9_.\/+@~\\-]+$/;
+const SCRIPT_PATTERN = /^(?:[A-Za-z]:[\\/])?[A-Za-z0-9_.\/+@~\\-]+\.(?:js|mjs|cjs|ts)$/;
 const NUMBER_PATTERN = /^\d{1,5}$/;
 const IPV4_PATTERN = /^\d{1,3}(?:\.\d{1,3}){3}$/;
 const WHITESPACE_PATTERN = /\s/;
@@ -126,19 +128,33 @@ function isAllowedToken(token: string, isFirst: boolean): boolean {
 // Hides everything in a process command line that is not known to be safe before it is shown. This
 // is an allow-list and fails closed: the input is cut at 4096 characters ("..." appended), split on
 // Unicode whitespace and control characters, and every token is replaced with *** unless it is
-// (a) the first token and looks like an executable path (not starting with a dash), (b) a script
-// path ending in .js, .mjs, .cjs, or .ts, (c) a known flag, alone or as flag=value with an allowed
-// value, or (d) a known word, a number of up to five digits, or a dotted IPv4 address. Output
-// tokens are joined with a single space. Unknown text is hidden, so readability is deliberately
-// limited: unknown arguments, options, URLs, assignments, quoted text, and non-English text all
-// show as ***. There is no deny-list, no quote or escape parsing, and no regular expression over
-// the whole input, so hostile input cannot leak or stall it. Task 10 passes every {command}
-// through this function.
+// (a) the first token and looks like an executable path (not starting with a dash, no =), (b) a
+// script path ending in .js, .mjs, .cjs, or .ts, (c) a known flag, alone or as flag=value with an
+// allowed value, or (d) a known word, a number of up to five digits, or a dotted IPv4 address.
+// Paths may contain @ and ~, and may start with a Windows drive such as C:\ and use backslashes.
+// Output tokens are joined with a single space. When the cut falls inside a token, that last token
+// is a fragment that could prefix a longer secret, so it is masked too.
+// Unknown text is hidden, so readability is deliberately limited: unknown arguments, options,
+// URLs, assignments, quoted text, package names such as @scope/pkg, and non-English text all show
+// as ***. Accepted residual exposures, pinned by tests so a change is deliberate: a standalone
+// token of up to five digits is shown; the first token is shown when it matches the executable
+// pattern; any token ending in .js, .mjs, .cjs, or .ts is shown; and --flag=<number|word|IPv4>
+// values are shown for known flags. There is no deny-list, no quote or escape parsing, and no
+// regular expression over the whole input, so hostile input cannot stall it. Task 10 passes every
+// {command} through this function.
 export function redactCommandLine(commandLine: string): string {
   const truncated = commandLine.length > MAX_COMMAND_LINE_LENGTH;
   const input = truncated ? commandLine.slice(0, MAX_COMMAND_LINE_LENGTH) : commandLine;
-  const redacted = splitTokens(input).map((token, index) =>
-    isAllowedToken(token, index === 0) ? token : REDACTED,
+  const tokens = splitTokens(input);
+  const cutInsideToken =
+    truncated &&
+    !isSeparator(input.charAt(input.length - 1)) &&
+    !isSeparator(commandLine.charAt(MAX_COMMAND_LINE_LENGTH));
+  const lastIndex = tokens.length - 1;
+  const redacted = tokens.map((token, index) =>
+    (cutInsideToken && index === lastIndex) || !isAllowedToken(token, index === 0)
+      ? REDACTED
+      : token,
   );
 
   return redacted.join(" ") + (truncated ? "..." : "");

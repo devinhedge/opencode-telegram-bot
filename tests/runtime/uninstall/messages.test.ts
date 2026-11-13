@@ -358,6 +358,53 @@ describe("runtime/uninstall/messages", () => {
       expect(out.endsWith("...")).toBe(true);
     });
 
+    it("pins the accepted residual exposures so a change is deliberate", () => {
+      // A standalone token of up to five digits is shown.
+      expect(redactCommandLine("node x.js 12345")).toBe("node x.js 12345");
+      // The first token is shown when it matches the executable pattern.
+      expect(redactCommandLine("sk-live123abc --daemon")).toBe("sk-live123abc --daemon");
+      // A token ending in .js, .mjs, .cjs, or .ts is shown.
+      expect(redactCommandLine("node x.js sk-abc@123.js")).toBe("node x.js sk-abc@123.js");
+      expect(redactCommandLine("node x.js a.mjs b.cjs c.ts")).toBe("node x.js a.mjs b.cjs c.ts");
+      // --flag=<number|word|IPv4> values are shown.
+      expect(redactCommandLine("node x.js --port=4096 --mode=installed --hostname=10.1.2.3")).toBe(
+        "node x.js --port=4096 --mode=installed --hostname=10.1.2.3",
+      );
+    });
+
+    it("shows package and Windows script paths", () => {
+      const line =
+        "node /home/u/.nvm/versions/node/v22.0.0/lib/node_modules/@grinev/opencode-telegram-bot/dist/cli.js start";
+
+      expect(redactCommandLine(line)).toBe(line);
+      expect(redactCommandLine("npx @grinev/opencode-telegram-bot start")).toBe("npx *** start");
+      expect(redactCommandLine("C:\\x\\cli.js start")).toBe("C:\\x\\cli.js start");
+      expect(redactCommandLine("node ~/x/cli.js start")).toBe("node ~/x/cli.js start");
+    });
+
+    it("hides secrets in path-shaped attack forms", () => {
+      for (const form of [`x@${SECRET}`, `C:${SECRET}`, `~${SECRET}=a`, `C:\\${SECRET}=a`]) {
+        expect(redactCommandLine(`${PREFIX} ${form}`), form).not.toContain(SECRET);
+      }
+      expect(redactCommandLine(`C:${SECRET}`)).not.toContain(SECRET);
+    });
+
+    it("masks a token fragment cut at the cap", () => {
+      const pad = (length: number): string => "a ".repeat(2000) + " ".repeat(length - 4000);
+
+      const digits = redactCommandLine(`${pad(4093)}98765432109 tail`);
+      expect(digits).not.toContain("987");
+      expect(digits.endsWith("***...")).toBe(true);
+
+      const address = redactCommandLine(`${pad(4085)}192.168.1.234 tail`);
+      expect(address).not.toContain("192.168.1.2");
+      expect(address.endsWith("***...")).toBe(true);
+
+      // A cut on a separator keeps the last whole token.
+      expect(redactCommandLine(`${pad(4095)}start tail`).endsWith("***...")).toBe(true);
+      expect(redactCommandLine(`${pad(4090)}start tail`).endsWith("start...")).toBe(true);
+    });
+
     it("hides a secret cut at every offset around the cap", () => {
       const tail = ` https://user:SECRETVALUE@h/ --token SECRETVALUE`;
       for (let offset = 4060; offset <= 4100; offset += 1) {
