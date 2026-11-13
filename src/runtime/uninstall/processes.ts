@@ -26,6 +26,22 @@ const NODE_OPTIONS_WITH_VALUE = new Set([
   "--env-file",
 ]);
 
+// Known node flags that take no value. Before the script only these, the value-taking options
+// above, and `-x=value` forms are allowed; any other option makes the script undeterminable
+// (it could take a separate value), so the process is not matched (a safe false negative).
+const NODE_FLAGS_WITHOUT_VALUE = new Set([
+  "--no-warnings",
+  "--enable-source-maps",
+  "--trace-warnings",
+  "--trace-deprecation",
+  "--trace-uncaught",
+  "--no-deprecation",
+  "--preserve-symlinks",
+  "--experimental-vm-modules",
+  "--expose-gc",
+  "--harmony",
+]);
+
 // node options after which no script file runs at all.
 const NODE_OPTIONS_WITHOUT_SCRIPT = new Set(["-e", "--eval", "-p", "--print", "-pe"]);
 
@@ -195,9 +211,13 @@ function parseNodeInvocation(args: string): ScriptInvocation | null {
       index += 2;
       continue;
     }
-    if (token.startsWith("-")) {
+    if (NODE_FLAGS_WITHOUT_VALUE.has(token) || (token.startsWith("-") && token.includes("="))) {
       index += 1;
       continue;
+    }
+    if (token.startsWith("-")) {
+      // Unknown option: it may take a separate value that would be misread as the script.
+      return null;
     }
     break;
   }

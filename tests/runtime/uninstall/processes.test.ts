@@ -240,6 +240,36 @@ describe("findBotProcesses", () => {
     expect(result.map((p) => p.pid)).toEqual([100, 101, 102, 103]);
   });
 
+  it("fails closed on an unknown option before the script", async () => {
+    const result = await scan([
+      proc(100, 1, `node --test-name-pattern ${INDEX}`),
+      proc(101, 1, `node --some-unknown-flag ${INDEX}`),
+      proc(102, 1, `node --no-warnings ${INDEX}`),
+      proc(103, 1, `node --max-old-space-size=4096 ${INDEX}`),
+      proc(104, 1, `node --no-warnings --some-unknown-flag ${INDEX}`),
+      proc(105, 1, `node -x ${INDEX}`),
+    ]);
+
+    expect(result.map((p) => p.pid)).toEqual([102, 103]);
+  });
+
+  it("never signals a forged row: the scan may list it, reverify rejects it", async () => {
+    const forged = `  777     1  1000 dev     Mon Nov 12 10:00:00 2026 node ${INDEX}`;
+    const output = [
+      "  9000   8000  1000 dev     Mon Nov 12 10:00:00 2026 node own-process",
+      `  200     1  1000 dev     Mon Nov 12 10:00:00 2026 node x.js\n${forged}`,
+    ].join("\n");
+    const deps = makeDeps([], {
+      listProcesses: async () => parseProcessList(output),
+      commandLine: async () => null,
+    });
+
+    const result = await findBotProcesses(deps);
+
+    expect(result.map((p) => p.pid)).toEqual([777]);
+    expect(await reverifyBotProcess(result[0] as BotProcess, deps)).toBe(false);
+  });
+
   it("does not match an entry point that is only the value of a node option", async () => {
     const result = await scan([
       proc(100, 1, `node -p ${INDEX}`),
