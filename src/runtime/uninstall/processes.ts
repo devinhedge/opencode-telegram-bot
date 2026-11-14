@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import { promises as fsPromises } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { parseCliArgs } from "../../cli/args.js";
@@ -77,6 +78,8 @@ export interface ScanDeps {
   realpath(p: string): Promise<string>;
   cwdOf(pid: number): Promise<string | null>;
   commandLine(pid: number): Promise<string | null>;
+  /** The uid of the pid right now, or null when it cannot be determined. */
+  uidOf(pid: number): Promise<number | null>;
   entryPoints: readonly string[];
   ownPid: number;
   ownPpid: number;
@@ -87,7 +90,16 @@ export interface ScanDeps {
 
 export type ReverifyDeps = Pick<
   ScanDeps,
-  "realpath" | "cwdOf" | "commandLine" | "entryPoints" | "ownPid" | "excludePids"
+  | "realpath"
+  | "cwdOf"
+  | "commandLine"
+  | "uidOf"
+  | "entryPoints"
+  | "listProcesses"
+  | "ownPid"
+  | "ownPpid"
+  | "currentUid"
+  | "excludePids"
 >;
 
 /**
@@ -351,11 +363,25 @@ export async function findBotProcesses(deps: ScanDeps): Promise<BotProcess[]> {
 
 /**
  * Re-reads the pid's command line and returns true only when it is non-null, equal to the listed
- * one, and still matches an entry point. Call it before every signal, including SIGKILL, so a
- * pid reused by another command is never signaled.
+ * one, and still matches an entry point, the pid is not the own pid or one of its ancestors, and
+ * its uid is still the one it was listed with (the scan lists only the current uid, so that is
+ * `currentUid`). An unknown uid or an own chain that cannot be computed is false. Call it before
+ * every signal, including SIGKILL, so a pid reused by another command is never signaled.
  */
 export async function reverifyBotProcess(found: BotProcess, deps: ReverifyDeps): Promise<boolean> {
   if (found.pid === deps.ownPid || deps.excludePids.includes(found.pid)) {
+    return false;
+  }
+
+  let ownChain: Set<number>;
+  let uid: number | null;
+  try {
+    ownChain = collectOwnChain(await deps.listProcesses(), deps.ownPid, deps.ownPpid);
+    uid = await deps.uidOf(found.pid);
+  } catch {
+    return false;
+  }
+  if (ownChain.has(found.pid) || uid === null || uid !== deps.currentUid) {
     return false;
   }
 
@@ -378,7 +404,7 @@ export interface CommandRunner {
   (
     file: string,
     args: string[],
-    options: { timeout: number; maxBuffer?: number; env?: NodeJS.ProcessEnv },
+    options: { timeout: number; maxBuffer?: number; env?: NodeJS.ProcessEnv; cwd?: string },
   ): Promise<{ stdout: string }>;
 }
 
@@ -408,6 +434,17 @@ export async function listProcessesWithPs(
     return parseProcessList(await runPs(runner, PS_COLUMNS_WITH_START), true);
   } catch {
     return parseProcessList(await runPs(runner, PS_COLUMNS_WITHOUT_START), false);
+  }
+}
+
+async function uidOfWith(runner: CommandRunner, pid: number): Promise<number | null> {
+  try {
+    const { stdout } = await runner("ps", ["-o", "uid=", "-p", String(pid)], {
+      timeout: PS_TIMEOUT_MS,
+    });
+    return /^\s*\d+\s*$/.test(stdout) ? Number.parseInt(stdout, 10) : null;
+  } catch {
+    return null;
   }
 }
 
@@ -463,7 +500,12 @@ export async function globalPackageRoot(
   }
 
   try {
-    const { stdout } = await runner("npm", ["root", "-g"], { timeout: NPM_ROOT_TIMEOUT_MS });
+    // Run from the temp directory so a .npmrc in the current (project) directory cannot
+    // influence the answer; this runs before the confirmation.
+    const { stdout } = await runner("npm", ["root", "-g"], {
+      timeout: NPM_ROOT_TIMEOUT_MS,
+      cwd: os.tmpdir(),
+    });
     const globalNodeModules = stdout.trim();
     return globalNodeModules ? path.join(globalNodeModules, GLOBAL_PACKAGE_NAME) : null;
   } catch {
@@ -492,6 +534,7 @@ export async function buildScanDeps(
     realpath: (target) => fsPromises.realpath(target),
     cwdOf: createCwdReader({ ...io, lsofCwd: (pid) => lsofCwdWith(runner, pid) }),
     commandLine: getProcessCommandLine,
+    uidOf: (pid) => uidOfWith(runner, pid),
     entryPoints: roots.flatMap(entryPointsOf),
     ownPid: process.pid,
     ownPpid: process.ppid,

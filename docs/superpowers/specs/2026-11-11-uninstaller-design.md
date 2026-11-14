@@ -1,10 +1,10 @@
 ---
 title: Uninstaller Design
 status: approved
-version: 0.14.0
+version: 0.14.1
 last_updated: 2026-11-13
 review_date: 2027-05-13
-branch: feat/uninstaller
+branch: feat/uninstaller-impl
 depends_on: logs-relocation feature (canonical per-OS log locations and LOG_LOCATION), merged into feat/core-feature-expansion through pull request 4 and included in this branch
 ---
 

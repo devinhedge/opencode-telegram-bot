@@ -1,3 +1,4 @@
+import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -35,6 +36,7 @@ function makeDeps(processes: RawProcess[], overrides: Partial<ScanDeps> = {}): S
     realpath: async (p) => p,
     cwdOf: async () => null,
     commandLine: async () => null,
+    uidOf: async () => UID,
     entryPoints: [CLI, INDEX, GLOBAL_CLI],
     ownPid: 9000,
     ownPpid: 8000,
@@ -543,32 +545,32 @@ describe("reverifyBotProcess", () => {
   };
 
   it("returns true when the command line is unchanged and still matches", async () => {
-    const deps = makeDeps([], { commandLine: async () => `node ${INDEX}` });
+    const deps = makeDeps([OWN], { commandLine: async () => `node ${INDEX}` });
 
     expect(await reverifyBotProcess(listed, deps)).toBe(true);
   });
 
   it("returns false when the command line changed", async () => {
-    const deps = makeDeps([], { commandLine: async () => `node ${INDEX} --extra` });
+    const deps = makeDeps([OWN], { commandLine: async () => `node ${INDEX} --extra` });
 
     expect(await reverifyBotProcess(listed, deps)).toBe(false);
   });
 
   it("returns false when the command line cannot be read", async () => {
-    const deps = makeDeps([], { commandLine: async () => null });
+    const deps = makeDeps([OWN], { commandLine: async () => null });
 
     expect(await reverifyBotProcess(listed, deps)).toBe(false);
   });
 
   it("returns false when the pid was reused by an unrelated command", async () => {
     const reused: BotProcess = { ...listed, commandLine: "vim notes.txt" };
-    const deps = makeDeps([], { commandLine: async () => "vim notes.txt" });
+    const deps = makeDeps([OWN], { commandLine: async () => "vim notes.txt" });
 
     expect(await reverifyBotProcess(reused, deps)).toBe(false);
   });
 
   it("returns false when an equal line no longer matches an entry point", async () => {
-    const deps = makeDeps([], {
+    const deps = makeDeps([OWN], {
       commandLine: async () => `node ${INDEX}`,
       entryPoints: [CLI],
     });
@@ -577,10 +579,55 @@ describe("reverifyBotProcess", () => {
   });
 
   it("returns false for the own pid and for excluded pids", async () => {
-    const deps = makeDeps([], { commandLine: async () => `node ${INDEX}`, excludePids: [100] });
+    const deps = makeDeps([OWN], { commandLine: async () => `node ${INDEX}`, excludePids: [100] });
 
     expect(await reverifyBotProcess(listed, deps)).toBe(false);
     expect(await reverifyBotProcess({ ...listed, pid: 9000 }, deps)).toBe(false);
+  });
+
+  it("returns false when the uid of the pid changed since it was listed", async () => {
+    const deps = makeDeps([OWN], {
+      commandLine: async () => `node ${INDEX}`,
+      uidOf: async () => 0,
+    });
+
+    expect(await reverifyBotProcess(listed, deps)).toBe(false);
+  });
+
+  it("returns false when the uid cannot be determined", async () => {
+    const unknown = makeDeps([OWN], {
+      commandLine: async () => `node ${INDEX}`,
+      uidOf: async () => null,
+    });
+    const throwing = makeDeps([OWN], {
+      commandLine: async () => `node ${INDEX}`,
+      uidOf: async () => {
+        throw new Error("ps failed");
+      },
+    });
+    const noUid = makeDeps([OWN], {
+      commandLine: async () => `node ${INDEX}`,
+      currentUid: null,
+    });
+
+    expect(await reverifyBotProcess(listed, unknown)).toBe(false);
+    expect(await reverifyBotProcess(listed, throwing)).toBe(false);
+    expect(await reverifyBotProcess(listed, noUid)).toBe(false);
+  });
+
+  it("returns false for an ancestor of the own process and for the parent pid", async () => {
+    const deps = makeDeps([OWN, proc(8000, 7000, "node parent"), proc(7000, 1, "node grand")], {
+      commandLine: async () => `node ${INDEX}`,
+    });
+
+    expect(await reverifyBotProcess({ ...listed, pid: 8000 }, deps)).toBe(false);
+    expect(await reverifyBotProcess({ ...listed, pid: 7000 }, deps)).toBe(false);
+  });
+
+  it("returns false when the own chain cannot be computed", async () => {
+    const deps = makeDeps([], { commandLine: async () => `node ${INDEX}` });
+
+    expect(await reverifyBotProcess(listed, deps)).toBe(false);
   });
 });
 
@@ -633,6 +680,36 @@ describe("default dependency helpers", () => {
     const { runner } = runnerReturning({ "npm root -g": "/usr/lib/node_modules\n" });
 
     expect(await globalPackageRoot(runner, "linux")).toBe(GLOBAL_ROOT);
+  });
+
+  it("runs npm root -g from the temp directory, not the current directory", async () => {
+    const seen: (string | undefined)[] = [];
+    const runner: CommandRunner = async (_file, _args, options) => {
+      seen.push(options.cwd);
+      return { stdout: "/usr/lib/node_modules\n" };
+    };
+
+    await globalPackageRoot(runner, "linux");
+
+    expect(seen).toEqual([os.tmpdir()]);
+  });
+
+  it("reads the uid of a pid with ps and treats failure or junk as unknown", async () => {
+    const seen: string[][] = [];
+    const ok: CommandRunner = async (file, args) => {
+      seen.push([file, ...args]);
+      return { stdout: "  1000\n" };
+    };
+    const junk: CommandRunner = async () => ({ stdout: "abc\n" });
+    const failing: CommandRunner = async () => {
+      throw new Error("ps failed");
+    };
+    const io = { platform: "linux" as const, readlink: async () => "" };
+
+    expect(await (await buildScanDeps([ROOT], ok, io)).uidOf(42)).toBe(1000);
+    expect(seen).toContainEqual(["ps", "-o", "uid=", "-p", "42"]);
+    expect(await (await buildScanDeps([ROOT], junk, io)).uidOf(42)).toBeNull();
+    expect(await (await buildScanDeps([ROOT], failing, io)).uidOf(42)).toBeNull();
   });
 
   it("returns null for the global package root on failure and on win32", async () => {

@@ -651,7 +651,7 @@ Port 4096 is **not** exposed by the bot image; it belongs to the OpenCode server
 opencode-telegram uninstall [--yes] [--stop-opencode]
 ```
 
-The command prints a removal plan, asks for one confirmation, and then removes the bot's data. Output is localized in the bot's locale (`BOT_LOCALE`).
+The command prints a removal plan, asks for one confirmation, and then removes the bot's data. Output is localized in the bot's locale (`BOT_LOCALE`). While it builds the plan, the command only reads (the process list, `npm root -g`, and the systemd unit file) and removes nothing.
 
 | Flag              | Effect                                                                                                                      |
 | ----------------- | --------------------------------------------------------------------------------------------------------------------------- |
