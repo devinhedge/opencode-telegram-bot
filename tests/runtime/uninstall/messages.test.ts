@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { allowRealProcesses, resetProcessGuard } from "../../helpers/process-guard.js";
 import { ar } from "../../../src/i18n/ar.js";
 import { de } from "../../../src/i18n/de.js";
 import { en, type I18nDictionary, type I18nKey } from "../../../src/i18n/en.js";
@@ -245,7 +246,13 @@ describe("runtime/uninstall/messages", () => {
     it.skipIf(process.platform === "win32")(
       "never reads a FIFO at the .env path (it would block)",
       async () => {
-        execFileSync("mkfifo", [envFilePath]);
+        // Real mkfifo, but only inside this test's temp directory; the opt-in ends right after.
+        allowRealProcesses("creates a FIFO inside the test's own temp directory");
+        try {
+          execFileSync("mkfifo", [envFilePath]);
+        } finally {
+          resetProcessGuard();
+        }
 
         await expect(resolveUninstallLocale({}, envFilePath)).resolves.toBeUndefined();
       },

@@ -20,7 +20,10 @@ import {
 } from "../../src/runtime/stored-data.js";
 import { SYSTEMD_UNIT_PATH } from "../../src/runtime/uninstall/systemd.js";
 import { buildProjectToTempDir, type E2eBuild } from "../helpers/e2e-build.js";
+import { allowRealProcesses } from "../helpers/process-guard.js";
 import { getRealEnvBeforeTestSetup, getTestUserHome } from "../helpers/test-environment.js";
+
+allowRealProcesses("builds the project and runs the built CLI as a fenced real child process");
 
 // Real-process check of the built CLI (dist/cli.js). The uninstaller really deletes data, calls
 // the OS keychain, runs sudo and systemctl, scans processes and stops daemons, so every run is

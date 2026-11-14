@@ -6,6 +6,9 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { isContainerRuntime } from "../../src/runtime/container.js";
 import { resolveCanonicalLogsDir } from "../../src/runtime/log-location.js";
 import { buildProjectToTempDir, type E2eBuild } from "../helpers/e2e-build.js";
+import { allowRealProcesses } from "../helpers/process-guard.js";
+
+allowRealProcesses("builds the project and runs the built entrypoint as a real child process");
 
 // Real-process check: the built entrypoint initializes the logger before it loads the
 // config, so with no TELEGRAM_BOT_TOKEN it fails startup after the main log file exists.

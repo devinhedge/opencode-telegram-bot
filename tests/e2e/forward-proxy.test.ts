@@ -10,6 +10,9 @@ import { HttpsProxyAgent } from "https-proxy-agent";
 import { SocksProxyAgent } from "socks-proxy-agent";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createTelegramBotOptions } from "../../src/bot/telegram-client-options.js";
+import { allowRealProcesses } from "../helpers/process-guard.js";
+
+allowRealProcesses("runs the forward proxy as a real child process");
 
 const PROJECT_ROOT = resolve(__dirname, "../..");
 const PROXY_SCRIPT = join(PROJECT_ROOT, "e2e/forward-proxy.mjs");

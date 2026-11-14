@@ -8,6 +8,12 @@ vi.mock("../src/runtime/paths.js", async (importOriginal) => {
   return { ...actual, getRuntimePaths: () => isolateRuntimePaths(actual.getRuntimePaths()) };
 });
 
+vi.mock("node:child_process", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:child_process")>();
+  const { guardChildProcess } = await import("./helpers/process-guard.js");
+  return guardChildProcess(actual);
+});
+
 ensureTestEnvironment();
 
 beforeEach(() => {
