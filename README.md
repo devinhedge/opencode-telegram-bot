@@ -548,6 +548,19 @@ Build and run:
 npm run dev
 ```
 
+### Make Targets (macOS and Linux)
+
+The `Makefile` installs the `opencode-telegram` command from a checkout. It does not cover Windows.
+
+```bash
+make help
+make install
+opencode-telegram config
+```
+
+- `make help` lists the targets.
+- `make install` runs `npm ci`, `npm run build`, and `npm link`, so `opencode-telegram` runs this checkout's build. It refuses to run as root. It does not run setup: run `opencode-telegram config` afterwards.
+
 ### Docker Deployment
 
 The bot can also be run as a container using Docker and Docker Compose. The image contains **only the Telegram bot**. OpenCode stays on the host and must already be running before you start the container (`opencode serve --port 4096` on V1; for V2 see below). `/opencode_start` and `/opencode_stop` do not work from inside the container.
