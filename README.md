@@ -559,7 +559,7 @@ opencode-telegram config
 ```
 
 - `make help` lists the targets.
-- `make install` runs `npm ci`, `npm run build`, and `npm link`, so `opencode-telegram` runs this checkout's build. It refuses to run as root. It does not run setup: run `opencode-telegram config` afterwards.
+- `make install` runs `npm ci`, `npm run build`, and `npm link`, so `opencode-telegram` runs this checkout's build. It refuses to run as root, and also when the user id cannot be read; a failing step stops it. It does not run setup: run `opencode-telegram config` afterwards.
 
 ### Docker Deployment
 

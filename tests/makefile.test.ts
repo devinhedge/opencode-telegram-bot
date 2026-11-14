@@ -1,7 +1,8 @@
 import { spawnSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { allowRealProcesses } from "./helpers/process-guard.js";
 
 // make runs only as a dry run (-n, prints the recipe) or the help target (prints text), so no
@@ -89,6 +90,66 @@ describe.skipIf(process.platform === "win32")("Makefile", () => {
       expect(result.status).not.toBe(0);
       expect(result.output).toMatch(/must not run as root/);
       expect(result.output).not.toMatch(/npm /);
+    });
+
+    it.each([
+      ["empty", ""],
+      ["not a number", "abc"],
+    ])("refuses when the user id is %s", (_label, value) => {
+      const result = runMake(["-n", "install", `CURRENT_UID=${value}`]);
+
+      expect(result.status).not.toBe(0);
+      expect(result.output).toMatch(/cannot determine the user id/);
+      expect(result.output).not.toMatch(/npm /);
+    });
+
+    it("behaves the same from another directory", () => {
+      const result = runMake(
+        ["-C", PROJECT_ROOT, "--no-print-directory", "-n", "install", "CURRENT_UID=1000"],
+        {
+          cwd: os.tmpdir(),
+        },
+      );
+
+      const lines = result.output.split("\n").map((line) => line.trim());
+      expect(result.status).toBe(0);
+      expect(lines.filter((line) => line.startsWith("npm "))).toEqual([
+        "npm ci",
+        "npm run build",
+        "npm link",
+      ]);
+    });
+
+    describe("with a fake npm", () => {
+      let fakeBin: string;
+
+      beforeEach(() => {
+        fakeBin = mkdtempSync(path.join(os.tmpdir(), "make-install-fake-npm-"));
+        const script = [
+          "#!/bin/sh",
+          `echo "$@" >> "${path.join(fakeBin, "calls.log")}"`,
+          '[ "$1" = "run" ] && exit 1',
+          "exit 0",
+          "",
+        ].join("\n");
+        writeFileSync(path.join(fakeBin, "npm"), script, { mode: 0o755 });
+      });
+
+      afterEach(() => {
+        rmSync(fakeBin, { recursive: true, force: true });
+      });
+
+      it("stops at the first failing step and never links", () => {
+        const result = runMake(["install", "CURRENT_UID=1000"], {
+          path: `${fakeBin}${path.delimiter}${process.env.PATH ?? ""}`,
+        });
+
+        expect(result.status).not.toBe(0);
+        expect(readFileSync(path.join(fakeBin, "calls.log"), "utf8").trim().split("\n")).toEqual([
+          "ci",
+          "run build",
+        ]);
+      });
     });
   });
 });
