@@ -1,7 +1,7 @@
 ---
 title: Makefile Design
-status: draft
-version: 0.1.0
+status: approved
+version: 0.1.1
 last_updated: 2026-11-14
 review_date: 2027-05-14
 branch: feat/make-installer
