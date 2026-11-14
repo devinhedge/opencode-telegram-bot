@@ -768,12 +768,13 @@ function printSummary(ctx: Context): void {
 /**
  * Runs the uninstall: refusals, plan, one confirmation (skipped by --yes), then every step in a
  * fixed order. A failing step never stops the others. Returns 0 on success and 1 when a step
- * failed or the run was refused or declined. Pass either every dependency or none: a partial set
- * is a type error, so a missing key can never fall back to real system access.
+ * failed or the run was refused or declined. The caller passes every dependency (the CLI passes
+ * defaultUninstallDeps()): a missing or partial set is a type error, so nothing can fall back to
+ * real system access.
  */
 export async function runUninstall(
   options: UninstallOptions,
-  deps: UninstallDeps = defaultUninstallDeps(),
+  deps: UninstallDeps,
 ): Promise<number> {
   let homes: UninstallHomes | null = null;
   let homesError = "";

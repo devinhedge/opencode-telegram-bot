@@ -137,6 +137,11 @@ export function ensureTestEnvironment(): void {
   for (const [key, value] of Object.entries(userHomeEnv(getUserHome().root))) {
     process.env[key] = value;
   }
+  // A pool or environment mode where process.env changes do not reach os.homedir() would let
+  // tests resolve the real home: stop instead of continuing.
+  if (os.homedir() !== getUserHome().root) {
+    throw new Error("os.homedir() does not follow the isolated test environment");
+  }
   for (const [key, value] of Object.entries(TEST_ENV_DEFAULTS)) {
     if (!process.env[key]) {
       process.env[key] = value;

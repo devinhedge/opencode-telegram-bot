@@ -250,8 +250,8 @@ async function runUninstallCommand(options: UninstallOptions): Promise<number> {
   // the daemon-stop log lines out of it. LOG_LEVEL is read when the logger is used.
   process.env.LOG_LEVEL = "silent";
 
-  const { runUninstall } = await import("./runtime/uninstall/run.js");
-  return runUninstall(options);
+  const { runUninstall, defaultUninstallDeps } = await import("./runtime/uninstall/run.js");
+  return runUninstall(options, defaultUninstallDeps());
 }
 
 async function runCli(argv: string[]): Promise<number> {

@@ -212,3 +212,16 @@ describe("test app-home isolation", () => {
     },
   );
 });
+
+describe("ensureTestEnvironment guard", () => {
+  it("throws when os.homedir() does not follow the isolated environment", () => {
+    const elsewhere = path.join(os.tmpdir(), "not-the-test-home");
+    vi.spyOn(os, "homedir").mockReturnValue(elsewhere);
+    try {
+      expect(() => ensureTestEnvironment()).toThrow(/os\.homedir\(\)/);
+    } finally {
+      vi.restoreAllMocks();
+    }
+    expect(() => ensureTestEnvironment()).not.toThrow();
+  });
+});

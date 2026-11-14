@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocked = vi.hoisted(() => ({
   runUninstallMock: vi.fn(),
+  deps: { marker: "default-uninstall-deps" },
+  defaultUninstallDepsMock: vi.fn(),
   handleCliFailureMock: vi.fn(),
 }));
 
@@ -19,6 +21,7 @@ vi.mock("../../src/cli/failure-exit.js", () => ({
 // The real runUninstall deletes user data. It must never run from a test.
 vi.mock("../../src/runtime/uninstall/run.js", () => ({
   runUninstall: mocked.runUninstallMock,
+  defaultUninstallDeps: mocked.defaultUninstallDepsMock,
 }));
 
 const RUNTIME_MODE_KEY = "OPENCODE_TELEGRAM_RUNTIME_MODE";
@@ -51,6 +54,7 @@ describe("cli uninstall command", () => {
       observedRuntimeMode = process.env[RUNTIME_MODE_KEY];
       return 0;
     });
+    mocked.defaultUninstallDepsMock.mockReset().mockReturnValue(mocked.deps);
     mocked.handleCliFailureMock.mockReset().mockResolvedValue(undefined);
     vi.resetModules();
   });
@@ -71,7 +75,10 @@ describe("cli uninstall command", () => {
       expect(mocked.runUninstallMock).toHaveBeenCalledTimes(1);
     });
 
-    expect(mocked.runUninstallMock).toHaveBeenCalledWith({ yes: true, stopOpencode: true });
+    expect(mocked.runUninstallMock).toHaveBeenCalledWith(
+      { yes: true, stopOpencode: true },
+      mocked.deps,
+    );
   });
 
   it("passes false flags when none are given", async () => {
@@ -82,7 +89,10 @@ describe("cli uninstall command", () => {
       expect(mocked.runUninstallMock).toHaveBeenCalledTimes(1);
     });
 
-    expect(mocked.runUninstallMock).toHaveBeenCalledWith({ yes: false, stopOpencode: false });
+    expect(mocked.runUninstallMock).toHaveBeenCalledWith(
+      { yes: false, stopOpencode: false },
+      mocked.deps,
+    );
   });
 
   it("propagates the exit code of runUninstall", async () => {
