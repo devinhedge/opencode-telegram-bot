@@ -11,6 +11,8 @@ describe("cli/args", () => {
       restart: false,
       mode: undefined,
       showHelp: false,
+      yes: false,
+      stopOpencode: false,
     });
   });
 
@@ -23,6 +25,8 @@ describe("cli/args", () => {
       restart: false,
       mode: "installed",
       showHelp: false,
+      yes: false,
+      stopOpencode: false,
     });
   });
 
@@ -35,6 +39,8 @@ describe("cli/args", () => {
       restart: false,
       mode: "sources",
       showHelp: false,
+      yes: false,
+      stopOpencode: false,
     });
   });
 
@@ -47,6 +53,8 @@ describe("cli/args", () => {
       restart: false,
       mode: undefined,
       showHelp: false,
+      yes: false,
+      stopOpencode: false,
     });
   });
 
@@ -105,6 +113,8 @@ describe("cli/args", () => {
       restart: true,
       mode: undefined,
       showHelp: false,
+      yes: false,
+      stopOpencode: false,
     });
   });
 
@@ -117,6 +127,8 @@ describe("cli/args", () => {
       restart: true,
       mode: undefined,
       showHelp: false,
+      yes: false,
+      stopOpencode: false,
     });
   });
 
@@ -129,6 +141,104 @@ describe("cli/args", () => {
     expect(parsed.error).toContain("--restart");
   });
 
+  it("parses the uninstall command with no flags", () => {
+    expect(parseCliArgs(["uninstall"])).toEqual({
+      command: "uninstall",
+      daemon: false,
+      restart: false,
+      mode: undefined,
+      showHelp: false,
+      yes: false,
+      stopOpencode: false,
+    });
+  });
+
+  it("parses uninstall --yes", () => {
+    expect(parseCliArgs(["uninstall", "--yes"])).toEqual({
+      command: "uninstall",
+      daemon: false,
+      restart: false,
+      mode: undefined,
+      showHelp: false,
+      yes: true,
+      stopOpencode: false,
+    });
+  });
+
+  it("parses uninstall --yes --stop-opencode", () => {
+    expect(parseCliArgs(["uninstall", "--yes", "--stop-opencode"])).toEqual({
+      command: "uninstall",
+      daemon: false,
+      restart: false,
+      mode: undefined,
+      showHelp: false,
+      yes: true,
+      stopOpencode: true,
+    });
+  });
+
+  it("rejects --yes for other commands", () => {
+    const parsed = parseCliArgs(["start", "--yes"]);
+
+    expect(parsed.showHelp).toBe(true);
+    expect(parsed.error).toContain("--yes");
+    expect(parsed.error).toContain("uninstall");
+  });
+
+  it("rejects --stop-opencode for other commands", () => {
+    const parsed = parseCliArgs(["stop", "--stop-opencode"]);
+
+    expect(parsed.showHelp).toBe(true);
+    expect(parsed.error).toContain("--stop-opencode");
+    expect(parsed.error).toContain("uninstall");
+  });
+
+  it("rejects the uninstall flags when no command is given", () => {
+    const yesParsed = parseCliArgs(["--yes"]);
+    const stopParsed = parseCliArgs(["--stop-opencode"]);
+
+    expect(yesParsed.showHelp).toBe(true);
+    expect(yesParsed.error).toContain("--yes");
+    expect(stopParsed.showHelp).toBe(true);
+    expect(stopParsed.error).toContain("--stop-opencode");
+  });
+
+  it("reports the uninstall flag error when combined with --daemon and no command", () => {
+    const parsed = parseCliArgs(["--daemon", "--yes"]);
+
+    expect(parsed.showHelp).toBe(true);
+    expect(parsed.error).toBeDefined();
+  });
+
+  it.each(["status", "stop", "config"])("rejects --yes and --stop-opencode for %s", (command) => {
+    const yesParsed = parseCliArgs([command, "--yes"]);
+    const stopParsed = parseCliArgs([command, "--stop-opencode"]);
+
+    expect(yesParsed.showHelp).toBe(true);
+    expect(yesParsed.error).toContain("--yes");
+    expect(stopParsed.showHelp).toBe(true);
+    expect(stopParsed.error).toContain("--stop-opencode");
+  });
+
+  it.each([["--mode", "installed"], ["--daemon"], ["--restart"]])(
+    "rejects %s for the uninstall command",
+    (...flags) => {
+      const parsed = parseCliArgs(["uninstall", ...flags]);
+
+      expect(parsed.command).toBe("uninstall");
+      expect(parsed.showHelp).toBe(true);
+      expect(parsed.error).toBeDefined();
+    },
+  );
+
+  it("shows help without an error for uninstall --help", () => {
+    const parsed = parseCliArgs(["uninstall", "--help"]);
+
+    expect(parsed.command).toBe("uninstall");
+    expect(parsed.showHelp).toBe(true);
+    expect(parsed.error).toBeUndefined();
+  });
+
   it("shows help when requested", () => {
     const parsed = parseCliArgs(["--help"]);
 
@@ -138,6 +248,8 @@ describe("cli/args", () => {
       restart: false,
       mode: undefined,
       showHelp: true,
+      yes: false,
+      stopOpencode: false,
     });
   });
 });

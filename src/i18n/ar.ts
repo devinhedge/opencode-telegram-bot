@@ -785,5 +785,117 @@ export const ar: I18nDictionary = {
   "goal.reason.no_paused": "No paused goal to resume.",
   "goal.reason.none_set": "No goal is set.",
   "goal.reason.objective_limit": "A goal objective is limited to {limit} characters (got {count}).",
+  "uninstall.refused_container":
+    "تم رفض التشغيل داخل حاوية. لم تتم إزالة أي شيء. أعد بناء الحاوية ونشرها من جديد، أو دمّرها.",
+  "uninstall.refused_root":
+    "تم رفض التشغيل بصلاحية root. شغّل برنامج الإزالة بالمستخدم الذي ثبّت البوت؛ لا يُطلب sudo إلا عند الحاجة.",
+  "uninstall.plan_header": "سيقوم برنامج الإزالة بما يلي:",
+  "uninstall.plan_daemon": "إيقاف عملية البوت الخلفية المنفصلة (PID {pid}).",
+  "uninstall.plan_terminal_bots":
+    "إيقاف البوتات التي تعمل خارج العملية الخلفية (يُؤكَّد كل واحد على حدة).",
+  "uninstall.plan_systemd": "إزالة وحدة systemd ‏{path} باستخدام sudo.",
+  "uninstall.plan_home": "إزالة بيانات التطبيق في {path}.",
+  "uninstall.plan_override":
+    "إزالة البيانات في المجلد OPENCODE_TELEGRAM_HOME ‏{path} (يُسأل عنها على حدة).",
+  "uninstall.plan_keychain": "حذف الأسرار المخزنة من سلسلة المفاتيح (الخدمة {service}).",
+  "uninstall.plan_logs_stay": "لا تُزال ملفات السجل أبدًا وتبقى في {path}.",
+  "uninstall.plan_opencode_server": "إيقاف خادم OpenCode (يُؤكَّد على حدة).",
+  "uninstall.confirm_plan": "هل تتابع بهذه الخطة؟ \u200E[y/N] ",
+  "uninstall.confirm_override": "هل تزيل أيضًا البيانات في {path}؟ \u200E[y/N] ",
+  "uninstall.confirm_stop_process":
+    "هل توقف العملية {pid} (المستخدم {user}، بدأت {started}): {command}؟ \u200E[y/N] ",
+  "uninstall.confirm_stop_opencode":
+    "هل توقف العملية الموجودة على منفذ OpenCode {port} (PID {pid}): {command}؟ \u200E[y/N] ",
+  "uninstall.confirm_stop_opencode_tree":
+    "في Windows يؤدي هذا إلى إيقاف شجرة عمليات الخادم بالكامل.",
+  "uninstall.no_terminal_plan_only":
+    "لا توجد طرفية متاحة. الخطة معروضة أعلاه ولم تتم إزالة أي شيء. أعد التشغيل في طرفية أو مرّر --yes.",
+  "uninstall.aborted": "تم الإلغاء. لم تتم إزالة أي شيء.",
+  "uninstall.step_daemon_stopped": "تم إيقاف عملية البوت الخلفية (PID {pid}).",
+  "uninstall.step_daemon_failed": "تعذّر إيقاف عملية البوت الخلفية (PID {pid}).",
+  "uninstall.step_daemon_absent": "لم تكن هناك عملية بوت خلفية منفصلة قيد التشغيل.",
+  "uninstall.step_daemon_error": "تعذّر فحص عملية البوت الخلفية أو إيقافها: {reason}",
+  "uninstall.step_removed": "تمت الإزالة: {path}",
+  "uninstall.step_absent": "غير موجود أصلًا: {path}",
+  "uninstall.step_failed": "تعذّرت إزالة {path}: {reason}",
+  "uninstall.step_link_removed": "تمت إزالة الرابط {path} (كان يشير إلى {target})",
+  "uninstall.step_target_left": "تُرك هدف الرابط {path} في مكانه: فهو خارج المجلد الرئيسي.",
+  "uninstall.step_home_error": "تعذّرت معالجة مجلد التطبيق {path}: {reason}",
+  "uninstall.step_keychain": "سر سلسلة المفاتيح {account}: {status}",
+  "uninstall.step_keychain_unavailable": "سلسلة المفاتيح غير متاحة؛ لم يتم المساس بأسرارها.",
+  "uninstall.keychain_status_removed": "تمت الإزالة",
+  "uninstall.keychain_status_absent": "غير موجود",
+  "uninstall.keychain_status_failed": "فشل",
+  "uninstall.step_systemd": "وحدة systemd: {outcome}",
+  "uninstall.step_systemd_failed": "تعذّرت إزالة وحدة systemd: {reason}",
+  "uninstall.step_systemd_commands": "شغّل هذه الأوامر بنفسك للإكمال:\n{commands}",
+  "uninstall.systemd_outcome_removed": "تمت الإزالة",
+  "uninstall.systemd_outcome_absent": "غير مثبتة",
+  "uninstall.systemd_outcome_not_applicable": "لا ينطبق على هذا النظام",
+  "uninstall.systemd_outcome_skipped_no_terminal": "تم التخطي (لا توجد طرفية لـ sudo)",
+  "uninstall.systemd_outcome_skipped_no_sudo": "تم التخطي (sudo غير متاح)",
+  "uninstall.systemd_outcome_failed": "فشل",
+  "uninstall.step_scan_failed": "تعذّر البحث عن عمليات البوت قيد التشغيل: {reason}",
+  "uninstall.step_scan_unsupported":
+    "البحث عن البوتات خارج العملية الخلفية غير مدعوم في Windows؛ تم التخطي.",
+  "uninstall.step_process_stopped": "تم إيقاف العملية {pid}.",
+  "uninstall.step_process_failed": "تعذّر إيقاف العملية {pid}.",
+  "uninstall.step_process_skipped": "تم تخطي العملية {pid}.",
+  "uninstall.step_process_refused": "لم تُرسل إشارة إلى العملية {pid}: لم تعد تطابق البوت.",
+  "uninstall.process_unverified":
+    "تعذّرت قراءة مجلد العمل للعملية {pid}، لذا فهذا التطابق غير مُتحقق منه.",
+  "uninstall.started_unknown": "غير معروف",
+  "uninstall.step_override_invalid": "تم تخطي المجلد OPENCODE_TELEGRAM_HOME ‏{path}: {reason}",
+  "uninstall.step_override_skipped": "تم تخطي المجلد OPENCODE_TELEGRAM_HOME ‏{path}.",
+  "uninstall.override_reason_missing": "المجلد غير موجود",
+  "uninstall.override_reason_unreadable": "لا يمكن قراءة المجلد",
+  "uninstall.override_reason_not_a_directory": "ليس مجلدًا",
+  "uninstall.override_reason_root": "هو جذر نظام الملفات",
+  "uninstall.override_reason_user_home": "هو مجلدك الرئيسي",
+  "uninstall.override_reason_no_bot_files": "لا يحتوي على ملفات البوت",
+  "uninstall.step_opencode_stopped": "تم إيقاف العملية الموجودة على منفذ OpenCode (PID {pid}).",
+  "uninstall.step_opencode_failed": "تعذّر إيقاف العملية الموجودة على منفذ OpenCode (PID {pid}).",
+  "uninstall.step_opencode_skipped": "تم تخطي إيقاف خادم OpenCode.",
+  "uninstall.step_opencode_refused":
+    "تم تخطي العملية الموجودة على منفذ OpenCode (PID {pid}): تستمع الآن عملية أخرى إلى المنفذ.",
+  "uninstall.step_opencode_none": "لم يُعثر على خادم OpenCode لإيقافه.",
+  "uninstall.step_opencode_unchecked": "تعذّر فحص منفذ OpenCode؛ لم يتم إيقاف أي شيء.",
+  "uninstall.command_unavailable": "(سطر الأوامر غير متاح)",
+  "uninstall.home_removed": "تمت إزالة مجلد التطبيق {path}.",
+  "uninstall.home_kept": "تم الإبقاء على مجلد التطبيق {path}: ما زال يحتوي على ملفات أخرى.",
+  "uninstall.summary_ok": "اكتملت الإزالة.",
+  "uninstall.left_process": "العملية {pid}",
+  "uninstall.left_opencode": "العملية على منفذ OpenCode (PID {pid})",
+  "uninstall.left_opencode_unchecked": "العملية على منفذ OpenCode (لم يتم فحصها)",
+  "uninstall.left_keychain": "أسرار سلسلة المفاتيح (كانت سلسلة المفاتيح غير متاحة)",
+  "uninstall.summary_left": "اكتملت الإزالة؛ تُرك في مكانه: {items}",
+  "uninstall.summary_failed": "اكتملت الإزالة. الخطوات الفاشلة: {count}",
+  "uninstall.cli_hint": "لإزالة واجهة سطر الأوامر نفسها، شغّل: {command}",
+  "uninstall.step_opencode_unknown":
+    "لم يتم إيقاف العملية الموجودة على منفذ OpenCode (PID {pid}): تعذّر فحص المنفذ مرة أخرى.",
+  "uninstall.step_process_already_exited": "كانت العملية {pid} قد انتهت بالفعل؛ لم تُرسل أي إشارة.",
+  "uninstall.step_opencode_gone":
+    "العملية الموجودة على منفذ OpenCode (PID {pid}) لم تعد تستمع؛ لم يتم إيقاف أي شيء.",
+  "uninstall.plan_override_secrets":
+    "إزالة secrets.enc وkeystore_password في ‏{path} حتى لو بقي باقي ذلك المجلد.",
+  "uninstall.step_override_secrets":
+    "جارٍ إزالة secrets.enc وkeystore_password من ‏{path}: تُزال الأسرار مهما حدث لباقي المجلد.",
+  "uninstall.left_override_kept": "{path} (كل شيء عدا secrets.enc وkeystore_password)",
+  "uninstall.left_scan": "عمليات البوت خارج العملية الخلفية (لم يتم فحصها)",
+  "uninstall.left_daemon": "عملية البوت الخلفية (ربما ما زالت تعمل)",
+  "uninstall.summary_failed_left":
+    "اكتملت الإزالة. الخطوات الفاشلة: {count}. تُرك في مكانه: {items}",
+  "uninstall.list_separator": "، ",
+  "uninstall.step_systemd_ran": "تمت إزالة وحدة systemd ‏{path} بتشغيل:\n{commands}",
+  "uninstall.step_process_skipped_no_terminal":
+    "تم تخطي العملية {pid}: لا توجد طرفية لتأكيد إيقافها.",
+  "uninstall.step_opencode_skipped_no_terminal":
+    "تم تخطي إيقاف العملية على منفذ OpenCode: لا توجد طرفية للتأكيد.",
+  "uninstall.step_override_skipped_no_terminal":
+    "تم تخطي المجلد OPENCODE_TELEGRAM_HOME ‏{path}: لا توجد طرفية لتأكيد إزالته.",
+  "uninstall.step_logs_warning": "تعذّر استخدام قيمة LOG_LOCATION المُعدّة كما هي.",
+  "uninstall.step_homes_error": "تعذّر تحديد مجلد التطبيق: {reason}. لم تتم إزالة أي شيء.",
+  "uninstall.home_kept_logs":
+    "تم الإبقاء على مجلد التطبيق {path}: ما زال يحتوي على ملفات، منها السجلات.",
 
 };

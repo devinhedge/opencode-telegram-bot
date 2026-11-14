@@ -833,5 +833,131 @@ export const de: I18nDictionary = {
   "goal.reason.no_paused": "No paused goal to resume.",
   "goal.reason.none_set": "No goal is set.",
   "goal.reason.objective_limit": "A goal objective is limited to {limit} characters (got {count}).",
+  "uninstall.refused_container":
+    "Die Ausführung in einem Container wird verweigert. Es wurde nichts entfernt. Baue den Container neu und stelle ihn erneut bereit, oder zerstöre ihn.",
+  "uninstall.refused_root":
+    "Die Ausführung als root wird verweigert. Starte den Uninstaller als der Benutzer, der den Bot installiert hat; sudo wird nur dort abgefragt, wo es nötig ist.",
+  "uninstall.plan_header": "Der Uninstaller wird Folgendes tun:",
+  "uninstall.plan_daemon": "Den losgelösten Bot-Daemon beenden (PID {pid}).",
+  "uninstall.plan_terminal_bots":
+    "Bots beenden, die außerhalb des Daemons laufen (jeder wird einzeln bestätigt).",
+  "uninstall.plan_systemd": "Die systemd-Unit {path} mit sudo entfernen.",
+  "uninstall.plan_home": "Die App-Daten in {path} entfernen.",
+  "uninstall.plan_override":
+    "Die Daten im OPENCODE_TELEGRAM_HOME-Verzeichnis {path} entfernen (wird separat gefragt).",
+  "uninstall.plan_keychain":
+    "Die gespeicherten Geheimnisse aus dem Schlüsselbund löschen (Dienst {service}).",
+  "uninstall.plan_logs_stay": "Logdateien werden nie entfernt und bleiben in {path}.",
+  "uninstall.plan_opencode_server": "Den OpenCode-Server beenden (wird separat bestätigt).",
+  "uninstall.confirm_plan": "Diesen Plan ausführen? [y/N] ",
+  "uninstall.confirm_override": "Auch die Daten in {path} entfernen? [y/N] ",
+  "uninstall.confirm_stop_process":
+    "Prozess {pid} beenden (Benutzer {user}, gestartet {started}): {command}? [y/N] ",
+  "uninstall.confirm_stop_opencode":
+    "Den am OpenCode-Port {port} gefundenen Prozess beenden (PID {pid}): {command}? [y/N] ",
+  "uninstall.confirm_stop_opencode_tree":
+    "Unter Windows wird dabei der gesamte Prozessbaum des Servers beendet.",
+  "uninstall.no_terminal_plan_only":
+    "Es ist kein Terminal verfügbar. Der Plan steht oben und es wurde nichts entfernt. Starte erneut in einem Terminal oder übergib --yes.",
+  "uninstall.aborted": "Abgebrochen. Es wurde nichts entfernt.",
+  "uninstall.step_daemon_stopped": "Bot-Daemon beendet (PID {pid}).",
+  "uninstall.step_daemon_failed": "Der Bot-Daemon (PID {pid}) konnte nicht beendet werden.",
+  "uninstall.step_daemon_absent": "Es lief kein losgelöster Bot-Daemon.",
+  "uninstall.step_daemon_error":
+    "Der Bot-Daemon konnte nicht geprüft oder beendet werden: {reason}",
+  "uninstall.step_removed": "Entfernt: {path}",
+  "uninstall.step_absent": "Bereits nicht vorhanden: {path}",
+  "uninstall.step_failed": "{path} konnte nicht entfernt werden: {reason}",
+  "uninstall.step_link_removed": "Link {path} entfernt (zeigte auf {target})",
+  "uninstall.step_target_left":
+    "Das Link-Ziel {path} bleibt bestehen: Es liegt außerhalb des Home-Verzeichnisses.",
+  "uninstall.step_home_error": "Das App-Home {path} konnte nicht verarbeitet werden: {reason}",
+  "uninstall.step_keychain": "Schlüsselbund-Geheimnis {account}: {status}",
+  "uninstall.step_keychain_unavailable":
+    "Der Schlüsselbund ist nicht verfügbar; seine Geheimnisse wurden nicht angerührt.",
+  "uninstall.keychain_status_removed": "entfernt",
+  "uninstall.keychain_status_absent": "nicht gefunden",
+  "uninstall.keychain_status_failed": "fehlgeschlagen",
+  "uninstall.step_systemd": "systemd-Unit: {outcome}",
+  "uninstall.step_systemd_failed": "Die systemd-Unit konnte nicht entfernt werden: {reason}",
+  "uninstall.step_systemd_commands":
+    "Führe diese Befehle selbst aus, um abzuschließen:\n{commands}",
+  "uninstall.systemd_outcome_removed": "entfernt",
+  "uninstall.systemd_outcome_absent": "nicht installiert",
+  "uninstall.systemd_outcome_not_applicable": "auf diesem System nicht anwendbar",
+  "uninstall.systemd_outcome_skipped_no_terminal": "übersprungen (kein Terminal für sudo)",
+  "uninstall.systemd_outcome_skipped_no_sudo": "übersprungen (sudo ist nicht verfügbar)",
+  "uninstall.systemd_outcome_failed": "fehlgeschlagen",
+  "uninstall.step_scan_failed":
+    "Die Suche nach laufenden Bot-Prozessen ist fehlgeschlagen: {reason}",
+  "uninstall.step_scan_unsupported":
+    "Das Suchen von Bots außerhalb des Daemons wird unter Windows nicht unterstützt; übersprungen.",
+  "uninstall.step_process_stopped": "Prozess {pid} beendet.",
+  "uninstall.step_process_failed": "Prozess {pid} konnte nicht beendet werden.",
+  "uninstall.step_process_skipped": "Prozess {pid} übersprungen.",
+  "uninstall.step_process_refused":
+    "Prozess {pid} wurde kein Signal gesendet: er passt nicht mehr zum Bot.",
+  "uninstall.process_unverified":
+    "Das Arbeitsverzeichnis von Prozess {pid} konnte nicht gelesen werden, daher ist diese Zuordnung nicht verifiziert.",
+  "uninstall.started_unknown": "unbekannt",
+  "uninstall.step_override_invalid":
+    "OPENCODE_TELEGRAM_HOME-Verzeichnis {path} übersprungen: {reason}",
+  "uninstall.step_override_skipped": "OPENCODE_TELEGRAM_HOME-Verzeichnis {path} übersprungen.",
+  "uninstall.override_reason_missing": "das Verzeichnis existiert nicht",
+  "uninstall.override_reason_unreadable": "das Verzeichnis kann nicht gelesen werden",
+  "uninstall.override_reason_not_a_directory": "es ist kein Verzeichnis",
+  "uninstall.override_reason_root": "es ist das Wurzelverzeichnis des Dateisystems",
+  "uninstall.override_reason_user_home": "es ist dein Home-Verzeichnis",
+  "uninstall.override_reason_no_bot_files": "es enthält keine Bot-Dateien",
+  "uninstall.step_opencode_stopped":
+    "Der am OpenCode-Port gefundene Prozess (PID {pid}) wurde beendet.",
+  "uninstall.step_opencode_failed":
+    "Der am OpenCode-Port gefundene Prozess (PID {pid}) konnte nicht beendet werden.",
+  "uninstall.step_opencode_skipped": "Das Beenden des OpenCode-Servers wurde übersprungen.",
+  "uninstall.step_opencode_refused":
+    "Der am OpenCode-Port gefundene Prozess (PID {pid}) wurde übersprungen: jetzt lauscht dort ein anderer Prozess.",
+  "uninstall.step_opencode_none": "Es wurde kein OpenCode-Server zum Beenden gefunden.",
+  "uninstall.step_opencode_unchecked":
+    "Der OpenCode-Port konnte nicht geprüft werden; es wurde nichts beendet.",
+  "uninstall.command_unavailable": "(Befehlszeile nicht verfügbar)",
+  "uninstall.home_removed": "App-Home {path} entfernt.",
+  "uninstall.home_kept": "App-Home {path} behalten: es enthält noch andere Dateien.",
+  "uninstall.summary_ok": "Deinstallation abgeschlossen.",
+  "uninstall.left_process": "Prozess {pid}",
+  "uninstall.left_opencode": "der Prozess am OpenCode-Port (PID {pid})",
+  "uninstall.left_opencode_unchecked": "der Prozess am OpenCode-Port (nicht geprüft)",
+  "uninstall.left_keychain":
+    "die Schlüsselbund-Geheimnisse (der Schlüsselbund war nicht verfügbar)",
+  "uninstall.summary_left": "Deinstallation abgeschlossen; unverändert geblieben: {items}",
+  "uninstall.summary_failed": "Deinstallation abgeschlossen. Fehlgeschlagene Schritte: {count}",
+  "uninstall.cli_hint": "Um die CLI selbst zu entfernen, führe aus: {command}",
+  "uninstall.step_opencode_unknown":
+    "Der am OpenCode-Port gefundene Prozess (PID {pid}) wurde nicht beendet: der Port konnte nicht erneut geprüft werden.",
+  "uninstall.step_process_already_exited":
+    "Prozess {pid} war bereits beendet; es wurde kein Signal gesendet.",
+  "uninstall.step_opencode_gone":
+    "Der am OpenCode-Port gefundene Prozess (PID {pid}) lauscht nicht mehr; es wurde nichts beendet.",
+  "uninstall.plan_override_secrets":
+    "secrets.enc und keystore_password in {path} entfernen, auch wenn der Rest dieses Verzeichnisses bleibt.",
+  "uninstall.step_override_secrets":
+    "Entferne secrets.enc und keystore_password aus {path}: Geheimnisse werden unabhängig vom Rest des Verzeichnisses entfernt.",
+  "uninstall.left_override_kept": "{path} (alles außer secrets.enc und keystore_password)",
+  "uninstall.left_scan": "Bot-Prozesse außerhalb des Daemons (nicht geprüft)",
+  "uninstall.left_daemon": "der Bot-Daemon (er läuft möglicherweise noch)",
+  "uninstall.summary_failed_left":
+    "Deinstallation abgeschlossen. Fehlgeschlagene Schritte: {count}. Unverändert geblieben: {items}",
+  "uninstall.list_separator": ", ",
+  "uninstall.step_systemd_ran": "systemd-Unit {path} entfernt mit:\n{commands}",
+  "uninstall.step_process_skipped_no_terminal":
+    "Prozess {pid} übersprungen: kein Terminal, um das Beenden zu bestätigen.",
+  "uninstall.step_opencode_skipped_no_terminal":
+    "Beenden des Prozesses am OpenCode-Port übersprungen: kein Terminal zum Bestätigen.",
+  "uninstall.step_override_skipped_no_terminal":
+    "OPENCODE_TELEGRAM_HOME-Verzeichnis {path} übersprungen: kein Terminal, um das Entfernen zu bestätigen.",
+  "uninstall.step_logs_warning":
+    "Das eingestellte LOG_LOCATION konnte nicht wie angegeben verwendet werden.",
+  "uninstall.step_homes_error":
+    "Das App-Home konnte nicht ermittelt werden: {reason}. Es wurde nichts entfernt.",
+  "uninstall.home_kept_logs": "App-Home {path} behalten: es enthält noch Dateien, darunter Logs.",
 
 };

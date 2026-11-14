@@ -1,8 +1,16 @@
+import { existsSync } from "node:fs";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { createTestHome, ensureTestEnvironment } from "./test-environment.js";
+import {
+  USER_HOME_ENV_KEYS,
+  createTestHome,
+  ensureTestEnvironment,
+  getRealEnvBeforeTestSetup,
+  getTestUserHome,
+  releaseTestUserHome,
+} from "./test-environment.js";
 
 async function snapshot(directory: string): Promise<Record<string, string>> {
   const result: Record<string, string> = {};
@@ -19,6 +27,81 @@ async function snapshot(directory: string): Promise<Record<string, string>> {
   }
   return result;
 }
+
+describe("test user-home isolation", () => {
+  function isUnder(target: string, root: string): boolean {
+    const relative = path.relative(root, target);
+    return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+  }
+
+  it("resolves os.homedir() and the installed app home inside the temp user home", async () => {
+    const userHome = getTestUserHome();
+    const realHome = os.userInfo().homedir;
+    const { getInstalledAppHome } = await import("../../src/runtime/paths.js");
+
+    expect(isUnder(userHome, os.tmpdir())).toBe(true);
+    expect(os.homedir()).toBe(userHome);
+    expect(isUnder(getInstalledAppHome(), userHome)).toBe(true);
+    for (const key of USER_HOME_ENV_KEYS) {
+      expect(isUnder(process.env[key] ?? "", userHome), key).toBe(true);
+    }
+    if (!isUnder(os.tmpdir(), realHome)) {
+      expect(isUnder(os.homedir(), realHome)).toBe(false);
+      expect(isUnder(getInstalledAppHome(), realHome)).toBe(false);
+    }
+  });
+
+  it("keeps the environment captured before the setup mutated it", () => {
+    const real = getRealEnvBeforeTestSetup();
+    const userHome = getTestUserHome();
+
+    // The setup already overwrote the live variables; the capture still holds the originals.
+    expect(process.env.HOME).toBe(userHome);
+    for (const key of Object.keys(real) as (keyof typeof real)[]) {
+      const value = real[key];
+      if (value !== undefined) {
+        expect(isUnder(value, userHome), key).toBe(false);
+      }
+    }
+    expect(real.HOME).not.toBe(userHome);
+    expect(Object.isFrozen(real)).toBe(true);
+
+    ensureTestEnvironment();
+    expect(getRealEnvBeforeTestSetup()).toBe(real);
+  });
+
+  it("puts the canonical log directory inside the temp user home", async () => {
+    const { resolveCanonicalLogsDir } = await import("../../src/runtime/log-location.js");
+
+    expect(
+      isUnder(
+        resolveCanonicalLogsDir(process.platform, process.env, os.homedir()),
+        getTestUserHome(),
+      ),
+    ).toBe(true);
+  });
+
+  it("on release removes the temp home but never points back at the real home", () => {
+    const before = getTestUserHome();
+
+    releaseTestUserHome();
+
+    expect(existsSync(before)).toBe(false);
+    expect(process.env.HOME).toBe(before);
+    expect(process.env.USERPROFILE).toBe(before);
+    ensureTestEnvironment();
+    expect(getTestUserHome()).not.toBe(before);
+    expect(os.homedir()).toBe(getTestUserHome());
+  });
+
+  it("restores the temp user home after a test deletes HOME", () => {
+    delete process.env.HOME;
+    delete process.env.USERPROFILE;
+    ensureTestEnvironment();
+
+    expect(os.homedir()).toBe(getTestUserHome());
+  });
+});
 
 describe("test app-home isolation", () => {
   it("replaces inherited homes, admits only owned homes, and survives module resets", async () => {
@@ -128,4 +211,17 @@ describe("test app-home isolation", () => {
       }
     },
   );
+});
+
+describe("ensureTestEnvironment guard", () => {
+  it("throws when os.homedir() does not follow the isolated environment", () => {
+    const elsewhere = path.join(os.tmpdir(), "not-the-test-home");
+    vi.spyOn(os, "homedir").mockReturnValue(elsewhere);
+    try {
+      expect(() => ensureTestEnvironment()).toThrow(/os\.homedir\(\)/);
+    } finally {
+      vi.restoreAllMocks();
+    }
+    expect(() => ensureTestEnvironment()).not.toThrow();
+  });
 });

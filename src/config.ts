@@ -8,6 +8,10 @@ import type { SecretStore } from "./secrets/secret-store.js";
 import { verifyIntegrity, storeIntegrityData } from "./secrets/integrity.js";
 import { migrateSecretsIfNeeded } from "./secrets/migrate-secrets.js";
 import { logger } from "./utils/logger.js";
+import {
+  DEFAULT_OPENCODE_API_URLS,
+  type OpencodeServerVersion,
+} from "./opencode/process-control.js";
 
 const runtimePaths = getRuntimePaths();
 dotenv.config({ path: runtimePaths.envFilePath, quiet: true });
@@ -93,13 +97,8 @@ function getOptionalBooleanEnvVar(key: string, defaultValue: boolean): boolean {
   return defaultValue;
 }
 
-export type OpencodeServerVersion = "v1" | "v2";
+export type { OpencodeServerVersion };
 export type OpencodeServerMode = "service" | "standalone";
-
-const DEFAULT_OPENCODE_API_URLS: Record<OpencodeServerVersion, string> = {
-  v1: "http://localhost:4096",
-  v2: "http://127.0.0.1:49374",
-};
 
 /**
  * V1 ignores the mode. On V2, empty means the registered background server.

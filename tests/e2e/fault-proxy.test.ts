@@ -5,6 +5,9 @@ import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { allowRealProcesses } from "../helpers/process-guard.js";
+
+allowRealProcesses("runs the fault proxy as a real child process");
 
 const PROXY_SCRIPT = resolve(__dirname, "../../e2e/fault-proxy.mjs");
 const TOKEN = "123456:TEST-token-value";

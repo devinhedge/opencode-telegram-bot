@@ -806,5 +806,125 @@ export const id: I18nDictionary = {
   "goal.reason.no_paused": "No paused goal to resume.",
   "goal.reason.none_set": "No goal is set.",
   "goal.reason.objective_limit": "A goal objective is limited to {limit} characters (got {count}).",
+  "uninstall.refused_container":
+    "Menjalankan di dalam kontainer ditolak. Tidak ada yang dihapus. Bangun ulang dan deploy ulang kontainer, atau hancurkan.",
+  "uninstall.refused_root":
+    "Menjalankan sebagai root ditolak. Jalankan uninstaller sebagai pengguna yang memasang bot; sudo hanya diminta bila diperlukan.",
+  "uninstall.plan_header": "Uninstaller akan melakukan hal berikut:",
+  "uninstall.plan_daemon": "Hentikan daemon bot yang terlepas (PID {pid}).",
+  "uninstall.plan_terminal_bots":
+    "Hentikan bot yang berjalan di luar daemon (masing-masing dikonfirmasi terpisah).",
+  "uninstall.plan_systemd": "Hapus unit systemd {path} dengan sudo.",
+  "uninstall.plan_home": "Hapus data aplikasi di {path}.",
+  "uninstall.plan_override":
+    "Hapus data di direktori OPENCODE_TELEGRAM_HOME {path} (ditanyakan terpisah).",
+  "uninstall.plan_keychain": "Hapus rahasia tersimpan dari keychain (layanan {service}).",
+  "uninstall.plan_logs_stay": "File log tidak pernah dihapus dan tetap berada di {path}.",
+  "uninstall.plan_opencode_server": "Hentikan server OpenCode (dikonfirmasi terpisah).",
+  "uninstall.confirm_plan": "Lanjutkan dengan rencana ini? [y/N] ",
+  "uninstall.confirm_override": "Hapus juga data di {path}? [y/N] ",
+  "uninstall.confirm_stop_process":
+    "Hentikan proses {pid} (pengguna {user}, dimulai {started}): {command}? [y/N] ",
+  "uninstall.confirm_stop_opencode":
+    "Hentikan proses yang ditemukan di port OpenCode {port} (PID {pid}): {command}? [y/N] ",
+  "uninstall.confirm_stop_opencode_tree":
+    "Di Windows, ini menghentikan seluruh pohon proses server.",
+  "uninstall.no_terminal_plan_only":
+    "Tidak ada terminal yang tersedia. Rencana ditampilkan di atas dan tidak ada yang dihapus. Jalankan ulang di terminal atau gunakan --yes.",
+  "uninstall.aborted": "Dibatalkan. Tidak ada yang dihapus.",
+  "uninstall.step_daemon_stopped": "Daemon bot dihentikan (PID {pid}).",
+  "uninstall.step_daemon_failed": "Tidak dapat menghentikan daemon bot (PID {pid}).",
+  "uninstall.step_daemon_absent": "Tidak ada daemon bot terlepas yang berjalan.",
+  "uninstall.step_daemon_error": "Tidak dapat memeriksa atau menghentikan daemon bot: {reason}",
+  "uninstall.step_removed": "Dihapus: {path}",
+  "uninstall.step_absent": "Sudah tidak ada: {path}",
+  "uninstall.step_failed": "Gagal menghapus {path}: {reason}",
+  "uninstall.step_link_removed": "Tautan {path} dihapus (menunjuk ke {target})",
+  "uninstall.step_target_left": "Target tautan {path} dibiarkan: berada di luar direktori home.",
+  "uninstall.step_home_error": "Tidak dapat memproses direktori aplikasi {path}: {reason}",
+  "uninstall.step_keychain": "Rahasia keychain {account}: {status}",
+  "uninstall.step_keychain_unavailable": "Keychain tidak tersedia; rahasianya tidak disentuh.",
+  "uninstall.keychain_status_removed": "dihapus",
+  "uninstall.keychain_status_absent": "tidak ditemukan",
+  "uninstall.keychain_status_failed": "gagal",
+  "uninstall.step_systemd": "Unit systemd: {outcome}",
+  "uninstall.step_systemd_failed": "Gagal menghapus unit systemd: {reason}",
+  "uninstall.step_systemd_commands":
+    "Jalankan sendiri perintah berikut untuk menyelesaikan:\n{commands}",
+  "uninstall.systemd_outcome_removed": "dihapus",
+  "uninstall.systemd_outcome_absent": "tidak terpasang",
+  "uninstall.systemd_outcome_not_applicable": "tidak berlaku di sistem ini",
+  "uninstall.systemd_outcome_skipped_no_terminal": "dilewati (tidak ada terminal untuk sudo)",
+  "uninstall.systemd_outcome_skipped_no_sudo": "dilewati (sudo tidak tersedia)",
+  "uninstall.systemd_outcome_failed": "gagal",
+  "uninstall.step_scan_failed": "Tidak dapat memindai proses bot yang berjalan: {reason}",
+  "uninstall.step_scan_unsupported":
+    "Mencari bot di luar daemon tidak didukung di Windows; dilewati.",
+  "uninstall.step_process_stopped": "Proses {pid} dihentikan.",
+  "uninstall.step_process_failed": "Tidak dapat menghentikan proses {pid}.",
+  "uninstall.step_process_skipped": "Proses {pid} dilewati.",
+  "uninstall.step_process_refused":
+    "Tidak ada sinyal yang dikirim ke proses {pid}: proses itu tidak lagi cocok dengan bot.",
+  "uninstall.process_unverified":
+    "Direktori kerja proses {pid} tidak dapat dibaca, sehingga kecocokan ini tidak terverifikasi.",
+  "uninstall.started_unknown": "tidak diketahui",
+  "uninstall.step_override_invalid": "Direktori OPENCODE_TELEGRAM_HOME {path} dilewati: {reason}",
+  "uninstall.step_override_skipped": "Direktori OPENCODE_TELEGRAM_HOME {path} dilewati.",
+  "uninstall.override_reason_missing": "direktori tidak ada",
+  "uninstall.override_reason_unreadable": "direktori tidak dapat dibaca",
+  "uninstall.override_reason_not_a_directory": "bukan direktori",
+  "uninstall.override_reason_root": "ini adalah root sistem file",
+  "uninstall.override_reason_user_home": "ini adalah direktori home Anda",
+  "uninstall.override_reason_no_bot_files": "tidak berisi file bot",
+  "uninstall.step_opencode_stopped":
+    "Proses yang ditemukan di port OpenCode dihentikan (PID {pid}).",
+  "uninstall.step_opencode_failed":
+    "Tidak dapat menghentikan proses yang ditemukan di port OpenCode (PID {pid}).",
+  "uninstall.step_opencode_skipped": "Penghentian server OpenCode dilewati.",
+  "uninstall.step_opencode_refused":
+    "Proses yang ditemukan di port OpenCode (PID {pid}) dilewati: kini proses lain yang mendengarkan port itu.",
+  "uninstall.step_opencode_none": "Tidak ditemukan server OpenCode yang perlu dihentikan.",
+  "uninstall.step_opencode_unchecked":
+    "Port OpenCode tidak dapat diperiksa; tidak ada yang dihentikan.",
+  "uninstall.command_unavailable": "(baris perintah tidak tersedia)",
+  "uninstall.home_removed": "Direktori aplikasi {path} dihapus.",
+  "uninstall.home_kept": "Direktori aplikasi {path} dipertahankan: masih berisi file lain.",
+  "uninstall.summary_ok": "Uninstall selesai.",
+  "uninstall.left_process": "proses {pid}",
+  "uninstall.left_opencode": "proses di port OpenCode (PID {pid})",
+  "uninstall.left_opencode_unchecked": "proses di port OpenCode (tidak diperiksa)",
+  "uninstall.left_keychain": "rahasia di keychain (keychain tidak tersedia)",
+  "uninstall.summary_left": "Uninstall selesai; dibiarkan di tempat: {items}",
+  "uninstall.summary_failed": "Uninstall selesai. Langkah yang gagal: {count}",
+  "uninstall.cli_hint": "Untuk menghapus CLI itu sendiri, jalankan: {command}",
+  "uninstall.step_opencode_unknown":
+    "Proses yang ditemukan di port OpenCode (PID {pid}) tidak dihentikan: port tidak dapat diperiksa ulang.",
+  "uninstall.step_process_already_exited":
+    "Proses {pid} sudah berhenti; tidak ada sinyal yang dikirim.",
+  "uninstall.step_opencode_gone":
+    "Proses yang ditemukan di port OpenCode (PID {pid}) tidak lagi mendengarkan; tidak ada yang dihentikan.",
+  "uninstall.plan_override_secrets":
+    "Hapus secrets.enc dan keystore_password di {path} meskipun sisa direktori itu dipertahankan.",
+  "uninstall.step_override_secrets":
+    "Menghapus secrets.enc dan keystore_password dari {path}: rahasia dihapus apa pun yang terjadi pada sisa direktori.",
+  "uninstall.left_override_kept": "{path} (semua kecuali secrets.enc dan keystore_password)",
+  "uninstall.left_scan": "proses bot di luar daemon (tidak diperiksa)",
+  "uninstall.left_daemon": "daemon bot (mungkin masih berjalan)",
+  "uninstall.summary_failed_left":
+    "Uninstall selesai. Langkah yang gagal: {count}. Dibiarkan di tempat: {items}",
+  "uninstall.list_separator": ", ",
+  "uninstall.step_systemd_ran": "Unit systemd {path} dihapus dengan menjalankan:\n{commands}",
+  "uninstall.step_process_skipped_no_terminal":
+    "Proses {pid} dilewati: tidak ada terminal untuk mengonfirmasi penghentiannya.",
+  "uninstall.step_opencode_skipped_no_terminal":
+    "Penghentian proses di port OpenCode dilewati: tidak ada terminal untuk mengonfirmasinya.",
+  "uninstall.step_override_skipped_no_terminal":
+    "Direktori OPENCODE_TELEGRAM_HOME {path} dilewati: tidak ada terminal untuk mengonfirmasi penghapusannya.",
+  "uninstall.step_logs_warning":
+    "LOG_LOCATION yang dikonfigurasi tidak dapat digunakan sebagaimana adanya.",
+  "uninstall.step_homes_error":
+    "Tidak dapat menentukan direktori aplikasi: {reason}. Tidak ada yang dihapus.",
+  "uninstall.home_kept_logs":
+    "Direktori aplikasi {path} dipertahankan: masih berisi file, termasuk log.",
 
 };

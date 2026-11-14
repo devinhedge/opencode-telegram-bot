@@ -808,5 +808,118 @@ export const tr: I18nDictionary = {
   "goal.reason.no_paused": "No paused goal to resume.",
   "goal.reason.none_set": "No goal is set.",
   "goal.reason.objective_limit": "A goal objective is limited to {limit} characters (got {count}).",
+  "uninstall.refused_container":
+    "Kapsayıcı içinde çalıştırma reddedildi. Hiçbir şey kaldırılmadı. Kapsayıcıyı yeniden oluşturup dağıtın veya yok edin.",
+  "uninstall.refused_root":
+    "root olarak çalıştırma reddedildi. Kaldırıcıyı botu kuran kullanıcıyla çalıştırın; sudo yalnızca gereken yerde istenir.",
+  "uninstall.plan_header": "Kaldırıcı şunları yapacak:",
+  "uninstall.plan_daemon": "Ayrık bot daemon'unu durdur (PID {pid}).",
+  "uninstall.plan_terminal_bots":
+    "Daemon dışında çalışan botları durdur (her biri ayrıca onaylanır).",
+  "uninstall.plan_systemd": "{path} systemd birimini sudo ile kaldır.",
+  "uninstall.plan_home": "{path} içindeki uygulama verilerini kaldır.",
+  "uninstall.plan_override":
+    "OPENCODE_TELEGRAM_HOME dizini {path} içindeki verileri kaldır (ayrıca sorulur).",
+  "uninstall.plan_keychain": "Anahtar zincirindeki saklı gizli bilgileri sil (servis {service}).",
+  "uninstall.plan_logs_stay": "Günlük dosyaları asla kaldırılmaz ve {path} içinde kalır.",
+  "uninstall.plan_opencode_server": "OpenCode sunucusunu durdur (ayrıca onaylanır).",
+  "uninstall.confirm_plan": "Bu planla devam edilsin mi? [y/N] ",
+  "uninstall.confirm_override": "{path} içindeki veriler de kaldırılsın mı? [y/N] ",
+  "uninstall.confirm_stop_process":
+    "{pid} işlemi durdurulsun mu (kullanıcı {user}, başlangıç {started}): {command}? [y/N] ",
+  "uninstall.confirm_stop_opencode":
+    "OpenCode portu {port} üzerinde bulunan işlem durdurulsun mu (PID {pid}): {command}? [y/N] ",
+  "uninstall.confirm_stop_opencode_tree": "Windows'ta bu, sunucunun tüm işlem ağacını durdurur.",
+  "uninstall.no_terminal_plan_only":
+    "Kullanılabilir terminal yok. Plan yukarıda gösterildi ve hiçbir şey kaldırılmadı. Bir terminalde yeniden çalıştırın veya --yes verin.",
+  "uninstall.aborted": "İptal edildi. Hiçbir şey kaldırılmadı.",
+  "uninstall.step_daemon_stopped": "Bot daemon'u durduruldu (PID {pid}).",
+  "uninstall.step_daemon_failed": "Bot daemon'u durdurulamadı (PID {pid}).",
+  "uninstall.step_daemon_absent": "Çalışan ayrık bir bot daemon'u yoktu.",
+  "uninstall.step_daemon_error": "Bot daemon'u denetlenemedi veya durdurulamadı: {reason}",
+  "uninstall.step_removed": "Kaldırıldı: {path}",
+  "uninstall.step_absent": "Zaten yok: {path}",
+  "uninstall.step_failed": "{path} kaldırılamadı: {reason}",
+  "uninstall.step_link_removed": "{path} bağlantısı kaldırıldı ({target} hedefini gösteriyordu)",
+  "uninstall.step_target_left": "{path} bağlantı hedefi yerinde bırakıldı: ev dizininin dışında.",
+  "uninstall.step_home_error": "{path} uygulama dizini işlenemedi: {reason}",
+  "uninstall.step_keychain": "Anahtar zinciri gizli bilgisi {account}: {status}",
+  "uninstall.step_keychain_unavailable":
+    "Anahtar zinciri kullanılamıyor; gizli bilgilerine dokunulmadı.",
+  "uninstall.keychain_status_removed": "kaldırıldı",
+  "uninstall.keychain_status_absent": "bulunamadı",
+  "uninstall.keychain_status_failed": "başarısız",
+  "uninstall.step_systemd": "systemd birimi: {outcome}",
+  "uninstall.step_systemd_failed": "systemd birimi kaldırılamadı: {reason}",
+  "uninstall.step_systemd_commands":
+    "Tamamlamak için bu komutları kendiniz çalıştırın:\n{commands}",
+  "uninstall.systemd_outcome_removed": "kaldırıldı",
+  "uninstall.systemd_outcome_absent": "kurulu değil",
+  "uninstall.systemd_outcome_not_applicable": "bu sistemde geçerli değil",
+  "uninstall.systemd_outcome_skipped_no_terminal": "atlandı (sudo için terminal yok)",
+  "uninstall.systemd_outcome_skipped_no_sudo": "atlandı (sudo kullanılamıyor)",
+  "uninstall.systemd_outcome_failed": "başarısız",
+  "uninstall.step_scan_failed": "Çalışan bot işlemleri aranamadı: {reason}",
+  "uninstall.step_scan_unsupported":
+    "Daemon dışındaki botları bulma Windows'ta desteklenmiyor; atlandı.",
+  "uninstall.step_process_stopped": "{pid} işlemi durduruldu.",
+  "uninstall.step_process_failed": "{pid} işlemi durdurulamadı.",
+  "uninstall.step_process_skipped": "{pid} işlemi atlandı.",
+  "uninstall.step_process_refused": "{pid} işlemine sinyal gönderilmedi: artık botla eşleşmiyor.",
+  "uninstall.process_unverified":
+    "{pid} işleminin çalışma dizini okunamadı, bu nedenle bu eşleşme doğrulanmadı.",
+  "uninstall.started_unknown": "bilinmiyor",
+  "uninstall.step_override_invalid": "OPENCODE_TELEGRAM_HOME dizini {path} atlandı: {reason}",
+  "uninstall.step_override_skipped": "OPENCODE_TELEGRAM_HOME dizini {path} atlandı.",
+  "uninstall.override_reason_missing": "dizin yok",
+  "uninstall.override_reason_unreadable": "dizin okunamıyor",
+  "uninstall.override_reason_not_a_directory": "bir dizin değil",
+  "uninstall.override_reason_root": "dosya sisteminin kök dizini",
+  "uninstall.override_reason_user_home": "ev dizininiz",
+  "uninstall.override_reason_no_bot_files": "bot dosyası içermiyor",
+  "uninstall.step_opencode_stopped": "OpenCode portunda bulunan işlem durduruldu (PID {pid}).",
+  "uninstall.step_opencode_failed": "OpenCode portunda bulunan işlem durdurulamadı (PID {pid}).",
+  "uninstall.step_opencode_skipped": "OpenCode sunucusunun durdurulması atlandı.",
+  "uninstall.step_opencode_refused":
+    "OpenCode portunda bulunan işlem (PID {pid}) atlandı: artık portu başka bir işlem dinliyor.",
+  "uninstall.step_opencode_none": "Durdurulacak OpenCode sunucusu bulunamadı.",
+  "uninstall.step_opencode_unchecked": "OpenCode portu denetlenemedi; hiçbir şey durdurulmadı.",
+  "uninstall.command_unavailable": "(komut satırı kullanılamıyor)",
+  "uninstall.home_removed": "{path} uygulama dizini kaldırıldı.",
+  "uninstall.home_kept": "{path} uygulama dizini korundu: hâlâ başka dosyalar içeriyor.",
+  "uninstall.summary_ok": "Kaldırma tamamlandı.",
+  "uninstall.left_process": "{pid} işlemi",
+  "uninstall.left_opencode": "OpenCode portundaki işlem (PID {pid})",
+  "uninstall.left_opencode_unchecked": "OpenCode portundaki işlem (denetlenmedi)",
+  "uninstall.left_keychain": "anahtar zinciri gizli bilgileri (anahtar zinciri kullanılamıyordu)",
+  "uninstall.summary_left": "Kaldırma tamamlandı; yerinde bırakılanlar: {items}",
+  "uninstall.summary_failed": "Kaldırma tamamlandı. Başarısız adımlar: {count}",
+  "uninstall.cli_hint": "CLI'nin kendisini kaldırmak için şunu çalıştırın: {command}",
+  "uninstall.step_opencode_unknown":
+    "OpenCode portunda bulunan işlem (PID {pid}) durdurulmadı: port yeniden denetlenemedi.",
+  "uninstall.step_process_already_exited": "{pid} işlemi zaten sonlanmıştı; sinyal gönderilmedi.",
+  "uninstall.step_opencode_gone":
+    "OpenCode portunda bulunan işlem (PID {pid}) artık dinlemiyor; hiçbir şey durdurulmadı.",
+  "uninstall.plan_override_secrets":
+    "Bu dizinin geri kalanı korunsa bile {path} içindeki secrets.enc ve keystore_password dosyalarını kaldır.",
+  "uninstall.step_override_secrets":
+    "secrets.enc ve keystore_password {path} içinden kaldırılıyor: gizli bilgiler dizinin geri kalanına ne olursa olsun kaldırılır.",
+  "uninstall.left_override_kept": "{path} (secrets.enc ve keystore_password dışındaki her şey)",
+  "uninstall.left_scan": "daemon dışındaki bot işlemleri (denetlenmedi)",
+  "uninstall.left_daemon": "bot daemon'u (hâlâ çalışıyor olabilir)",
+  "uninstall.summary_failed_left":
+    "Kaldırma tamamlandı. Başarısız adımlar: {count}. Yerinde bırakılanlar: {items}",
+  "uninstall.list_separator": ", ",
+  "uninstall.step_systemd_ran": "{path} systemd birimi şu komutlarla kaldırıldı:\n{commands}",
+  "uninstall.step_process_skipped_no_terminal":
+    "{pid} işlemi atlandı: durdurmayı onaylamak için terminal yok.",
+  "uninstall.step_opencode_skipped_no_terminal":
+    "OpenCode portundaki işlemin durdurulması atlandı: onaylamak için terminal yok.",
+  "uninstall.step_override_skipped_no_terminal":
+    "OPENCODE_TELEGRAM_HOME dizini {path} atlandı: kaldırmayı onaylamak için terminal yok.",
+  "uninstall.step_logs_warning": "Yapılandırılan LOG_LOCATION verildiği gibi kullanılamadı.",
+  "uninstall.step_homes_error": "Uygulama dizini belirlenemedi: {reason}. Hiçbir şey kaldırılmadı.",
+  "uninstall.home_kept_logs":
+    "{path} uygulama dizini korundu: günlükler dahil hâlâ dosya içeriyor.",
 
 };

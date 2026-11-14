@@ -12,6 +12,9 @@ import {
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { allowRealProcesses } from "../helpers/process-guard.js";
+
+allowRealProcesses("runs the shell launchers from a temporary copy of e2e/");
 
 // The launchers are exercised for real, from a temporary copy of e2e/ with a fake
 // .env, so nothing in the working copy is touched. Every case here must be rejected

@@ -32,6 +32,57 @@ describe("utils/logger", () => {
     __resetLoggerForTests();
   });
 
+  it("LOG_LEVEL=silent suppresses every console level", async () => {
+    const consoleLogMock = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const consoleWarnMock = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const consoleErrorMock = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.stubEnv("LOG_LEVEL", "silent");
+
+    const { logger, __resetLoggerForTests } = await loadLoggerModule();
+
+    logger.debug("d");
+    logger.info("i");
+    logger.warn("w");
+    logger.error("e");
+
+    expect(consoleLogMock).not.toHaveBeenCalled();
+    expect(consoleWarnMock).not.toHaveBeenCalled();
+    expect(consoleErrorMock).not.toHaveBeenCalled();
+    __resetLoggerForTests();
+  });
+
+  it("still prints errors at LOG_LEVEL=error and falls back to info for an unknown level", async () => {
+    const consoleLogMock = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const consoleErrorMock = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.stubEnv("LOG_LEVEL", "error");
+
+    const { logger, __resetLoggerForTests } = await loadLoggerModule();
+
+    logger.error("e");
+    expect(consoleErrorMock).toHaveBeenCalledOnce();
+
+    vi.stubEnv("LOG_LEVEL", "quiet");
+    logger.info("i");
+    logger.debug("d");
+    expect(consoleLogMock).toHaveBeenCalledOnce();
+    __resetLoggerForTests();
+  });
+
+  it("falls back to info for an inherited object key such as toString", async () => {
+    const consoleLogMock = vi.spyOn(console, "log").mockImplementation(() => undefined);
+
+    const { logger, __resetLoggerForTests } = await loadLoggerModule();
+
+    for (const value of ["toString", "constructor", "__proto__", "hasOwnProperty"]) {
+      consoleLogMock.mockClear();
+      vi.stubEnv("LOG_LEVEL", value);
+      logger.debug("d");
+      logger.info("i");
+      expect(consoleLogMock, value).toHaveBeenCalledOnce();
+    }
+    __resetLoggerForTests();
+  });
+
   it("flushes buffered lines to the file through the public flushLogger", async () => {
     const tempHome = await createTempHome();
     const consoleLogMock = vi.spyOn(console, "log").mockImplementation(() => undefined);

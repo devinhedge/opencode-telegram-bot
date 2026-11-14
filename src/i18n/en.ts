@@ -814,6 +814,121 @@ export const en = {
   "local_command.empty_output": "The command produced no output.",
   "local_command.failed": "Command failed with exit code {exitCode}: {stderr}",
   "local_command.timeout": "The command timed out.",
+  "uninstall.refused_container":
+    "Refusing to run inside a container. Nothing was removed. Rebuild and redeploy the container, or destroy it.",
+  "uninstall.refused_root":
+    "Refusing to run as root. Run the uninstaller as the user that installed the bot; it asks for sudo only where needed.",
+  "uninstall.plan_header": "The uninstaller will do the following:",
+  "uninstall.plan_daemon": "Stop the detached bot daemon (PID {pid}).",
+  "uninstall.plan_terminal_bots":
+    "Stop bots running outside the daemon (each one is confirmed separately).",
+  "uninstall.plan_systemd": "Remove the systemd unit {path} with sudo.",
+  "uninstall.plan_home": "Remove the app data in {path}.",
+  "uninstall.plan_override":
+    "Remove the data in the OPENCODE_TELEGRAM_HOME directory {path} (asked separately).",
+  "uninstall.plan_keychain": "Delete the stored secrets from the keychain (service {service}).",
+  "uninstall.plan_logs_stay": "Log files are never removed and stay in {path}.",
+  "uninstall.plan_opencode_server": "Stop the OpenCode server (confirmed separately).",
+  "uninstall.confirm_plan": "Proceed with this plan? [y/N] ",
+  "uninstall.confirm_override": "Also remove the data in {path}? [y/N] ",
+  "uninstall.confirm_stop_process":
+    "Stop process {pid} (user {user}, started {started}): {command}? [y/N] ",
+  "uninstall.confirm_stop_opencode":
+    "Stop the process found on the OpenCode port {port} (PID {pid}): {command}? [y/N] ",
+  "uninstall.confirm_stop_opencode_tree":
+    "On Windows this stops the whole process tree of the server.",
+  "uninstall.no_terminal_plan_only":
+    "No terminal is available. The plan is shown above and nothing was removed. Rerun in a terminal, or pass --yes.",
+  "uninstall.aborted": "Aborted. Nothing was removed.",
+  "uninstall.step_daemon_stopped": "Stopped the bot daemon (PID {pid}).",
+  "uninstall.step_daemon_failed": "Could not stop the bot daemon (PID {pid}).",
+  "uninstall.step_daemon_absent": "No detached bot daemon was running.",
+  "uninstall.step_daemon_error": "Could not check or stop the bot daemon: {reason}",
+  "uninstall.step_removed": "Removed {path}",
+  "uninstall.step_absent": "Already absent: {path}",
+  "uninstall.step_failed": "Failed to remove {path}: {reason}",
+  "uninstall.step_link_removed": "Removed link {path} (pointed to {target})",
+  "uninstall.step_target_left":
+    "Left the link target {path} in place: it is outside the home directory.",
+  "uninstall.step_home_error": "Could not process the app home {path}: {reason}",
+  "uninstall.step_keychain": "Keychain secret {account}: {status}",
+  "uninstall.step_keychain_unavailable":
+    "The keychain is unavailable; its secrets were not touched.",
+  "uninstall.keychain_status_removed": "removed",
+  "uninstall.keychain_status_absent": "not found",
+  "uninstall.keychain_status_failed": "failed",
+  "uninstall.step_systemd": "systemd unit: {outcome}",
+  "uninstall.step_systemd_failed": "Failed to remove the systemd unit: {reason}",
+  "uninstall.step_systemd_commands": "Run these commands yourself to finish:\n{commands}",
+  "uninstall.systemd_outcome_removed": "removed",
+  "uninstall.systemd_outcome_absent": "not installed",
+  "uninstall.systemd_outcome_not_applicable": "not applicable on this system",
+  "uninstall.systemd_outcome_skipped_no_terminal": "skipped (no terminal for sudo)",
+  "uninstall.systemd_outcome_skipped_no_sudo": "skipped (sudo is not available)",
+  "uninstall.systemd_outcome_failed": "failed",
+  "uninstall.step_scan_failed": "Could not scan for running bot processes: {reason}",
+  "uninstall.step_scan_unsupported":
+    "Finding bots outside the daemon is not supported on Windows; skipped.",
+  "uninstall.step_process_stopped": "Stopped process {pid}.",
+  "uninstall.step_process_failed": "Could not stop process {pid}.",
+  "uninstall.step_process_skipped": "Skipped process {pid}.",
+  "uninstall.step_process_refused": "Did not signal process {pid}: it no longer matches the bot.",
+  "uninstall.process_unverified":
+    "The working directory of process {pid} could not be read, so this match is unverified.",
+  "uninstall.started_unknown": "unknown",
+  "uninstall.step_override_invalid":
+    "Skipped the OPENCODE_TELEGRAM_HOME directory {path}: {reason}",
+  "uninstall.step_override_skipped": "Skipped the OPENCODE_TELEGRAM_HOME directory {path}.",
+  "uninstall.override_reason_missing": "the directory does not exist",
+  "uninstall.override_reason_unreadable": "the directory cannot be read",
+  "uninstall.override_reason_not_a_directory": "it is not a directory",
+  "uninstall.override_reason_root": "it is the filesystem root",
+  "uninstall.override_reason_user_home": "it is your home directory",
+  "uninstall.override_reason_no_bot_files": "it contains no bot files",
+  "uninstall.step_opencode_stopped": "Stopped the process found on the OpenCode port (PID {pid}).",
+  "uninstall.step_opencode_failed":
+    "Could not stop the process found on the OpenCode port (PID {pid}).",
+  "uninstall.step_opencode_skipped": "Skipped stopping the OpenCode server.",
+  "uninstall.step_opencode_refused":
+    "Skipped the process found on the OpenCode port (PID {pid}): a different process is listening now.",
+  "uninstall.step_opencode_none": "No OpenCode server was found to stop.",
+  "uninstall.step_opencode_unchecked": "Could not check the OpenCode port; nothing was stopped.",
+  "uninstall.command_unavailable": "(command line unavailable)",
+  "uninstall.home_removed": "Removed the app home {path}.",
+  "uninstall.home_kept": "Kept the app home {path}: it still contains other files.",
+  "uninstall.summary_ok": "Uninstall finished.",
+  "uninstall.left_process": "process {pid}",
+  "uninstall.left_opencode": "the process on the OpenCode port (PID {pid})",
+  "uninstall.left_opencode_unchecked": "the process on the OpenCode port (not checked)",
+  "uninstall.left_keychain": "the keychain secrets (the keychain was unavailable)",
+  "uninstall.summary_left": "Uninstall finished; left in place: {items}",
+  "uninstall.summary_failed": "Uninstall finished. Failed steps: {count}",
+  "uninstall.cli_hint": "To remove the CLI itself, run: {command}",
+  "uninstall.step_opencode_unknown":
+    "Did not stop the process found on the OpenCode port (PID {pid}): the port could not be checked again.",
+  "uninstall.step_process_already_exited": "Process {pid} had already exited; no signal was sent.",
+  "uninstall.step_opencode_gone":
+    "The process found on the OpenCode port (PID {pid}) is no longer listening; nothing was stopped.",
+  "uninstall.plan_override_secrets":
+    "Remove secrets.enc and keystore_password in {path} even if you keep the rest of that directory.",
+  "uninstall.step_override_secrets":
+    "Removing secrets.enc and keystore_password from {path}: secrets are removed whatever happens to the rest of the directory.",
+  "uninstall.left_override_kept": "{path} (all but secrets.enc and keystore_password)",
+  "uninstall.left_scan": "bot processes outside the daemon (not checked)",
+  "uninstall.left_daemon": "the bot daemon (it may still be running)",
+  "uninstall.summary_failed_left":
+    "Uninstall finished. Failed steps: {count}. Left in place: {items}",
+  "uninstall.list_separator": ", ",
+  "uninstall.step_systemd_ran": "Removed the systemd unit {path} by running:\n{commands}",
+  "uninstall.step_process_skipped_no_terminal":
+    "Skipped process {pid}: no terminal to confirm stopping it.",
+  "uninstall.step_opencode_skipped_no_terminal":
+    "Skipped stopping the process on the OpenCode port: no terminal to confirm it.",
+  "uninstall.step_override_skipped_no_terminal":
+    "Skipped the OPENCODE_TELEGRAM_HOME directory {path}: no terminal to confirm its removal.",
+  "uninstall.step_logs_warning": "The configured LOG_LOCATION could not be used as given.",
+  "uninstall.step_homes_error": "Could not determine the app home: {reason}. Nothing was removed.",
+  "uninstall.home_kept_logs": "Kept the app home {path}: it still contains files, including logs.",
 } as const;
 
 export const projectSearchFallback = {

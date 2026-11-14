@@ -828,5 +828,126 @@ export const pt: I18nDictionary = {
   "goal.reason.no_paused": "No paused goal to resume.",
   "goal.reason.none_set": "No goal is set.",
   "goal.reason.objective_limit": "A goal objective is limited to {limit} characters (got {count}).",
+  "uninstall.refused_container":
+    "Execução recusada dentro de um contêiner. Nada foi removido. Reconstrua e reimplante o contêiner, ou destrua-o.",
+  "uninstall.refused_root":
+    "Execução recusada como root. Execute o desinstalador com o usuário que instalou o bot; o sudo só é pedido onde for necessário.",
+  "uninstall.plan_header": "O desinstalador fará o seguinte:",
+  "uninstall.plan_daemon": "Parar o daemon desanexado do bot (PID {pid}).",
+  "uninstall.plan_terminal_bots":
+    "Parar os bots executados fora do daemon (cada um é confirmado separadamente).",
+  "uninstall.plan_systemd": "Remover a unidade systemd {path} com sudo.",
+  "uninstall.plan_home": "Remover os dados do aplicativo em {path}.",
+  "uninstall.plan_override":
+    "Remover os dados do diretório OPENCODE_TELEGRAM_HOME {path} (perguntado separadamente).",
+  "uninstall.plan_keychain": "Apagar os segredos armazenados no chaveiro (serviço {service}).",
+  "uninstall.plan_logs_stay": "Os arquivos de log nunca são removidos e permanecem em {path}.",
+  "uninstall.plan_opencode_server": "Parar o servidor OpenCode (confirmado separadamente).",
+  "uninstall.confirm_plan": "Continuar com este plano? [y/N] ",
+  "uninstall.confirm_override": "Remover também os dados em {path}? [y/N] ",
+  "uninstall.confirm_stop_process":
+    "Parar o processo {pid} (usuário {user}, iniciado {started}): {command}? [y/N] ",
+  "uninstall.confirm_stop_opencode":
+    "Parar o processo encontrado na porta {port} do OpenCode (PID {pid}): {command}? [y/N] ",
+  "uninstall.confirm_stop_opencode_tree":
+    "No Windows, isso para toda a árvore de processos do servidor.",
+  "uninstall.no_terminal_plan_only":
+    "Nenhum terminal disponível. O plano é mostrado acima e nada foi removido. Execute novamente em um terminal ou use --yes.",
+  "uninstall.aborted": "Cancelado. Nada foi removido.",
+  "uninstall.step_daemon_stopped": "Daemon do bot parado (PID {pid}).",
+  "uninstall.step_daemon_failed": "Não foi possível parar o daemon do bot (PID {pid}).",
+  "uninstall.step_daemon_absent": "Nenhum daemon desanexado do bot estava em execução.",
+  "uninstall.step_daemon_error": "Não foi possível verificar nem parar o daemon do bot: {reason}",
+  "uninstall.step_removed": "Removido: {path}",
+  "uninstall.step_absent": "Já inexistente: {path}",
+  "uninstall.step_failed": "Falha ao remover {path}: {reason}",
+  "uninstall.step_link_removed": "Link {path} removido (apontava para {target})",
+  "uninstall.step_target_left":
+    "Destino do link {path} deixado no lugar: está fora do diretório pessoal.",
+  "uninstall.step_home_error":
+    "Não foi possível processar o diretório do aplicativo {path}: {reason}",
+  "uninstall.step_keychain": "Segredo do chaveiro {account}: {status}",
+  "uninstall.step_keychain_unavailable":
+    "O chaveiro não está disponível; seus segredos não foram tocados.",
+  "uninstall.keychain_status_removed": "removido",
+  "uninstall.keychain_status_absent": "não encontrado",
+  "uninstall.keychain_status_failed": "falhou",
+  "uninstall.step_systemd": "Unidade systemd: {outcome}",
+  "uninstall.step_systemd_failed": "Falha ao remover a unidade systemd: {reason}",
+  "uninstall.step_systemd_commands": "Execute você mesmo estes comandos para concluir:\n{commands}",
+  "uninstall.systemd_outcome_removed": "removida",
+  "uninstall.systemd_outcome_absent": "não instalada",
+  "uninstall.systemd_outcome_not_applicable": "não aplicável neste sistema",
+  "uninstall.systemd_outcome_skipped_no_terminal": "ignorada (sem terminal para o sudo)",
+  "uninstall.systemd_outcome_skipped_no_sudo": "ignorada (o sudo não está disponível)",
+  "uninstall.systemd_outcome_failed": "falhou",
+  "uninstall.step_scan_failed": "Não foi possível procurar processos do bot em execução: {reason}",
+  "uninstall.step_scan_unsupported":
+    "A busca por bots fora do daemon não é compatível com o Windows; etapa ignorada.",
+  "uninstall.step_process_stopped": "Processo {pid} parado.",
+  "uninstall.step_process_failed": "Não foi possível parar o processo {pid}.",
+  "uninstall.step_process_skipped": "Processo {pid} ignorado.",
+  "uninstall.step_process_refused":
+    "Nenhum sinal enviado ao processo {pid}: ele não corresponde mais ao bot.",
+  "uninstall.process_unverified":
+    "Não foi possível ler o diretório de trabalho do processo {pid}, então esta correspondência não está verificada.",
+  "uninstall.started_unknown": "desconhecido",
+  "uninstall.step_override_invalid": "Diretório OPENCODE_TELEGRAM_HOME {path} ignorado: {reason}",
+  "uninstall.step_override_skipped": "Diretório OPENCODE_TELEGRAM_HOME {path} ignorado.",
+  "uninstall.override_reason_missing": "o diretório não existe",
+  "uninstall.override_reason_unreadable": "o diretório não pode ser lido",
+  "uninstall.override_reason_not_a_directory": "não é um diretório",
+  "uninstall.override_reason_root": "é a raiz do sistema de arquivos",
+  "uninstall.override_reason_user_home": "é o seu diretório pessoal",
+  "uninstall.override_reason_no_bot_files": "não contém arquivos do bot",
+  "uninstall.step_opencode_stopped":
+    "O processo encontrado na porta do OpenCode foi parado (PID {pid}).",
+  "uninstall.step_opencode_failed":
+    "Não foi possível parar o processo encontrado na porta do OpenCode (PID {pid}).",
+  "uninstall.step_opencode_skipped": "A parada do servidor OpenCode foi ignorada.",
+  "uninstall.step_opencode_refused":
+    "O processo encontrado na porta do OpenCode (PID {pid}) foi ignorado: agora outro processo está escutando.",
+  "uninstall.step_opencode_none": "Nenhum servidor OpenCode para parar foi encontrado.",
+  "uninstall.step_opencode_unchecked":
+    "Não foi possível verificar a porta do OpenCode; nada foi parado.",
+  "uninstall.command_unavailable": "(linha de comando indisponível)",
+  "uninstall.home_removed": "Diretório do aplicativo {path} removido.",
+  "uninstall.home_kept": "Diretório do aplicativo {path} mantido: ainda contém outros arquivos.",
+  "uninstall.summary_ok": "Desinstalação concluída.",
+  "uninstall.left_process": "processo {pid}",
+  "uninstall.left_opencode": "o processo na porta do OpenCode (PID {pid})",
+  "uninstall.left_opencode_unchecked": "o processo na porta do OpenCode (não verificado)",
+  "uninstall.left_keychain": "os segredos do chaveiro (o chaveiro não estava disponível)",
+  "uninstall.summary_left": "Desinstalação concluída; deixado no lugar: {items}",
+  "uninstall.summary_failed": "Desinstalação concluída. Etapas com falha: {count}",
+  "uninstall.cli_hint": "Para remover a própria CLI, execute: {command}",
+  "uninstall.step_opencode_unknown":
+    "O processo encontrado na porta do OpenCode (PID {pid}) não foi parado: não foi possível verificar a porta novamente.",
+  "uninstall.step_process_already_exited":
+    "O processo {pid} já havia terminado; nenhum sinal foi enviado.",
+  "uninstall.step_opencode_gone":
+    "O processo encontrado na porta do OpenCode (PID {pid}) não está mais escutando; nada foi parado.",
+  "uninstall.plan_override_secrets":
+    "Remover secrets.enc e keystore_password em {path} mesmo que o restante desse diretório seja mantido.",
+  "uninstall.step_override_secrets":
+    "Removendo secrets.enc e keystore_password de {path}: os segredos são removidos independentemente do restante do diretório.",
+  "uninstall.left_override_kept": "{path} (tudo exceto secrets.enc e keystore_password)",
+  "uninstall.left_scan": "processos do bot fora do daemon (não verificados)",
+  "uninstall.left_daemon": "o daemon do bot (pode ainda estar em execução)",
+  "uninstall.summary_failed_left":
+    "Desinstalação concluída. Etapas com falha: {count}. Deixado no lugar: {items}",
+  "uninstall.list_separator": ", ",
+  "uninstall.step_systemd_ran": "Unidade systemd {path} removida executando:\n{commands}",
+  "uninstall.step_process_skipped_no_terminal":
+    "Processo {pid} ignorado: não há terminal para confirmar a parada.",
+  "uninstall.step_opencode_skipped_no_terminal":
+    "A parada do processo na porta do OpenCode foi ignorada: não há terminal para confirmá-la.",
+  "uninstall.step_override_skipped_no_terminal":
+    "Diretório OPENCODE_TELEGRAM_HOME {path} ignorado: não há terminal para confirmar a remoção.",
+  "uninstall.step_logs_warning": "Não foi possível usar o LOG_LOCATION configurado como informado.",
+  "uninstall.step_homes_error":
+    "Não foi possível determinar o diretório do aplicativo: {reason}. Nada foi removido.",
+  "uninstall.home_kept_logs":
+    "Diretório do aplicativo {path} mantido: ainda contém arquivos, incluindo logs.",
 
 };

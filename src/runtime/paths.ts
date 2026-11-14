@@ -14,7 +14,7 @@ export interface RuntimePaths {
 
 const APP_DIR_NAME = "opencode-telegram-bot";
 
-function getInstalledAppHome(): string {
+export function getInstalledAppHome(): string {
   if (process.platform === "win32") {
     const appData = process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming");
     return path.join(appData, APP_DIR_NAME);

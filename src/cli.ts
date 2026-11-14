@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import type { RuntimeMode } from "./runtime/mode.js";
+import type { UninstallOptions } from "./runtime/uninstall/run.js";
 import { parseCliArgs } from "./cli/args.js";
 import { handleCliFailure } from "./cli/failure-exit.js";
 import { resolveRuntimeMode, setRuntimeMode } from "./runtime/mode.js";
@@ -16,16 +17,19 @@ const CLI_USAGE = `Usage:
   opencode-telegram status
   opencode-telegram stop
   opencode-telegram config
+  opencode-telegram uninstall [--yes] [--stop-opencode]
 
 Notes:
   - No command defaults to start
   - start runs in foreground by default
-  - --daemon is supported for the installed runtime only`;
+  - --daemon is supported for the installed runtime only
+  - --yes and --stop-opencode are supported for uninstall only`;
 
 const CLI_MESSAGES = {
   daemonRequiresInstalled:
     "Daemon mode is supported only for the installed runtime. Use `opencode-telegram start` for foreground source runs.",
   unknownServiceError: "Unknown service error.",
+  uninstallFailed: "The uninstall failed unexpectedly.",
   cleanupStale: "Removed stale daemon state file.",
   cleanupInvalid: "Removed invalid daemon state file.",
   startSuccess: "OpenCode Telegram Bot daemon started.",
@@ -240,6 +244,23 @@ async function runStopCommand(): Promise<number> {
   return EXIT_SUCCESS;
 }
 
+async function runUninstallCommand(options: UninstallOptions): Promise<number> {
+  setRuntimeMode("installed");
+
+  // The uninstall output is localized and complete, so the logger stays silent to keep
+  // the daemon-stop log lines out of it. LOG_LEVEL is read when the logger is used.
+  process.env.LOG_LEVEL = "silent";
+
+  try {
+    const { runUninstall, defaultUninstallDeps } = await import("./runtime/uninstall/run.js");
+    return await runUninstall(options, defaultUninstallDeps());
+  } catch {
+    // The error text is free text that could carry anything: a fixed line is printed instead.
+    writeStderr(CLI_MESSAGES.uninstallFailed);
+    return EXIT_RUNTIME_ERROR;
+  }
+}
+
 async function runCli(argv: string[]): Promise<number> {
   const unsupportedNodeVersion = getUnsupportedNodeVersionMessage();
 
@@ -269,6 +290,10 @@ async function runCli(argv: string[]): Promise<number> {
 
   if (parsedArgs.command === "status") {
     return runStatusCommand();
+  }
+
+  if (parsedArgs.command === "uninstall") {
+    return runUninstallCommand({ yes: parsedArgs.yes, stopOpencode: parsedArgs.stopOpencode });
   }
 
   return runStopCommand();

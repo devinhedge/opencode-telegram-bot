@@ -337,7 +337,7 @@ The migration is idempotent and safe to re-run. After migration, your `.env` fil
 | `TTS_MODEL`                                | TTS model name. Passed as `model` for OpenAI-compatible APIs and `model_id` for ElevenLabs                            |    No    | `gpt-4o-mini-tts`        |        |
 | `TTS_VOICE`                                | TTS voice name or ElevenLabs voice ID. Defaults to `alloy`, `21m00Tcm4TlvDq8ikWAM`, or `en-US-Studio-O` by provider   |    No    | provider-specific        |        |
 | `GOOGLE_APPLICATION_CREDENTIALS`           | Path to a Google Cloud service account JSON key file for `TTS_PROVIDER=google`                                        |    No    | —                        |        |
-| `LOG_LEVEL`                                | Log level (`debug`, `info`, `warn`, `error`)                                                                          |    No    | `info`                   |        |
+| `LOG_LEVEL`                                | Log level (`debug`, `info`, `warn`, `error`, `silent`; `silent` suppresses all console log output)                    |    No    | `info`                   |        |
 | `LOG_RETENTION`                            | Number of log files to keep per kind: installed-mode daily logs, sources-mode per-launch logs, and daemon service logs are each pruned separately |    No    | `10`                     |        |
 | `LOG_LOCATION`                             | Where log files are written: `default` (operating system log directory) or `app` (`<appHome>/logs`)                  |    No    | `default`                |        |
 | `BOT_HEALTH_PORT`                          | Port of the internal health endpoint (`/health`, `/health/live`, `/health/ready`) on `127.0.0.1`; `0` disables it      |    No    | off; `3100` in Docker    |        |
@@ -644,6 +644,55 @@ Port 4096 is **not** exposed by the bot image; it belongs to the OpenCode server
 | `npm run test:coverage`         | Tests with coverage report           |
 
 > **Note:** No file watcher or auto-restart is used. The bot maintains persistent SSE and long-polling connections — automatic restarts would break them mid-task. After making changes, restart manually with `npm run dev`.
+
+## Uninstall
+
+```bash
+opencode-telegram uninstall [--yes] [--stop-opencode]
+```
+
+The command prints a removal plan, asks for one confirmation, and then removes the bot's data. Output is localized in the bot's locale (`BOT_LOCALE`). While it builds the plan, the command only reads (the process list, `npm root -g`, and the systemd unit file) and removes nothing.
+
+| Flag              | Effect                                                                                                                      |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `--yes`           | Skips the main confirmation only. Every other question (override directory, each process) is still asked.                   |
+| `--stop-opencode` | Also offers to stop the process listening on the configured local OpenCode port. It is opt-in and has its own confirmation. |
+
+Both flags are valid for `uninstall` only. A usage error exits with code 2. A refusal, a declined confirmation, a failed step, or a systemd unit left installed (no terminal or no `sudo`) exits with code 1. Success exits with code 0.
+
+**What is removed**
+
+- The stored data in the installed app home: `.env`, `.env.bak`, `settings.json` and its backups, `secrets.enc`, `keystore_password`, `run/`, `local-commands/` (your hand-written local commands are deleted with the app data), and temporary files left by interrupted writes. The app home directory itself is removed when nothing else is left in it.
+- The same data in the directory named by `OPENCODE_TELEGRAM_HOME`, after the directory passes validation (it must exist, be a directory, not be a filesystem root or your home directory, and contain a bot file) and after its own confirmation. `secrets.enc` and `keystore_password` in that directory are removed even when you decline.
+- The secrets stored in the OS keychain (service `opencode-telegram-bot`).
+- On Linux, the documented systemd unit `/etc/systemd/system/opencode-telegram-bot.service`, through `sudo` (see [`docs/LINUX_SYSTEMD_SETUP.md`](./docs/LINUX_SYSTEMD_SETUP.md#removal)). With no terminal or no `sudo`, the unit stays installed, the four commands are printed for you to run, and the command exits with code 1.
+- The detached daemon started by `opencode-telegram start --daemon`.
+- On macOS and Linux, bots started outside the daemon, for example in a terminal. Each one is shown with its PID, user, start time, and command line, and is asked about separately. Windows skips this step with a message.
+
+A symlinked `.env` or `secrets.enc` is unlinked; a target outside the app home is left in place and reported in the summary.
+
+**What stays**
+
+- Logs, always. Neither the per-user log directory nor `<appHome>/logs` is ever removed, and the plan shows where they are.
+- The app home directory, when logs or files the bot did not create remain in it.
+- The OpenCode server, unless you pass `--stop-opencode` and confirm.
+- A source checkout's own `.env`, `settings.json`, and `run/`: delete the checkout instead.
+
+**Refusals and limits**
+
+- Inside a container the command removes nothing and exits with code 1, even with `--yes`. Rebuild and redeploy the image, or destroy the container.
+- As root the command refuses. Run it as the user that installed the bot; it asks for `sudo` only for the systemd steps and never handles your password.
+- With no terminal and without `--yes`, the plan is printed, nothing is removed, and the command exits with code 1.
+- With no terminal and with `--yes`, the steps that need their own answer (each process, the OpenCode server, the override directory) are skipped with a message, and the summary lists what was left.
+- Error reasons print as error codes only, and process command lines are shown through an allow-list: any argument not known to be safe appears as `***`.
+
+**The CLI itself**
+
+The command does not remove its own CLI install. It finishes by printing the command to run:
+
+```bash
+npm uninstall -g @grinev/opencode-telegram-bot
+```
 
 ## Troubleshooting
 

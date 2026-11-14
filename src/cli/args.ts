@@ -1,6 +1,6 @@
 import type { RuntimeMode } from "../runtime/mode.js";
 
-export type CliCommand = "start" | "status" | "stop" | "config";
+export type CliCommand = "start" | "status" | "stop" | "config" | "uninstall";
 
 const CLI_MESSAGES = {
   unknownCommand: (value: string) => `Unknown command: ${value}`,
@@ -9,6 +9,8 @@ const CLI_MESSAGES = {
   unknownOption: (value: string) => `Unknown option: ${value}`,
   modeOnlyStart: "Option --mode is supported only for the start command",
   daemonOnlyStart: "Option --daemon is supported only for the start command",
+  yesOnlyUninstall: "Option --yes is supported only for the uninstall command",
+  stopOpencodeOnlyUninstall: "Option --stop-opencode is supported only for the uninstall command",
 } as const;
 
 export interface ParsedCliArgs {
@@ -17,10 +19,18 @@ export interface ParsedCliArgs {
   daemon: boolean;
   restart: boolean;
   showHelp: boolean;
+  yes: boolean;
+  stopOpencode: boolean;
   error?: string | undefined;
 }
 
-const SUPPORTED_COMMANDS: readonly CliCommand[] = ["start", "status", "stop", "config"];
+const SUPPORTED_COMMANDS: readonly CliCommand[] = [
+  "start",
+  "status",
+  "stop",
+  "config",
+  "uninstall",
+];
 
 function isCliCommand(value: string): value is CliCommand {
   return SUPPORTED_COMMANDS.includes(value as CliCommand);
@@ -44,6 +54,8 @@ export function parseCliArgs(argv: string[]): ParsedCliArgs {
   let mode: RuntimeMode | undefined;
   let daemon = false;
   let restart = false;
+  let yes = false;
+  let stopOpencode = false;
   let showHelp = false;
   let currentIndex = 0;
 
@@ -54,6 +66,8 @@ export function parseCliArgs(argv: string[]): ParsedCliArgs {
         command,
         daemon,
         restart,
+        yes,
+        stopOpencode,
         showHelp: true,
         error: CLI_MESSAGES.unknownCommand(firstArg),
       };
@@ -87,6 +101,18 @@ export function parseCliArgs(argv: string[]): ParsedCliArgs {
       continue;
     }
 
+    if (token === "--yes") {
+      yes = true;
+      currentIndex += 1;
+      continue;
+    }
+
+    if (token === "--stop-opencode") {
+      stopOpencode = true;
+      currentIndex += 1;
+      continue;
+    }
+
     if (token === "--mode") {
       const modeValue = args[currentIndex + 1];
       if (!modeValue || modeValue.startsWith("-")) {
@@ -94,6 +120,8 @@ export function parseCliArgs(argv: string[]): ParsedCliArgs {
           command,
           daemon,
           restart,
+          yes,
+          stopOpencode,
           mode,
           showHelp: true,
           error: CLI_MESSAGES.modeRequiresValue,
@@ -106,6 +134,8 @@ export function parseCliArgs(argv: string[]): ParsedCliArgs {
           command,
           daemon,
           restart,
+          yes,
+          stopOpencode,
           mode,
           showHelp: true,
           error: CLI_MESSAGES.invalidMode(modeValue),
@@ -125,6 +155,8 @@ export function parseCliArgs(argv: string[]): ParsedCliArgs {
           command,
           daemon,
           restart,
+          yes,
+          stopOpencode,
           mode,
           showHelp: true,
           error: CLI_MESSAGES.invalidMode(modeValue),
@@ -140,6 +172,8 @@ export function parseCliArgs(argv: string[]): ParsedCliArgs {
       command,
       daemon,
       restart,
+      yes,
+      stopOpencode,
       mode,
       showHelp: true,
       error: CLI_MESSAGES.unknownOption(token),
@@ -151,6 +185,8 @@ export function parseCliArgs(argv: string[]): ParsedCliArgs {
       command,
       daemon,
       restart,
+      yes,
+      stopOpencode,
       mode,
       showHelp: true,
       error: CLI_MESSAGES.modeOnlyStart,
@@ -162,6 +198,8 @@ export function parseCliArgs(argv: string[]): ParsedCliArgs {
       command,
       daemon,
       restart,
+      yes,
+      stopOpencode,
       mode,
       showHelp: true,
       error: CLI_MESSAGES.daemonOnlyStart,
@@ -173,9 +211,37 @@ export function parseCliArgs(argv: string[]): ParsedCliArgs {
       command,
       daemon,
       restart,
+      yes,
+      stopOpencode,
       mode,
       showHelp: true,
       error: "Option --restart is supported only for the start command",
+    };
+  }
+
+  if (command !== "uninstall" && yes) {
+    return {
+      command,
+      daemon,
+      restart,
+      yes,
+      stopOpencode,
+      mode,
+      showHelp: true,
+      error: CLI_MESSAGES.yesOnlyUninstall,
+    };
+  }
+
+  if (command !== "uninstall" && stopOpencode) {
+    return {
+      command,
+      daemon,
+      restart,
+      yes,
+      stopOpencode,
+      mode,
+      showHelp: true,
+      error: CLI_MESSAGES.stopOpencodeOnlyUninstall,
     };
   }
 
@@ -183,6 +249,8 @@ export function parseCliArgs(argv: string[]): ParsedCliArgs {
     command,
     daemon,
     restart,
+    yes,
+    stopOpencode,
     mode,
     showHelp,
   };

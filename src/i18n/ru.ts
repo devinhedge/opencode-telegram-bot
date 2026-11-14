@@ -827,5 +827,122 @@ export const ru: I18nDictionary = {
   "goal.reason.no_paused": "Нет цели на паузе, чтобы возобновить.",
   "goal.reason.none_set": "Цель не задана.",
   "goal.reason.objective_limit": "Цель ограничена {limit} символами (сейчас {count}).",
+  "uninstall.refused_container":
+    "Запуск внутри контейнера отклонён. Ничего не удалено. Пересоберите и заново разверните контейнер или уничтожьте его.",
+  "uninstall.refused_root":
+    "Запуск от имени root отклонён. Запустите деинсталлятор от пользователя, который установил бота; sudo запрашивается только там, где он нужен.",
+  "uninstall.plan_header": "Деинсталлятор выполнит следующее:",
+  "uninstall.plan_daemon": "Остановить отсоединённый демон бота (PID {pid}).",
+  "uninstall.plan_terminal_bots":
+    "Остановить ботов, запущенные вне демона (каждый подтверждается отдельно).",
+  "uninstall.plan_systemd": "Удалить юнит systemd {path} через sudo.",
+  "uninstall.plan_home": "Удалить данные приложения в {path}.",
+  "uninstall.plan_override":
+    "Удалить данные в каталоге OPENCODE_TELEGRAM_HOME {path} (спрашивается отдельно).",
+  "uninstall.plan_keychain": "Удалить сохранённые секреты из связки ключей (служба {service}).",
+  "uninstall.plan_logs_stay": "Файлы журналов никогда не удаляются и остаются в {path}.",
+  "uninstall.plan_opencode_server": "Остановить сервер OpenCode (подтверждается отдельно).",
+  "uninstall.confirm_plan": "Выполнить этот план? [y/N] ",
+  "uninstall.confirm_override": "Удалить также данные в {path}? [y/N] ",
+  "uninstall.confirm_stop_process":
+    "Остановить процесс {pid} (пользователь {user}, запущен {started}): {command}? [y/N] ",
+  "uninstall.confirm_stop_opencode":
+    "Остановить процесс, найденный на порту OpenCode {port} (PID {pid}): {command}? [y/N] ",
+  "uninstall.confirm_stop_opencode_tree": "В Windows это остановит всё дерево процессов сервера.",
+  "uninstall.no_terminal_plan_only":
+    "Терминал недоступен. План показан выше, ничего не удалено. Запустите заново в терминале или укажите --yes.",
+  "uninstall.aborted": "Отменено. Ничего не удалено.",
+  "uninstall.step_daemon_stopped": "Демон бота остановлен (PID {pid}).",
+  "uninstall.step_daemon_failed": "Не удалось остановить демон бота (PID {pid}).",
+  "uninstall.step_daemon_absent": "Отсоединённый демон бота не был запущен.",
+  "uninstall.step_daemon_error": "Не удалось проверить или остановить демон бота: {reason}",
+  "uninstall.step_removed": "Удалено: {path}",
+  "uninstall.step_absent": "Уже отсутствует: {path}",
+  "uninstall.step_failed": "Не удалось удалить {path}: {reason}",
+  "uninstall.step_link_removed": "Ссылка {path} удалена (указывала на {target})",
+  "uninstall.step_target_left":
+    "Цель ссылки {path} оставлена на месте: она вне домашнего каталога.",
+  "uninstall.step_home_error": "Не удалось обработать каталог приложения {path}: {reason}",
+  "uninstall.step_keychain": "Секрет связки ключей {account}: {status}",
+  "uninstall.step_keychain_unavailable": "Связка ключей недоступна; её секреты не затронуты.",
+  "uninstall.keychain_status_removed": "удалён",
+  "uninstall.keychain_status_absent": "не найден",
+  "uninstall.keychain_status_failed": "ошибка",
+  "uninstall.step_systemd": "Юнит systemd: {outcome}",
+  "uninstall.step_systemd_failed": "Не удалось удалить юнит systemd: {reason}",
+  "uninstall.step_systemd_commands":
+    "Выполните эти команды самостоятельно, чтобы завершить:\n{commands}",
+  "uninstall.systemd_outcome_removed": "удалён",
+  "uninstall.systemd_outcome_absent": "не установлен",
+  "uninstall.systemd_outcome_not_applicable": "неприменимо в этой системе",
+  "uninstall.systemd_outcome_skipped_no_terminal": "пропущено (нет терминала для sudo)",
+  "uninstall.systemd_outcome_skipped_no_sudo": "пропущено (sudo недоступен)",
+  "uninstall.systemd_outcome_failed": "ошибка",
+  "uninstall.step_scan_failed": "Не удалось найти запущенные процессы бота: {reason}",
+  "uninstall.step_scan_unsupported":
+    "Поиск ботов вне демона не поддерживается в Windows; шаг пропущен.",
+  "uninstall.step_process_stopped": "Процесс {pid} остановлен.",
+  "uninstall.step_process_failed": "Не удалось остановить процесс {pid}.",
+  "uninstall.step_process_skipped": "Процесс {pid} пропущен.",
+  "uninstall.step_process_refused":
+    "Процессу {pid} сигнал не отправлен: он больше не соответствует боту.",
+  "uninstall.process_unverified":
+    "Не удалось прочитать рабочий каталог процесса {pid}, поэтому это совпадение не проверено.",
+  "uninstall.started_unknown": "неизвестно",
+  "uninstall.step_override_invalid": "Каталог OPENCODE_TELEGRAM_HOME {path} пропущен: {reason}",
+  "uninstall.step_override_skipped": "Каталог OPENCODE_TELEGRAM_HOME {path} пропущен.",
+  "uninstall.override_reason_missing": "каталог не существует",
+  "uninstall.override_reason_unreadable": "каталог недоступен для чтения",
+  "uninstall.override_reason_not_a_directory": "это не каталог",
+  "uninstall.override_reason_root": "это корень файловой системы",
+  "uninstall.override_reason_user_home": "это ваш домашний каталог",
+  "uninstall.override_reason_no_bot_files": "в нём нет файлов бота",
+  "uninstall.step_opencode_stopped":
+    "Процесс, найденный на порту OpenCode, остановлен (PID {pid}).",
+  "uninstall.step_opencode_failed":
+    "Не удалось остановить процесс, найденный на порту OpenCode (PID {pid}).",
+  "uninstall.step_opencode_skipped": "Остановка сервера OpenCode пропущена.",
+  "uninstall.step_opencode_refused":
+    "Процесс, найденный на порту OpenCode (PID {pid}), пропущен: теперь порт слушает другой процесс.",
+  "uninstall.step_opencode_none": "Сервер OpenCode для остановки не найден.",
+  "uninstall.step_opencode_unchecked": "Порт OpenCode не удалось проверить; ничего не остановлено.",
+  "uninstall.command_unavailable": "(командная строка недоступна)",
+  "uninstall.home_removed": "Каталог приложения {path} удалён.",
+  "uninstall.home_kept": "Каталог приложения {path} сохранён: в нём остались другие файлы.",
+  "uninstall.summary_ok": "Удаление завершено.",
+  "uninstall.left_process": "процесс {pid}",
+  "uninstall.left_opencode": "процесс на порту OpenCode (PID {pid})",
+  "uninstall.left_opencode_unchecked": "процесс на порту OpenCode (не проверен)",
+  "uninstall.left_keychain": "секреты связки ключей (связка ключей была недоступна)",
+  "uninstall.summary_left": "Удаление завершено; оставлено на месте: {items}",
+  "uninstall.summary_failed": "Удаление завершено. Шаги с ошибками: {count}",
+  "uninstall.cli_hint": "Чтобы удалить саму CLI, выполните: {command}",
+  "uninstall.step_opencode_unknown":
+    "Процесс, найденный на порту OpenCode (PID {pid}), не остановлен: порт не удалось проверить повторно.",
+  "uninstall.step_process_already_exited": "Процесс {pid} уже завершился; сигнал не отправлялся.",
+  "uninstall.step_opencode_gone":
+    "Процесс, найденный на порту OpenCode (PID {pid}), больше не слушает порт; ничего не остановлено.",
+  "uninstall.plan_override_secrets":
+    "Удалить secrets.enc и keystore_password в {path}, даже если остальное содержимое каталога останется.",
+  "uninstall.step_override_secrets":
+    "Удаление secrets.enc и keystore_password из {path}: секреты удаляются независимо от остального содержимого каталога.",
+  "uninstall.left_override_kept": "{path} (всё, кроме secrets.enc и keystore_password)",
+  "uninstall.left_scan": "процессы бота вне демона (не проверены)",
+  "uninstall.left_daemon": "демон бота (возможно, он всё ещё работает)",
+  "uninstall.summary_failed_left":
+    "Удаление завершено. Шаги с ошибками: {count}. Оставлено на месте: {items}",
+  "uninstall.list_separator": ", ",
+  "uninstall.step_systemd_ran": "Юнит systemd {path} удалён командами:\n{commands}",
+  "uninstall.step_process_skipped_no_terminal":
+    "Процесс {pid} пропущен: нет терминала, чтобы подтвердить остановку.",
+  "uninstall.step_opencode_skipped_no_terminal":
+    "Остановка процесса на порту OpenCode пропущена: нет терминала для подтверждения.",
+  "uninstall.step_override_skipped_no_terminal":
+    "Каталог OPENCODE_TELEGRAM_HOME {path} пропущен: нет терминала, чтобы подтвердить удаление.",
+  "uninstall.step_logs_warning": "Заданное значение LOG_LOCATION не удалось использовать как есть.",
+  "uninstall.step_homes_error":
+    "Не удалось определить каталог приложения: {reason}. Ничего не удалено.",
+  "uninstall.home_kept_logs":
+    "Каталог приложения {path} сохранён: в нём остались файлы, включая журналы.",
 
 };

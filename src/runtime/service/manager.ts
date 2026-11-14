@@ -53,15 +53,19 @@ async function writeFileAtomically(filePath: string, content: string): Promise<v
   await fsPromises.rename(tempFilePath, filePath);
 }
 
+// With `clearInvalid` false the file is only read, never removed.
 async function readServiceStateFile(
   filePath: string,
+  clearInvalid: boolean,
 ): Promise<{ service: BotServiceState | null; cleanupReason: ServiceCleanupReason }> {
   try {
     const content = await fsPromises.readFile(filePath, "utf-8");
     const parsed = JSON.parse(content) as unknown;
 
     if (!isValidServiceState(parsed)) {
-      await clearServiceStateFile(filePath);
+      if (clearInvalid) {
+        await clearServiceStateFile(filePath);
+      }
       return { service: null, cleanupReason: "invalid" };
     }
 
@@ -72,7 +76,9 @@ async function readServiceStateFile(
     }
 
     if (error instanceof SyntaxError) {
-      await clearServiceStateFile(filePath);
+      if (clearInvalid) {
+        await clearServiceStateFile(filePath);
+      }
       return { service: null, cleanupReason: "invalid" };
     }
 
@@ -187,8 +193,25 @@ export async function clearServiceStateFile(
 }
 
 export async function getBotServiceStatus(): Promise<BotServiceStatus> {
-  const stateFilePath = getServiceStateFilePath();
-  const { service, cleanupReason } = await readServiceStateFile(stateFilePath);
+  return evaluateBotServiceStatus(getServiceStateFilePath(), true);
+}
+
+/**
+ * The same checks as getBotServiceStatus, but the state file is only read: an invalid or stale
+ * file is reported (cleanupReason) and left in place, and nothing is logged. The uninstaller uses
+ * it to detect the daemon before its confirmation.
+ */
+export async function readBotServiceStatus(
+  stateFilePath: string = getServiceStateFilePath(),
+): Promise<BotServiceStatus> {
+  return evaluateBotServiceStatus(stateFilePath, false);
+}
+
+async function evaluateBotServiceStatus(
+  stateFilePath: string,
+  cleanUp: boolean,
+): Promise<BotServiceStatus> {
+  const { service, cleanupReason } = await readServiceStateFile(stateFilePath, cleanUp);
 
   if (!service) {
     return {
@@ -199,10 +222,12 @@ export async function getBotServiceStatus(): Promise<BotServiceStatus> {
   }
 
   if (!isProcessAlive(service.pid)) {
-    logger.info(
-      `[Manager] Stale daemon state cleaned up: PID=${service.pid} no longer exists`,
-    );
-    await clearServiceStateFile(stateFilePath);
+    if (cleanUp) {
+      logger.info(
+        `[Manager] Stale daemon state cleaned up: PID=${service.pid} no longer exists`,
+      );
+      await clearServiceStateFile(stateFilePath);
+    }
     return {
       status: "stopped",
       service: null,
@@ -218,12 +243,14 @@ export async function getBotServiceStatus(): Promise<BotServiceStatus> {
     !Number.isNaN(storedStartedAtMs) &&
     processCreationTime.getTime() > storedStartedAtMs
   ) {
-    logger.warn(
-      `[Manager] Stale daemon state detected: PID=${service.pid} exists but was created ` +
-      `at ${processCreationTime.toISOString()} (daemon started at ${service.startedAt}). ` +
-      `The original process died and the PID was reused.`,
-    );
-    await clearServiceStateFile(stateFilePath);
+    if (cleanUp) {
+      logger.warn(
+        `[Manager] Stale daemon state detected: PID=${service.pid} exists but was created ` +
+          `at ${processCreationTime.toISOString()} (daemon started at ${service.startedAt}). ` +
+          `The original process died and the PID was reused.`,
+      );
+      await clearServiceStateFile(stateFilePath);
+    }
     return {
       status: "stopped",
       service: null,
