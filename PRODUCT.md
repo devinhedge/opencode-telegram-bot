@@ -255,6 +255,7 @@ Agent picker behavior:
 - [x] After a Telegram outage the bot answers again without restart; an undelivered assistant reply is not resent, and skipped stale messages are reported once
 - [x] Logs in the canonical per-user log directory of each operating system, `LOG_LOCATION` choice between it and `<appHome>/logs`, application-prefixed file names, per-type `LOG_RETENTION`, owner-only permissions on Unix, and a daemon that refuses to start when its service log cannot be opened
 - [x] OpenCode V2 session goal (`/goal`): separate text input and confirmed start, persistent short objective with Pause/Continue/Delete below waiting messages, no replacement, and normal Queue/Steer/Off routing; the server continues the same session after idle, `/abort` and `/start` pause it, and goal kickoff and continuation stay hidden
+- [x] `opencode-telegram uninstall [--yes] [--stop-opencode]`: one removal plan and confirmation, then the detached daemon, bots started outside it, the documented systemd unit (through `sudo`), the stored data in the app home and in a validated `OPENCODE_TELEGRAM_HOME`, and the keychain secrets are removed; logs always stay; it refuses in a container and as root, prints localized output, and prints the `npm uninstall -g` command for the CLI itself
 
 ## Current Task List
 

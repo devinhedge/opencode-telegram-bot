@@ -645,6 +645,57 @@ Port 4096 is **not** exposed by the bot image; it belongs to the OpenCode server
 
 > **Note:** No file watcher or auto-restart is used. The bot maintains persistent SSE and long-polling connections — automatic restarts would break them mid-task. After making changes, restart manually with `npm run dev`.
 
+## Uninstall
+
+```bash
+opencode-telegram uninstall [--yes] [--stop-opencode]
+```
+
+The command prints a removal plan, asks for one confirmation, and then removes the bot's data. Output is localized in the bot's locale (`BOT_LOCALE`).
+
+| Flag              | Effect                                                                                                                      |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `--yes`           | Skips the main confirmation only. Every other question (override directory, each process) is still asked.                   |
+| `--stop-opencode` | Also offers to stop the process listening on the configured local OpenCode port. It is opt-in and has its own confirmation. |
+
+Both flags are valid for `uninstall` only. A usage error exits with code 2. A refusal, a declined confirmation, or a failed step exits with code 1. Success exits with code 0.
+
+**What is removed**
+
+- The stored data in the installed app home: `.env`, `.env.bak`, `settings.json` and its backups, `secrets.enc`, `keystore_password`, `run/`, `local-commands/`, and temporary files left by interrupted writes. The app home directory itself is removed when nothing else is left in it.
+- The same data in the directory named by `OPENCODE_TELEGRAM_HOME`, after the directory passes validation (it must exist, be a directory, not be a filesystem root or your home directory, and contain a bot file) and after its own confirmation. `secrets.enc` and `keystore_password` in that directory are removed even when you decline.
+- The secrets stored in the OS keychain (service `opencode-telegram-bot`).
+- On Linux, the documented systemd unit `/etc/systemd/system/opencode-telegram-bot.service`, through `sudo` (see [`docs/LINUX_SYSTEMD_SETUP.md`](./docs/LINUX_SYSTEMD_SETUP.md#removal)). With no terminal or no `sudo`, the four commands are printed for you to run.
+- The detached daemon started by `opencode-telegram start --daemon`.
+- On macOS and Linux, bots started outside the daemon, for example in a terminal. Each one is shown with its PID, user, start time, and command line, and is asked about separately. Windows skips this step with a message.
+
+A symlinked `.env` or `secrets.enc` is unlinked; a target outside the app home is left in place and reported in the summary.
+
+**What stays**
+
+- Logs, always. Neither the per-user log directory nor `<appHome>/logs` is ever removed, and the plan shows where they are.
+- The app home directory, when logs or files the bot did not create remain in it.
+- The OpenCode server, unless you pass `--stop-opencode` and confirm.
+- A source checkout's own `.env`, `settings.json`, and `run/`: delete the checkout instead.
+
+**Refusals and limits**
+
+- Inside a container the command removes nothing and exits with code 1, even with `--yes`. Rebuild and redeploy the image, or destroy the container.
+- As root the command refuses. Run it as the user that installed the bot; it asks for `sudo` only for the systemd steps and never handles your password.
+- With no terminal and without `--yes`, the plan is printed, nothing is removed, and the command exits with code 1.
+- With no terminal and with `--yes`, the steps that need their own answer (each process, the OpenCode server, the override directory) are skipped with a message, and the summary lists what was left.
+- Error reasons print as error codes only, and process command lines are shown through an allow-list: any argument not known to be safe appears as `***`.
+
+**The CLI itself**
+
+The command does not remove its own CLI install. It finishes by printing the command to run:
+
+```bash
+npm uninstall -g @grinev/opencode-telegram-bot
+```
+
+A Makefile that also removes the CLI install is a separate, later feature.
+
 ## Troubleshooting
 
 **Bot doesn't respond to messages**

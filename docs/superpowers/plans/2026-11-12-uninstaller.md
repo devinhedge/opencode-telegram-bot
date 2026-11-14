@@ -1,7 +1,7 @@
 ---
 title: Uninstaller Implementation Plan
 status: draft
-version: 0.1.7
+version: 0.1.8
 last_updated: 2026-11-13
 review_date: 2027-05-13
 spec: docs/superpowers/specs/2026-11-11-uninstaller-design.md

@@ -1,16 +1,16 @@
 ---
 title: Uninstaller Design
-status: draft
-version: 0.13.2
-last_updated: 2026-11-12
-review_date: 2027-05-12
+status: approved
+version: 0.14.0
+last_updated: 2026-11-13
+review_date: 2027-05-13
 branch: feat/uninstaller
 depends_on: logs-relocation feature (canonical per-OS log locations and LOG_LOCATION), merged into feat/core-feature-expansion through pull request 4 and included in this branch
 ---
 
-# Uninstaller Design (DRAFT)
+# Uninstaller Design
 
-Status: draft. Records decisions made with the owner. Not approved for planning. Builds on the logs-relocation feature (spec `docs/superpowers/specs/2026-11-11-logs-relocation-design.md`), which this branch includes.
+Status: approved. Records decisions made with the owner. Builds on the logs-relocation feature (spec `docs/superpowers/specs/2026-11-11-logs-relocation-design.md`), which this branch includes.
 
 ## Intent
 
