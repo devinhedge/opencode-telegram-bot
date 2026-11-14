@@ -2383,6 +2383,8 @@ describe("runtime/uninstall/run", () => {
     });
 
     describe.skipIf(process.platform === "win32")("real daemon stop under LOG_LEVEL", () => {
+      // A pid that cannot exist on any platform, so even a leaked signal reaches no process.
+      const IMPOSSIBLE_PID = 999_999_999;
       let stateFile: string;
 
       beforeEach(async () => {
@@ -2392,7 +2394,7 @@ describe("runtime/uninstall/run", () => {
         await fs.writeFile(
           stateFile,
           JSON.stringify({
-            pid: 424242,
+            pid: IMPOSSIBLE_PID,
             startedAt: new Date(Date.now() + 86_400_000).toISOString(),
             logFilePath: "/x.log",
             mode: "daemon",
@@ -2406,13 +2408,15 @@ describe("runtime/uninstall/run", () => {
           }
           throw new Error(`kill failed ${SENTINEL}`);
         });
+        // No signal may reach a real process: the spy must be in place before the run starts.
+        expect(vi.isMockFunction(process.kill)).toBe(true);
       });
 
       afterEach(async () => {
         await fs.rm(stateFile, { force: true });
         // The creation-time probe went to the mocked exec, never to a real `ps`.
         expect(childProcess.exec.mock.calls.map((call) => call[0])).toContain(
-          "ps -o lstart= -p 424242",
+          `ps -o lstart= -p ${IMPOSSIBLE_PID}`,
         );
       });
 
@@ -2439,7 +2443,9 @@ describe("runtime/uninstall/run", () => {
         const code = await runUninstall(YES, harness.deps);
 
         expect(code).toBe(1);
-        expect(harness.lines).toContain(tEn("uninstall.step_daemon_failed", { pid: 424242 }));
+        expect(harness.lines).toContain(
+          tEn("uninstall.step_daemon_failed", { pid: IMPOSSIBLE_PID }),
+        );
         expect(printed(spies)).toBe("");
         expect(harness.lines.join("\n")).not.toContain(SENTINEL);
       });
