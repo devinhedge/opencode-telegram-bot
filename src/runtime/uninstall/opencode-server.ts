@@ -12,6 +12,9 @@ import {
 // import. The environment keys are read here from the real environment, then from .env.
 
 const MAX_PORT = 65535;
+// The pid lookup (lsof or ss) and the stop wait are each bounded by this, never open-ended.
+const LOOKUP_TIMEOUT_MS = 5000;
+const STOP_TIMEOUT_MS = 5000;
 
 export interface OpencodeServer {
   pid: number;
@@ -93,6 +96,27 @@ export async function resolveOpencodeTarget(
   return resolveLocalPort(configuredUrl || DEFAULT_OPENCODE_API_URLS[version]) ?? NOT_LOCAL;
 }
 
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => reject(new Error("lookup timed out")), timeoutMs);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+/** True unless the pid is gone (ESRCH). EPERM means it exists under another user: alive. */
+export function isPidAlive(
+  pid: number,
+  kill: typeof process.kill = process.kill.bind(process),
+): boolean {
+  try {
+    kill(pid, 0);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code !== "ESRCH";
+  }
+}
+
 /**
  * The outcome of a lookup. `not-listening` is the only definite "nothing is there": the port is
  * known and the pid lookup found no listener. `not-local` means the configured URL is remote (or
@@ -124,6 +148,8 @@ export async function findOpencodeServer(deps: {
   findPid: typeof findServerPid;
   commandLine: typeof getProcessCommandLine;
   excludePids?: readonly number[];
+  /** Bounds the pid lookup; a timeout is unknown. Defaults to 5000 ms. */
+  lookupTimeoutMs?: number;
 }): Promise<OpencodeLookup> {
   if (deps.port === NOT_LOCAL) {
     return { kind: "not-local" };
@@ -134,8 +160,9 @@ export async function findOpencodeServer(deps: {
 
   let pid: number | null;
   try {
-    pid = await deps.findPid(deps.port);
+    pid = await withTimeout(deps.findPid(deps.port), deps.lookupTimeoutMs ?? LOOKUP_TIMEOUT_MS);
   } catch {
+    // A throw and a timeout are both unknown: never "gone", never a hang before the question.
     return { kind: "unknown" };
   }
   if (pid === null) {
@@ -168,4 +195,57 @@ export async function stopOpencodeServer(
   }
 
   return kill(pid);
+}
+
+export interface TerminateDeps {
+  /** Throws like process.kill. */
+  signal(pid: number, signal: "SIGTERM" | "SIGKILL"): void;
+  /** EPERM counts as alive (see isPidAlive). */
+  isAlive(pid: number): boolean;
+  /** Resolves true when the process has exited within the timeout. */
+  waitForExit(pid: number, timeoutMs: number): Promise<boolean>;
+  /** The lookup used to re-check the listener before SIGKILL. */
+  lookup(): Promise<OpencodeLookup>;
+}
+
+/**
+ * SIGTERM, wait up to 5 s, then SIGKILL only when a fresh lookup still finds the confirmed pid
+ * listening. A listener that changed, vanished, or could not be looked up is never killed: the
+ * result is false (not stopped) unless the process is gone. A pid that is not a positive integer
+ * is refused. An alive probe that cannot tell (EPERM) counts as alive, so a process owned by
+ * another user is reported as not stopped.
+ */
+export async function terminateOpencodeServer(pid: number, deps: TerminateDeps): Promise<boolean> {
+  if (!Number.isInteger(pid) || pid <= 0) {
+    return false;
+  }
+  if (!deps.isAlive(pid)) {
+    return true;
+  }
+
+  try {
+    deps.signal(pid, "SIGTERM");
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === "ESRCH" || !deps.isAlive(pid);
+  }
+  if (await deps.waitForExit(pid, STOP_TIMEOUT_MS)) {
+    return true;
+  }
+
+  let fresh: OpencodeLookup;
+  try {
+    fresh = await deps.lookup();
+  } catch {
+    return !deps.isAlive(pid);
+  }
+  if (fresh.kind !== "found" || fresh.server.pid !== pid) {
+    return !deps.isAlive(pid);
+  }
+
+  try {
+    deps.signal(pid, "SIGKILL");
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === "ESRCH" || !deps.isAlive(pid);
+  }
+  return deps.waitForExit(pid, STOP_TIMEOUT_MS);
 }

@@ -4,8 +4,12 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   findOpencodeServer,
+  isPidAlive,
   resolveOpencodeTarget,
   stopOpencodeServer,
+  terminateOpencodeServer,
+  type OpencodeLookup,
+  type TerminateDeps,
 } from "../../../src/runtime/uninstall/opencode-server.js";
 
 describe("runtime/uninstall/opencode-server", () => {
@@ -320,6 +324,152 @@ describe("runtime/uninstall/opencode-server", () => {
 
       expect(server).toEqual({ kind: "unknown" });
       expect(findPid).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("lookup timeout", () => {
+    it("reports unknown when the pid lookup does not answer in time", async () => {
+      const server = await findOpencodeServer({
+        port: 4096,
+        findPid: () => new Promise<number | null>(() => undefined),
+        commandLine: vi.fn(),
+        lookupTimeoutMs: 20,
+      });
+
+      expect(server).toEqual({ kind: "unknown" });
+    });
+
+    it("still answers when the lookup is within the timeout", async () => {
+      const server = await findOpencodeServer({
+        port: 4096,
+        findPid: vi.fn().mockResolvedValue(null),
+        commandLine: vi.fn(),
+        lookupTimeoutMs: 1000,
+      });
+
+      expect(server).toEqual({ kind: "not-listening" });
+    });
+  });
+
+  describe("isPidAlive", () => {
+    it("treats EPERM as alive and ESRCH as gone", () => {
+      const probe = (code: string) => () => {
+        throw Object.assign(new Error(code), { code });
+      };
+
+      expect(isPidAlive(5, probe("EPERM") as unknown as typeof process.kill)).toBe(true);
+      expect(isPidAlive(5, probe("ESRCH") as unknown as typeof process.kill)).toBe(false);
+      expect(isPidAlive(5, (() => true) as unknown as typeof process.kill)).toBe(true);
+    });
+  });
+
+  describe("terminateOpencodeServer", () => {
+    const server = { pid: 7001, port: 4096, commandLine: "opencode serve" };
+
+    function makeDeps(overrides: Partial<TerminateDeps> = {}): TerminateDeps {
+      return {
+        signal: vi.fn(),
+        isAlive: vi.fn(() => true),
+        waitForExit: vi.fn(async () => true),
+        lookup: vi.fn(async (): Promise<OpencodeLookup> => ({ kind: "found", server })),
+        ...overrides,
+      };
+    }
+
+    it("stops after SIGTERM when the process exits, without a lookup or SIGKILL", async () => {
+      const deps = makeDeps();
+
+      expect(await terminateOpencodeServer(7001, deps)).toBe(true);
+      expect(deps.signal).toHaveBeenCalledTimes(1);
+      expect(deps.signal).toHaveBeenCalledWith(7001, "SIGTERM");
+      expect(deps.waitForExit).toHaveBeenCalledWith(7001, 5000);
+      expect(deps.lookup).not.toHaveBeenCalled();
+    });
+
+    it("sends SIGKILL only when the fresh lookup still finds the confirmed pid", async () => {
+      const waitForExit = vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+      const deps = makeDeps({ waitForExit });
+
+      expect(await terminateOpencodeServer(7001, deps)).toBe(true);
+      expect(vi.mocked(deps.signal).mock.calls).toEqual([
+        [7001, "SIGTERM"],
+        [7001, "SIGKILL"],
+      ]);
+      expect(deps.lookup).toHaveBeenCalledTimes(1);
+    });
+
+    for (const [label, lookup] of [
+      ["a different pid", { kind: "found", server: { ...server, pid: 7002 } }],
+      ["nothing listening", { kind: "not-listening" }],
+      ["an unknown lookup", { kind: "unknown" }],
+      ["an excluded listener", { kind: "excluded" }],
+    ] as const) {
+      it(`never sends SIGKILL when the fresh lookup shows ${label}`, async () => {
+        const deps = makeDeps({
+          waitForExit: vi.fn(async () => false),
+          lookup: vi.fn(async (): Promise<OpencodeLookup> => lookup),
+        });
+
+        expect(await terminateOpencodeServer(7001, deps)).toBe(false);
+        expect(vi.mocked(deps.signal).mock.calls).toEqual([[7001, "SIGTERM"]]);
+      });
+    }
+
+    it("never sends SIGKILL when the fresh lookup throws", async () => {
+      const deps = makeDeps({
+        waitForExit: vi.fn(async () => false),
+        lookup: vi.fn(async () => {
+          throw new Error("lsof");
+        }),
+      });
+
+      expect(await terminateOpencodeServer(7001, deps)).toBe(false);
+      expect(deps.signal).toHaveBeenCalledTimes(1);
+    });
+
+    it("reports a process that survives SIGKILL as not stopped", async () => {
+      const deps = makeDeps({ waitForExit: vi.fn(async () => false) });
+
+      expect(await terminateOpencodeServer(7001, deps)).toBe(false);
+      expect(deps.signal).toHaveBeenCalledTimes(2);
+    });
+
+    it("reports a listener owned by another user (EPERM) as not stopped", async () => {
+      const deps = makeDeps({
+        signal: vi.fn(() => {
+          throw Object.assign(new Error("EPERM"), { code: "EPERM" });
+        }),
+        isAlive: vi.fn(() => true),
+      });
+
+      expect(await terminateOpencodeServer(7001, deps)).toBe(false);
+      expect(deps.lookup).not.toHaveBeenCalled();
+    });
+
+    it("counts a process that is already gone as stopped", async () => {
+      const deps = makeDeps({ isAlive: vi.fn(() => false) });
+
+      expect(await terminateOpencodeServer(7001, deps)).toBe(true);
+      expect(deps.signal).not.toHaveBeenCalled();
+    });
+
+    it("counts ESRCH on the signal as stopped", async () => {
+      const deps = makeDeps({
+        signal: vi.fn(() => {
+          throw Object.assign(new Error("ESRCH"), { code: "ESRCH" });
+        }),
+      });
+
+      expect(await terminateOpencodeServer(7001, deps)).toBe(true);
+    });
+
+    it("refuses a pid that is not a positive integer without signaling", async () => {
+      const deps = makeDeps();
+
+      for (const pid of [0, -1, 1.5, Number.NaN]) {
+        expect(await terminateOpencodeServer(pid, deps)).toBe(false);
+      }
+      expect(deps.signal).not.toHaveBeenCalled();
     });
   });
 

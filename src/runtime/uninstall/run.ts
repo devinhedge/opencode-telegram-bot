@@ -26,7 +26,9 @@ import {
 import {
   findOpencodeServer,
   resolveOpencodeTarget,
+  isPidAlive,
   stopOpencodeServer,
+  terminateOpencodeServer,
   type OpencodeLookup,
 } from "./opencode-server.js";
 import {
@@ -907,15 +909,8 @@ export async function runUninstall(
   return ctx.failures > 0 ? 1 : 0;
 }
 
-function isAlive(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    // EPERM: the pid exists but belongs to someone else.
-    return errorCode(error) !== "ESRCH";
-  }
-}
+// EPERM counts as alive: the pid exists but belongs to someone else.
+const isAlive = (pid: number): boolean => isPidAlive(pid);
 
 async function waitForProcessExit(pid: number, timeoutMs: number): Promise<boolean> {
   const deadline = Date.now() + timeoutMs;
@@ -941,11 +936,22 @@ export function defaultUninstallDeps(): UninstallDeps {
   };
   let scanDeps: Promise<ScanDeps> | undefined;
   let excludedPids: readonly number[] = [];
+  let opencodeExcludedPids: readonly number[] = [];
   const getScanDeps = async (): Promise<ScanDeps> => ({
     ...(await (scanDeps ??= defaultScanDeps([PACKAGE_ROOT]))),
     excludePids: excludedPids,
   });
   const systemd = defaultSystemdDeps();
+  const findOpencode = async (excludePids: readonly number[]): Promise<OpencodeLookup> => {
+    // Kept for the lookup right before SIGKILL, which applies the same exclusions.
+    opencodeExcludedPids = [...excludePids];
+    return findOpencodeServer({
+      port: await resolveOpencodeTarget(process.env, runtimeEnvFile()),
+      findPid: findServerPid,
+      commandLine: getProcessCommandLine,
+      excludePids,
+    });
+  };
 
   return {
     env: process.env,
@@ -976,14 +982,20 @@ export function defaultUninstallDeps(): UninstallDeps {
     },
     waitForExit: waitForProcessExit,
     systemd,
-    findOpencode: async (excludePids) =>
-      findOpencodeServer({
-        port: await resolveOpencodeTarget(process.env, runtimeEnvFile()),
-        findPid: findServerPid,
-        commandLine: getProcessCommandLine,
-        excludePids,
-      }),
-    stopOpencode: (pid) => stopOpencodeServer(pid),
+    findOpencode,
+    // Windows keeps the tree kill of /opencode_stop; elsewhere SIGKILL is sent only after the
+    // listener is looked up again.
+    stopOpencode: (pid) =>
+      process.platform === "win32"
+        ? stopOpencodeServer(pid)
+        : terminateOpencodeServer(pid, {
+            signal: (target, signal) => {
+              process.kill(target, signal);
+            },
+            isAlive,
+            waitForExit: waitForProcessExit,
+            lookup: () => findOpencode(opencodeExcludedPids),
+          }),
     validateOverride: (overrideHome) => validateOverrideHome(overrideHome),
     removePath,
     removeAppHome: removeAppHomeData,
