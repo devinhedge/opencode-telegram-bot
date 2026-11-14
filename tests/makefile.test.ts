@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { allowRealProcesses } from "./helpers/process-guard.js";
@@ -9,11 +10,19 @@ allowRealProcesses("runs make as a dry run or the print-only help target");
 
 const PROJECT_ROOT = path.resolve(__dirname, "..");
 
-function runMake(args: string[]): { status: number | null; output: string } {
+interface MakeOptions {
+  cwd?: string;
+  path?: string;
+}
+
+function runMake(
+  args: string[],
+  options: MakeOptions = {},
+): { status: number | null; output: string } {
   const result = spawnSync("make", args, {
-    cwd: PROJECT_ROOT,
+    cwd: options.cwd ?? PROJECT_ROOT,
     encoding: "utf8",
-    env: { PATH: process.env.PATH ?? "" },
+    env: { PATH: options.path ?? process.env.PATH ?? "" },
     timeout: 10_000,
   });
   return { status: result.status, output: `${result.stdout}${result.stderr}` };
@@ -37,6 +46,23 @@ describe.skipIf(process.platform === "win32")("Makefile", () => {
       const result = runMake(["help", "CURRENT_UID=0"]);
 
       expect(result.status).toBe(0);
+    });
+
+    it("behaves the same from another directory", () => {
+      // --no-print-directory: GNU Make 4 prints "Entering directory" under -C, Make 3.81 does not.
+      const result = runMake(["-C", PROJECT_ROOT, "--no-print-directory", "help"], {
+        cwd: os.tmpdir(),
+      });
+
+      expect(result.status).toBe(0);
+      expect(result.output).toBe(runMake([]).output);
+    });
+
+    it("fails on an unknown target without running anything", () => {
+      const result = runMake(["nope"]);
+
+      expect(result.status).not.toBe(0);
+      expect(result.output).toMatch(/No rule to make target/);
     });
   });
 
