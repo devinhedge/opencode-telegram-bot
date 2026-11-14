@@ -658,14 +658,14 @@ The command prints a removal plan, asks for one confirmation, and then removes t
 | `--yes`           | Skips the main confirmation only. Every other question (override directory, each process) is still asked.                   |
 | `--stop-opencode` | Also offers to stop the process listening on the configured local OpenCode port. It is opt-in and has its own confirmation. |
 
-Both flags are valid for `uninstall` only. A usage error exits with code 2. A refusal, a declined confirmation, or a failed step exits with code 1. Success exits with code 0.
+Both flags are valid for `uninstall` only. A usage error exits with code 2. A refusal, a declined confirmation, a failed step, or a systemd unit left installed (no terminal or no `sudo`) exits with code 1. Success exits with code 0.
 
 **What is removed**
 
 - The stored data in the installed app home: `.env`, `.env.bak`, `settings.json` and its backups, `secrets.enc`, `keystore_password`, `run/`, `local-commands/` (your hand-written local commands are deleted with the app data), and temporary files left by interrupted writes. The app home directory itself is removed when nothing else is left in it.
 - The same data in the directory named by `OPENCODE_TELEGRAM_HOME`, after the directory passes validation (it must exist, be a directory, not be a filesystem root or your home directory, and contain a bot file) and after its own confirmation. `secrets.enc` and `keystore_password` in that directory are removed even when you decline.
 - The secrets stored in the OS keychain (service `opencode-telegram-bot`).
-- On Linux, the documented systemd unit `/etc/systemd/system/opencode-telegram-bot.service`, through `sudo` (see [`docs/LINUX_SYSTEMD_SETUP.md`](./docs/LINUX_SYSTEMD_SETUP.md#removal)). With no terminal or no `sudo`, the four commands are printed for you to run.
+- On Linux, the documented systemd unit `/etc/systemd/system/opencode-telegram-bot.service`, through `sudo` (see [`docs/LINUX_SYSTEMD_SETUP.md`](./docs/LINUX_SYSTEMD_SETUP.md#removal)). With no terminal or no `sudo`, the unit stays installed, the four commands are printed for you to run, and the command exits with code 1.
 - The detached daemon started by `opencode-telegram start --daemon`.
 - On macOS and Linux, bots started outside the daemon, for example in a terminal. Each one is shown with its PID, user, start time, and command line, and is asked about separately. Windows skips this step with a message.
 

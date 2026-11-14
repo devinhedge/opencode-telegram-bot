@@ -1,9 +1,9 @@
 ---
 title: Uninstaller Implementation Plan
 status: draft
-version: 0.1.8
-last_updated: 2026-11-13
-review_date: 2027-05-13
+version: 0.1.9
+last_updated: 2026-11-14
+review_date: 2027-05-14
 spec: docs/superpowers/specs/2026-11-11-uninstaller-design.md
 ---
 
@@ -23,7 +23,7 @@ spec: docs/superpowers/specs/2026-11-11-uninstaller-design.md
 
 ## Global Constraints
 
-- Command `opencode-telegram uninstall` with flags `--yes` and `--stop-opencode`; both rejected for other commands. Exit 0 on success (including nothing to remove and skipped optional steps), 1 on a failed step, a declined confirmation, or a refusal, 2 on invalid arguments.
+- Command `opencode-telegram uninstall` with flags `--yes` and `--stop-opencode`; both rejected for other commands. Exit 0 on success (including nothing to remove and skipped optional steps other than systemd), 1 on a failed step, a skipped systemd removal (the unit stays installed), a declined confirmation, or a refusal, 2 on invalid arguments.
 - Refuses inside a container (`isContainerRuntime`) as the first check, even with `--yes`: prints that the container should be rebuilt and redeployed, or destroyed, and removes nothing. Refuses when the effective uid is 0. Never calls Docker.
 - Never removes the canonical log directory or `<appHome>/logs`; removes the app home directory only when nothing is left in it.
 - Removes from the OS default installed app home and, when `OPENCODE_TELEGRAM_HOME` is set and differs, from that override (after validation and a separate y/n): `.env`, `.env.bak`, `settings.json`, `settings.json.bak`, `settings.json.tmp`, `secrets.enc`, `keystore_password`, `run/`, `local-commands/`, and interrupted-write temporary siblings (`.env.<pid>.<uuid>.tmp`, `secrets.enc.<pid>.<uuid>.tmp`). Never cleans a source checkout's own files.

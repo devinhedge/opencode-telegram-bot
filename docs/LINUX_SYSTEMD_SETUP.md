@@ -94,7 +94,7 @@ sudo rm -f /etc/systemd/system/opencode-telegram-bot.service
 sudo systemctl daemon-reload
 ```
 
-It runs them as your user and lets `sudo` prompt on the terminal; it never asks for or handles your password, and it refuses to run as root. When there is no terminal or no `sudo`, it prints the four commands for you to run. See [Uninstall](../README.md#uninstall).
+It runs them as your user and lets `sudo` prompt on the terminal; it never asks for or handles your password, and it refuses to run as root. When there is no terminal or no `sudo`, it leaves the unit installed, prints the four commands for you to run, and exits with code 1. See [Uninstall](../README.md#uninstall).
 
 ## Example
 

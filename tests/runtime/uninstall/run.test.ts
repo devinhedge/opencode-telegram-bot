@@ -1076,7 +1076,8 @@ describe("runtime/uninstall/run", () => {
 
       const code = await runUninstall(YES, harness.deps);
 
-      expect(code).toBe(0);
+      // The unit stays installed, so the uninstall did not finish its job.
+      expect(code).toBe(1);
       expect(harness.lines).toContain(tEn("uninstall.plan_systemd", { path: SYSTEMD_UNIT_PATH }));
       expect(harness.lines).toContain(
         tEn("uninstall.step_systemd", {
@@ -1088,7 +1089,40 @@ describe("runtime/uninstall/run", () => {
           commands: SYSTEMD_COMMANDS.map(formatSystemdCommand).join("\n"),
         }),
       );
-      expect(harness.lines).toContain(tEn("uninstall.summary_left", { items: SYSTEMD_UNIT_PATH }));
+      expect(harness.lines).toContain(
+        tEn("uninstall.summary_failed_left", { count: 1, items: SYSTEMD_UNIT_PATH }),
+      );
+    });
+
+    it("exits 1 and prints the exact commands when sudo is missing", async () => {
+      const run = vi.fn(async () => 0);
+      const harness = createHarness({
+        systemd: {
+          platform: "linux",
+          unitExists: async () => true,
+          hasSudo: async () => false,
+          isInteractive: true,
+          run,
+        },
+      });
+
+      const code = await runUninstall(YES, harness.deps);
+
+      expect(code).toBe(1);
+      expect(run).not.toHaveBeenCalled();
+      expect(harness.lines).toContain(
+        tEn("uninstall.step_systemd", {
+          outcome: tEn("uninstall.systemd_outcome_skipped_no_sudo"),
+        }),
+      );
+      expect(harness.lines).toContain(
+        tEn("uninstall.step_systemd_commands", {
+          commands: SYSTEMD_COMMANDS.map(formatSystemdCommand).join("\n"),
+        }),
+      );
+      expect(harness.lines).toContain(
+        tEn("uninstall.summary_failed_left", { count: 1, items: SYSTEMD_UNIT_PATH }),
+      );
     });
 
     it("runs the removal and reports it", async () => {
@@ -2235,7 +2269,7 @@ describe("runtime/uninstall/run", () => {
       );
       expect(harness.lines).toContain(
         tDe("uninstall.summary_failed_left", {
-          count: 1,
+          count: 2,
           items: [tDe("uninstall.left_process", { pid: 5001 }), SYSTEMD_UNIT_PATH].join(
             tDe("uninstall.list_separator"),
           ),

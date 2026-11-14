@@ -1,9 +1,9 @@
 ---
 title: Uninstaller Design
 status: approved
-version: 0.14.1
-last_updated: 2026-11-13
-review_date: 2027-05-13
+version: 0.14.2
+last_updated: 2026-11-14
+review_date: 2027-05-14
 branch: feat/uninstaller-impl
 depends_on: logs-relocation feature (canonical per-OS log locations and LOG_LOCATION), merged into feat/core-feature-expansion through pull request 4 and included in this branch
 ---
@@ -96,7 +96,7 @@ Status: approved. Records decisions made with the owner. Builds on the logs-relo
 - Keychain items, `secrets.enc`, and `keystore_password` are removed whatever happens to the override step, because the keychain belongs to the OS user and not to an app home.
 - A symlinked `.env` or `secrets.enc`: the link is removed; a target outside the app home is left in place and reported in the summary.
 - Sudo handling (decision 20): the systemd steps run `sudo systemctl ...` with inherited stdio so sudo prompts on the terminal itself. The owner asked for the password to be passed as a string to the command; this design avoids that because a command-line string is visible in process listings. Running as root is refused because under `sudo` the home directory, the keychain, and the npm prefix can resolve to root's instead of the user's.
-- systemd: only the documented unit path is handled, with `systemctl stop`, `disable`, removal of the unit file, and `daemon-reload`, each through `sudo`. With no terminal or no `sudo`, the plan prints the exact commands instead of running them.
+- systemd: only the documented unit path is handled, with `systemctl stop`, `disable`, removal of the unit file, and `daemon-reload`, each through `sudo`. With no terminal or no `sudo`, the plan prints the exact commands instead of running them, the unit stays installed, the summary lists it as left, and the command exits with code 1.
 - `OPENCODE_TELEGRAM_HOME` validation: the path is a directory, is absolute after resolution, is not a filesystem root or the user's home directory, and contains a bot file (`.env`, `settings.json`, or `run/bot-service.json`). A path that does not exist is skipped with a message and is never created. A skipped or failed override step does not stop the other steps, and the final summary lists what was left.
 - Finding a bot started outside the daemon (decision 21): the command lists processes on macOS and Linux and, on Windows, skips the step with a message. It matches only `node` processes that run the bot's entry point (the installed package's `dist/cli.js` when the CLI argument parser resolves the command to `start`, which includes no command at all, or `dist/index.js`, and the running checkout's built `dist/cli.js` and `dist/index.js`). It never matches its own process or its parents, and it does not touch a bot run from another checkout. A bot run by systemd is stopped through the documented unit, and the detached daemon through its state file, so neither is asked about twice.
 - For each bot found, the command shows the PID, the user, the start time, and the command line, and asks y/n separately. `--yes` does not skip these questions. With no terminal available the step is skipped with a message and the summary lists the PIDs left running.

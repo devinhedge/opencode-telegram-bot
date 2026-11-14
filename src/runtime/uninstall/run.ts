@@ -443,9 +443,8 @@ async function systemdStep(ctx: Context): Promise<void> {
     if (result.commands.length === 0) {
       return;
     }
-    if (result.outcome === "failed") {
-      ctx.failures += 1;
-    }
+    // A skipped removal leaves the unit installed, so it counts as unfinished like a failure.
+    ctx.failures += 1;
     commands = result.commands;
   } catch (error) {
     ctx.say("uninstall.step_systemd_failed", { reason: reasonCode(error) });
