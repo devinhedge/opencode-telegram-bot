@@ -139,6 +139,31 @@ describe("runtime/uninstall/remove-path", () => {
       expect(await exists(file)).toBe(false);
     });
 
+    it.skipIf(isWindows)(
+      "skips the chmod when the entry has become a symlink since the first lstat",
+      async () => {
+        const file = path.join(appHome, ".env");
+        await fs.writeFile(file, "x");
+        const realLstat = fs.lstat.bind(fs);
+        let calls = 0;
+        vi.spyOn(fs, "lstat").mockImplementation(async (target, options) => {
+          calls += 1;
+          if (calls === 1) {
+            return realLstat(target, options as never) as never;
+          }
+          return { isSymbolicLink: () => true, isDirectory: () => false } as never;
+        });
+        vi.spyOn(fs, "rm").mockRejectedValue(errnoError("EPERM"));
+        const chmodSpy = vi.spyOn(fs, "chmod").mockResolvedValue(undefined);
+
+        const result = await removePath(file);
+
+        expect(result.status).toBe("failed");
+        expect(result.code).toBe("EPERM");
+        expect(chmodSpy).not.toHaveBeenCalled();
+      },
+    );
+
     it("makes a directory owner-writable with 0700 before the retry", async () => {
       const dir = path.join(appHome, "run");
       await fs.mkdir(dir);

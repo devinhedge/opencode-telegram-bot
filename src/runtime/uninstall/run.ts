@@ -168,7 +168,10 @@ async function confirm(deps: UninstallDeps, question: string): Promise<boolean> 
 
 function isInside(target: string, base: string): boolean {
   const relative = path.relative(base, target);
-  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+  return (
+    relative === "" ||
+    (relative !== ".." && !relative.startsWith(".." + path.sep) && !path.isAbsolute(relative))
+  );
 }
 
 async function pathExists(target: string): Promise<boolean> {

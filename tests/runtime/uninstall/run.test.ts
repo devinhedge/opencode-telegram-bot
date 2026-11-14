@@ -1714,6 +1714,35 @@ describe("runtime/uninstall/run", () => {
       },
     );
 
+    it("does not list a link target inside the home whose name starts with two dots", async () => {
+      await fs.mkdir(overrideHome);
+      const inside = path.join(overrideHome, "..x");
+      await fs.writeFile(inside, "kept with the home");
+      const harness = createHarness({
+        getHomes: () => ({ defaultHome, overrideHome }),
+        removeAppHome: vi.fn(async (home: string) =>
+          home === overrideHome
+            ? {
+                results: [
+                  {
+                    path: path.join(home, "secrets.enc"),
+                    status: "removed" as const,
+                    linkTarget: inside,
+                  },
+                ],
+                homeRemoved: false,
+              }
+            : { results: [], homeRemoved: false },
+        ),
+        validateOverride: vi.fn(async () => ({ ok: true as const })),
+      });
+      harness.answers.push("y");
+
+      await runUninstall(YES, harness.deps);
+
+      expect(harness.lines).not.toContain(tEn("uninstall.step_target_left", { path: inside }));
+    });
+
     it("touches nothing in an invalid override, not even its secret files", async () => {
       await fs.mkdir(overrideHome);
       await fs.writeFile(path.join(overrideHome, "secrets.enc"), "encrypted");

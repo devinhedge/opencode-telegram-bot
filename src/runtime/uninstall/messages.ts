@@ -155,8 +155,8 @@ function isAllowedToken(token: string, isFirst: boolean): boolean {
 // token of up to five digits is shown; the first token is shown when it matches the executable
 // pattern; any token ending in .js, .mjs, .cjs, or .ts is shown; and --flag=<number|word|IPv4>
 // values are shown for known flags. There is no deny-list, no quote or escape parsing, and no
-// regular expression over the whole input, so hostile input cannot stall it. Task 10 passes every
-// {command} through this function.
+// regular expression over the whole input, so hostile input cannot stall it. Callers pass every
+// command line through this function before it is printed.
 export function redactCommandLine(commandLine: string): string {
   const truncated = commandLine.length > MAX_COMMAND_LINE_LENGTH;
   const input = truncated ? commandLine.slice(0, MAX_COMMAND_LINE_LENGTH) : commandLine;

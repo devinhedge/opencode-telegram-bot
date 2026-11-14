@@ -337,7 +337,7 @@ The migration is idempotent and safe to re-run. After migration, your `.env` fil
 | `TTS_MODEL`                                | TTS model name. Passed as `model` for OpenAI-compatible APIs and `model_id` for ElevenLabs                            |    No    | `gpt-4o-mini-tts`        |        |
 | `TTS_VOICE`                                | TTS voice name or ElevenLabs voice ID. Defaults to `alloy`, `21m00Tcm4TlvDq8ikWAM`, or `en-US-Studio-O` by provider   |    No    | provider-specific        |        |
 | `GOOGLE_APPLICATION_CREDENTIALS`           | Path to a Google Cloud service account JSON key file for `TTS_PROVIDER=google`                                        |    No    | —                        |        |
-| `LOG_LEVEL`                                | Log level (`debug`, `info`, `warn`, `error`)                                                                          |    No    | `info`                   |        |
+| `LOG_LEVEL`                                | Log level (`debug`, `info`, `warn`, `error`, `silent`; `silent` suppresses all console log output)                    |    No    | `info`                   |        |
 | `LOG_RETENTION`                            | Number of log files to keep per kind: installed-mode daily logs, sources-mode per-launch logs, and daemon service logs are each pruned separately |    No    | `10`                     |        |
 | `LOG_LOCATION`                             | Where log files are written: `default` (operating system log directory) or `app` (`<appHome>/logs`)                  |    No    | `default`                |        |
 | `BOT_HEALTH_PORT`                          | Port of the internal health endpoint (`/health`, `/health/live`, `/health/ready`) on `127.0.0.1`; `0` disables it      |    No    | off; `3100` in Docker    |        |
@@ -662,7 +662,7 @@ Both flags are valid for `uninstall` only. A usage error exits with code 2. A re
 
 **What is removed**
 
-- The stored data in the installed app home: `.env`, `.env.bak`, `settings.json` and its backups, `secrets.enc`, `keystore_password`, `run/`, `local-commands/`, and temporary files left by interrupted writes. The app home directory itself is removed when nothing else is left in it.
+- The stored data in the installed app home: `.env`, `.env.bak`, `settings.json` and its backups, `secrets.enc`, `keystore_password`, `run/`, `local-commands/` (your hand-written local commands are deleted with the app data), and temporary files left by interrupted writes. The app home directory itself is removed when nothing else is left in it.
 - The same data in the directory named by `OPENCODE_TELEGRAM_HOME`, after the directory passes validation (it must exist, be a directory, not be a filesystem root or your home directory, and contain a bot file) and after its own confirmation. `secrets.enc` and `keystore_password` in that directory are removed even when you decline.
 - The secrets stored in the OS keychain (service `opencode-telegram-bot`).
 - On Linux, the documented systemd unit `/etc/systemd/system/opencode-telegram-bot.service`, through `sudo` (see [`docs/LINUX_SYSTEMD_SETUP.md`](./docs/LINUX_SYSTEMD_SETUP.md#removal)). With no terminal or no `sudo`, the four commands are printed for you to run.
@@ -693,8 +693,6 @@ The command does not remove its own CLI install. It finishes by printing the com
 ```bash
 npm uninstall -g @grinev/opencode-telegram-bot
 ```
-
-A Makefile that also removes the CLI install is a separate, later feature.
 
 ## Troubleshooting
 

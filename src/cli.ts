@@ -29,6 +29,7 @@ const CLI_MESSAGES = {
   daemonRequiresInstalled:
     "Daemon mode is supported only for the installed runtime. Use `opencode-telegram start` for foreground source runs.",
   unknownServiceError: "Unknown service error.",
+  uninstallFailed: "The uninstall failed unexpectedly.",
   cleanupStale: "Removed stale daemon state file.",
   cleanupInvalid: "Removed invalid daemon state file.",
   startSuccess: "OpenCode Telegram Bot daemon started.",
@@ -250,8 +251,14 @@ async function runUninstallCommand(options: UninstallOptions): Promise<number> {
   // the daemon-stop log lines out of it. LOG_LEVEL is read when the logger is used.
   process.env.LOG_LEVEL = "silent";
 
-  const { runUninstall, defaultUninstallDeps } = await import("./runtime/uninstall/run.js");
-  return runUninstall(options, defaultUninstallDeps());
+  try {
+    const { runUninstall, defaultUninstallDeps } = await import("./runtime/uninstall/run.js");
+    return await runUninstall(options, defaultUninstallDeps());
+  } catch {
+    // The error text is free text that could carry anything: a fixed line is printed instead.
+    writeStderr(CLI_MESSAGES.uninstallFailed);
+    return EXIT_RUNTIME_ERROR;
+  }
 }
 
 async function runCli(argv: string[]): Promise<number> {

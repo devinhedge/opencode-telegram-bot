@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { assertInsideTempRoot } from "./temp-root-guard.js";
+import { assertInsideTempRoot, isUnder } from "./temp-root-guard.js";
 
 describe("assertInsideTempRoot", () => {
   it("throws for the real home, its app data, the filesystem root, and the temp dir itself", () => {
@@ -17,6 +17,17 @@ describe("assertInsideTempRoot", () => {
       path.join(os.tmpdir(), ".."),
     ]) {
       expect(() => assertInsideTempRoot(target), target).toThrow(/outside the temp root/);
+    }
+  });
+
+  it("accepts a child whose name merely starts with two dots", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "uninstall-guard-dots-"));
+    try {
+      expect(isUnder(path.join(root, "..x"), root)).toBe(true);
+      expect(isUnder(path.join(root, ".."), root)).toBe(false);
+      expect(() => assertInsideTempRoot(path.join(root, "..x"), root)).not.toThrow();
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
     }
   });
 

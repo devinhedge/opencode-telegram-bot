@@ -156,14 +156,20 @@ describe("cli uninstall command", () => {
     expect(stdoutSpy).toHaveBeenCalledWith(expect.stringContaining("Usage:"));
   });
 
-  it("hands a rejection of runUninstall to handleCliFailure", async () => {
-    const failure = new Error("boom");
-    mocked.runUninstallMock.mockRejectedValue(failure);
+  it("prints a fixed line without the error text and exits 1 when runUninstall rejects", async () => {
+    const stderrSpy = vi.spyOn(process.stderr, "write").mockReturnValue(true);
+    mocked.runUninstallMock.mockRejectedValue(new Error("boom SECRET-SENTINEL"));
     process.argv = ["node", "cli", "uninstall", "--yes"];
 
     await import("../../src/cli.js");
     await vi.waitFor(() => {
-      expect(mocked.handleCliFailureMock).toHaveBeenCalledWith(failure);
+      expect(process.exitCode).toBe(1);
     });
+
+    expect(stderrSpy).toHaveBeenCalledWith("The uninstall failed unexpectedly.\n");
+    const printed = stderrSpy.mock.calls.map((call) => String(call[0])).join("");
+    expect(printed).not.toContain("SECRET-SENTINEL");
+    expect(printed).not.toContain("boom");
+    expect(mocked.handleCliFailureMock).not.toHaveBeenCalled();
   });
 });

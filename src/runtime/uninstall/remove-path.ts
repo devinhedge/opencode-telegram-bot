@@ -56,6 +56,10 @@ async function removeEntry(
     if ((code !== "EPERM" && code !== "EACCES") || isSymlink) {
       throw error;
     }
+    // The entry may have been swapped for a link since the first lstat; chmod would follow it.
+    if ((await fs.lstat(target).catch(() => null))?.isSymbolicLink() !== false) {
+      throw error;
+    }
     // Covers the Windows read-only attribute: make the entry owner-writable once and retry.
     await fs.chmod(target, isDirectory ? 0o700 : 0o600);
     await fs.rm(target, { recursive: true });

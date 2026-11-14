@@ -5,7 +5,10 @@ import path from "node:path";
 /** True when `target` is `root` or lies below it (lexical; no symlink resolution). */
 export function isUnder(target: string, root: string): boolean {
   const relative = path.relative(root, target);
-  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+  return (
+    relative === "" ||
+    (relative !== ".." && !relative.startsWith(".." + path.sep) && !path.isAbsolute(relative))
+  );
 }
 
 function realpathOrSelf(target: string): string {
