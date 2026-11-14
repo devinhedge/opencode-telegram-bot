@@ -35,10 +35,10 @@ import { getRealEnvBeforeTestSetup, getTestUserHome } from "../helpers/test-envi
 //   - tests that run on every OS never pass --yes to uninstall and assert that the temporary home
 //     is intact;
 //   - the destructive --yes run is the only one that can reach the keychain, so it runs only on a
-//     disposable machine: CI=true in the real environment of the test process, Linux, not a
-//     container, not root, no real systemd unit and no real installed home. Residual risk: CI=true
-//     set by hand on such a workstation would run removeSecret against that user's real keyutils
-//     keyring. Container detection relies on /.dockerenv only.
+//     disposable machine: CI=true and GITHUB_ACTIONS=true in the real environment of the test
+//     process, Linux, not a container, not root, no real systemd unit and no real installed home.
+//     Residual risk: both variables set by hand on such a workstation would run removeSecret
+//     against that user's real keyutils keyring. Container detection relies on /.dockerenv only.
 // The afterAll check of the real app home's mtime is detective only; the CI-only guard above is
 // the protection.
 
@@ -111,6 +111,7 @@ const realHomeMtimes = new Map(realHomes.map((home) => [home, mtimeOrNull(home)]
 const hostHasInstalledHome = [...realHomes, process.cwd()].some(hasInventoryEntry);
 const destructiveUnsafe =
   process.env.CI !== "true" ||
+  process.env.GITHUB_ACTIONS !== "true" ||
   process.platform !== "linux" ||
   hostRefuses ||
   existsSync(SYSTEMD_UNIT_PATH) ||
@@ -384,8 +385,8 @@ describe("built uninstall CLI", () => {
     60_000,
   );
 
-  // Needs a disposable machine (CI=true): it can reach the keychain, which HOME does not protect.
-  // See the header for the residual risk of setting CI=true by hand.
+  // Needs a disposable machine (CI=true and GITHUB_ACTIONS=true): it can reach the keychain, which HOME does not protect.
+  // See the header for the residual risk of setting both variables by hand.
   it.skipIf(destructiveUnsafe)(
     "removes the inventory, keeps logs, prints the CLI hint and exits 0 on --yes, and again on a rerun",
     async () => {
